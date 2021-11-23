@@ -16,19 +16,49 @@
 
 package androidx.core.performance
 
+import android.app.Application
+import android.os.Build.VERSION_CODES.R
+import android.os.Build.VERSION_CODES.S
+import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowBuild
+import org.robolectric.shadows.ShadowSystemProperties
 
 /** Unit tests for [PerformanceClass]. */
-@RunWith(JUnit4::class)
+@RunWith(RobolectricTestRunner::class)
 class PerformanceClassTest {
 
-    private val pc = PerformanceClass()
+    @Test
+    @Config(maxSdk = R)
+    fun getMediaPerformanceClass_sdk30() {
+        val pc = createPerformanceClass()
+        assertThat(pc.mediaPerformanceClass).isEqualTo(0)
+    }
 
     @Test
-    fun getPerformanceClass() {
-        assertThat(pc.getPerformanceClass()).isEqualTo(0)
+    @Config(minSdk = S)
+    fun getMediaPerformanceClass_sdk31_declared30() {
+        // TODO(b/205732671): Use ShadowBuild.setMediaPerformanceClass when available
+        ShadowSystemProperties.override("ro.odm.build.media_performance_class", "30")
+        ShadowBuild.reset()
+        val pc = createPerformanceClass()
+        assertThat(pc.mediaPerformanceClass).isEqualTo(30)
+    }
+
+    @Test
+    @Config(minSdk = S)
+    fun getMediaPerformanceClass_sdk31_notDeclared() {
+        // TODO(b/205732671): Use ShadowBuild.setMediaPerformanceClass when available
+        ShadowBuild.reset()
+        val pc = createPerformanceClass()
+        assertThat(pc.mediaPerformanceClass).isEqualTo(0)
+    }
+
+    private fun createPerformanceClass(): PerformanceClass {
+        return PerformanceClass.create(ApplicationProvider.getApplicationContext<Application>())
     }
 }

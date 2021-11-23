@@ -638,6 +638,7 @@ class RemoteViewsTranslatorKtTest {
         val rv = context.runAndTranslate {
             CheckBox(
                 checked = false,
+                onCheckedChange = null,
                 text = "test",
                 style = TextStyle(
                     color = ColorProvider(Color.Red),
@@ -665,6 +666,7 @@ class RemoteViewsTranslatorKtTest {
         val rv = context.runAndTranslate {
             CheckBox(
                 checked = true,
+                onCheckedChange = null,
                 text = "test checked",
                 style = TextStyle(textDecoration = TextDecoration.LineThrough),
             )
@@ -803,6 +805,34 @@ class RemoteViewsTranslatorKtTest {
         assertThat(firstText.visibility).isEqualTo(View.INVISIBLE)
         assertThat(secondText.visibility).isEqualTo(View.GONE)
         assertThat(thirdText.visibility).isEqualTo(View.VISIBLE)
+    }
+
+    @Test
+    fun setAsAppWidgetBackground() = fakeCoroutineScope.runBlockingTest {
+        val rv = context.runAndTranslate {
+            Column(modifier = GlanceModifier.appWidgetBackground()) {
+                Text("text1")
+            }
+        }
+
+        val view = context.applyRemoteViews(rv)
+
+        val column =
+            checkNotNull(view.findView<LinearLayout> { it.id == android.R.id.background }) {
+                "No LinearLayout with `background` view id"
+            }
+        assertThat(column.nonGoneChildCount).isEqualTo(1)
+    }
+
+    @Test
+    fun setAsAppWidgetBackground_multipleTimes_shouldFail() = fakeCoroutineScope.runBlockingTest {
+        assertFailsWith<IllegalStateException> {
+            context.runAndTranslate {
+                Column(modifier = GlanceModifier.appWidgetBackground()) {
+                    Text("text1", modifier = GlanceModifier.appWidgetBackground())
+                }
+            }
+        }
     }
 
     // Check there is a single span, that it's of the correct type and passes the [check].

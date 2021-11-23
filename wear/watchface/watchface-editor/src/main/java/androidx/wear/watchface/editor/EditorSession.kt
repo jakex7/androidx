@@ -788,7 +788,6 @@ internal class OnWatchFaceEditorSessionImpl(
                 it.value.boundsType,
                 it.value.supportedTypes,
                 it.value.defaultDataSourcePolicy,
-                it.value.defaultDataSourceType,
                 it.value.enabled,
                 it.value.initiallyEnabled,
                 it.value.renderer.getData().type,
@@ -889,6 +888,7 @@ internal class OnWatchFaceEditorSessionImpl(
 
         // Note this has to be done last to ensure tests are not racy.
         if (this::editorDelegate.isInitialized) {
+            editorDelegate.setComplicationSlotConfigExtrasChangeCallback(null)
             editorDelegate.onDestroy()
         }
     }
@@ -910,6 +910,14 @@ internal class OnWatchFaceEditorSessionImpl(
         )
 
         fetchComplicationsDataJob = fetchComplicationsData(backgroundCoroutineScope)
+
+        editorDelegate.setComplicationSlotConfigExtrasChangeCallback(
+            object : WatchFace.ComplicationSlotConfigExtrasChangeCallback {
+                override fun onComplicationSlotConfigExtrasChanged() {
+                    maybeUpdateComplicationSlotsState()
+                }
+            }
+        )
     }
 
     override val showComplicationDeniedDialogIntent
