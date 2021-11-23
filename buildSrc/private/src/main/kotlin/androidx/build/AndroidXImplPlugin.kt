@@ -113,6 +113,7 @@ class AndroidXImplPlugin : Plugin<Project> {
 
         project.configureTaskTimeouts()
         project.configureMavenArtifactUpload(extension)
+        project.configureExportLibraryGroupsToXml()
         project.configureExternalDependencyLicenseCheck()
         project.configureProjectStructureValidation(extension)
         project.configureProjectVersionValidation(extension)
@@ -135,6 +136,9 @@ class AndroidXImplPlugin : Plugin<Project> {
 
     private fun configureTestTask(project: Project, task: Test) {
         AffectedModuleDetector.configureTaskGuard(task)
+
+        // Robolectric 1.7 increased heap size requirements, see b/207169653.
+        task.maxHeapSize = "2g"
 
         val xmlReportDestDir = project.getHostTestResultDirectory()
         val archiveName = "${project.path.asFilenamePrefix()}_${task.name}.zip"
@@ -392,6 +396,17 @@ class AndroidXImplPlugin : Plugin<Project> {
         }
 
         project.addToProjectMap(extension)
+    }
+
+    private fun Project.configureExportLibraryGroupsToXml() {
+        project.tasks.register(
+            "exportLibraryGroupsToXml",
+            ExportLibraryGroupsToXmlTask::class.java
+        ) { task ->
+            task.libraryGroupFile = project.file("${project.getSupportRootFolder()}" +
+                "/buildSrc/public/src/main/kotlin/androidx/build/LibraryGroups.kt")
+            task.xmlOutputFile = project.file("${project.buildDir}/lint/library-groups.xml")
+        }
     }
 
     private fun Project.configureProjectStructureValidation(

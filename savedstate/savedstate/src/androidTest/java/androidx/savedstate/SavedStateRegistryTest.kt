@@ -18,11 +18,13 @@ package androidx.savedstate
 
 import android.os.Bundle
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleRegistry
 import androidx.test.annotation.UiThreadTest
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Assert
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -167,6 +169,37 @@ class SavedStateRegistryTest {
         owner.lifecycleRegistry.currentState = Lifecycle.State.STARTED
         // shouldn't fail
         owner.savedStateRegistry.runOnNextRecreation(ToBeRecreated::class.java)
+    }
+
+    @UiThreadTest
+    @Test
+    fun emptyBundle() {
+        val owner = FakeSavedStateRegistryOwner()
+        val outBundle = Bundle()
+        owner.savedStateRegistryController.performSave(outBundle)
+        assertWithMessage("Bundle $outBundle should be empty")
+            .that(outBundle.isEmpty)
+            .isTrue()
+    }
+
+    @UiThreadTest
+    @Test
+    fun runOnNextRecreationFromEarlyRegisteredObserver() {
+        val owner = FakeSavedStateRegistryOwner()
+        owner.savedStateRegistryController.performAttach()
+        // shouldn't throw, though we aren't even created
+        owner.lifecycle.addObserver(
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_START)
+                    owner.savedStateRegistry.runOnNextRecreation(ToBeRecreated::class.java)
+            }
+        )
+        owner.savedStateRegistryController.performRestore(null)
+        owner.lifecycleRegistry.currentState = Lifecycle.State.STARTED
+        // now ON_STOP event will be sent
+        owner.lifecycleRegistry.currentState = Lifecycle.State.CREATED
+        // now ON_START event will be sent again, previously registered observer shouldn't throw
+        owner.lifecycleRegistry.currentState = Lifecycle.State.STARTED
     }
 
     private class TestFlow(val lastState: Bundle?) {

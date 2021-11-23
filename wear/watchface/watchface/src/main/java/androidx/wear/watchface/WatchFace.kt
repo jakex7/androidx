@@ -254,6 +254,21 @@ public class WatchFace(
 
         /** Signals that the activity is going away and resources should be released. */
         public fun onDestroy()
+
+        /** Sets a callback to observe an y changes to [ComplicationSlot.configExtras]. */
+        public fun setComplicationSlotConfigExtrasChangeCallback(
+            callback: ComplicationSlotConfigExtrasChangeCallback?
+        )
+    }
+
+    /**
+     * Used to inform EditorSession about changes to [ComplicationSlot.configExtras].
+     *
+     * @hide
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public interface ComplicationSlotConfigExtrasChangeCallback {
+      public fun onComplicationSlotConfigExtrasChanged()
     }
 
     /**
@@ -656,6 +671,7 @@ public class WatchFaceImpl @UiThread constructor(
 
         if (!watchState.isHeadless) {
             WatchFace.registerEditorDelegate(componentName, WFEditorDelegate())
+            registerReceivers()
         }
 
         val mainScope = CoroutineScope(Dispatchers.Main.immediate)
@@ -758,6 +774,12 @@ public class WatchFaceImpl @UiThread constructor(
             return screenShot
         }
 
+        override fun setComplicationSlotConfigExtrasChangeCallback(
+            callback: WatchFace.ComplicationSlotConfigExtrasChangeCallback?
+        ) {
+            complicationSlotsManager.configExtrasChangeCallback = callback
+        }
+
         override fun onDestroy(): Unit = TraceEvent("WFEditorDelegate.onDestroy").use {
             if (watchState.isHeadless) {
                 this@WatchFaceImpl.onDestroy()
@@ -785,10 +807,10 @@ public class WatchFaceImpl @UiThread constructor(
 
     @UiThread
     private fun registerReceivers() {
+        // Looper can be null in some tests.
         require(watchFaceHostApi.getUiThreadHandler().looper.isCurrentThread) {
             "registerReceivers must be called the UiThread"
         }
-
         // There's no point registering BroadcastsReceiver for headless instances.
         if (broadcastsReceiver == null && !watchState.isHeadless) {
             broadcastsReceiver =
@@ -798,6 +820,7 @@ public class WatchFaceImpl @UiThread constructor(
 
     @UiThread
     private fun unregisterReceivers() {
+        // Looper can be null in some tests.
         require(watchFaceHostApi.getUiThreadHandler().looper.isCurrentThread) {
             "unregisterReceivers must be called the UiThread"
         }
@@ -979,6 +1002,9 @@ public class WatchFaceImpl @UiThread constructor(
 
     @UiThread
     internal fun getComplicationState() = complicationSlotsManager.complicationSlots.map {
+        val systemDataSourceFallbackDefaultType =
+            it.value.defaultDataSourcePolicy.systemDataSourceFallbackDefaultType
+                .toWireComplicationType()
         IdAndComplicationStateWireFormat(
             it.key,
             ComplicationStateWireFormat(
@@ -987,7 +1013,11 @@ public class WatchFaceImpl @UiThread constructor(
                 ComplicationType.toWireTypes(it.value.supportedTypes),
                 it.value.defaultDataSourcePolicy.dataSourcesAsList(),
                 it.value.defaultDataSourcePolicy.systemDataSourceFallback,
-                it.value.defaultDataSourceType.toWireComplicationType(),
+                systemDataSourceFallbackDefaultType,
+                it.value.defaultDataSourcePolicy.primaryDataSourceDefaultType
+                    ?.toWireComplicationType() ?: systemDataSourceFallbackDefaultType,
+                it.value.defaultDataSourcePolicy.secondaryDataSourceDefaultType
+                    ?.toWireComplicationType() ?: systemDataSourceFallbackDefaultType,
                 it.value.enabled,
                 it.value.initiallyEnabled,
                 it.value.renderer.getData().type.toWireComplicationType(),

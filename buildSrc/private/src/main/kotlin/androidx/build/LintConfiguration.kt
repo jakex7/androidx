@@ -88,7 +88,6 @@ fun Project.configureNonAndroidProjectForLint(extension: AndroidXExtension) {
         it.enabled = false
     }
     tasks.register("lintAnalyzeDebug") {
-        it.dependsOn(lintTask)
         it.enabled = false
     }
     tasks.register("lintRelease") {
@@ -108,7 +107,6 @@ fun Project.configureAndroidProjectForLint(lint: Lint, extension: AndroidXExtens
         setUpLintDebugIfNeeded()
     }
     tasks.register("lintAnalyze") {
-        it.dependsOn("lintDebug")
         it.enabled = false
     }
     configureLint(lint, extension)
@@ -303,13 +301,6 @@ fun Project.configureLint(lint: Lint, extension: AndroidXExtension) {
             //  This is needed because SampledAnnotationDetector uses partial analysis, and
             //  hence requires dependencies to be analyzed.
             checkDependencies = true
-            // TODO: baselines from dependencies aren't used when we run lint with
-            //  isCheckDependencies = true. NewApi was recently enabled for tests, and so
-            //  there are a large amount of baselined issues that would be reported here
-            //  again, and we don't want to add them to the baseline for the sample modules.
-            //  Instead just temporarily disable this lint check until the underlying issues
-            //  are fixed.
-            disable.add("NewApi")
         }
 
         // Only run certain checks where API tracking is important.
@@ -319,9 +310,14 @@ fun Project.configureLint(lint: Lint, extension: AndroidXExtension) {
 
         // If the project has not overridden the lint config, set the default one.
         if (lintConfig == null) {
+            val lintXmlPath = if (extension.type == LibraryType.SAMPLES) {
+                "buildSrc/lint_samples.xml"
+            } else {
+                "buildSrc/lint.xml"
+            }
             // suppress warnings more specifically than issue-wide severity (regexes)
             // Currently suppresses warnings from baseline files working as intended
-            lintConfig = File(project.getSupportRootFolder(), "buildSrc/lint.xml")
+            lintConfig = File(project.getSupportRootFolder(), lintXmlPath)
         }
 
         // Ideally, teams aren't able to add new violations to a baseline file; they should only

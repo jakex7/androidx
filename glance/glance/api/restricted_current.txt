@@ -91,10 +91,6 @@ package androidx.glance.action {
   public interface Action {
   }
 
-  public interface ActionCallback {
-    method public suspend Object? onRun(android.content.Context context, androidx.glance.GlanceId glanceId, androidx.glance.action.ActionParameters parameters, kotlin.coroutines.Continuation<? super kotlin.Unit> p);
-  }
-
   public final class ActionKt {
     method public static androidx.glance.GlanceModifier clickable(androidx.glance.GlanceModifier, androidx.glance.action.Action onClick);
   }
@@ -121,12 +117,13 @@ package androidx.glance.action {
     method public static androidx.glance.action.MutableActionParameters mutableActionParametersOf(androidx.glance.action.ActionParameters.Pair<?>... pairs);
     method public static androidx.glance.action.MutableActionParameters toMutableParameters(androidx.glance.action.ActionParameters);
     method public static androidx.glance.action.ActionParameters toParameters(androidx.glance.action.ActionParameters);
+    method public static <T> androidx.glance.action.ActionParameters.Key<T> toParametersKey(androidx.datastore.preferences.core.Preferences.Key<T>);
   }
 
   public final class LaunchActivityActionKt {
-    method public static androidx.glance.action.Action actionLaunchActivity(android.content.ComponentName componentName);
-    method public static <T extends android.app.Activity> androidx.glance.action.Action actionLaunchActivity(Class<T> activity);
-    method public static inline <reified T extends android.app.Activity> androidx.glance.action.Action! actionLaunchActivity();
+    method public static androidx.glance.action.Action actionLaunchActivity(android.content.ComponentName componentName, optional androidx.glance.action.ActionParameters parameters);
+    method public static <T extends android.app.Activity> androidx.glance.action.Action actionLaunchActivity(Class<T> activity, optional androidx.glance.action.ActionParameters parameters);
+    method public static inline <reified T extends android.app.Activity> androidx.glance.action.Action! actionLaunchActivity(optional androidx.glance.action.ActionParameters parameters);
   }
 
   public final class MutableActionParameters extends androidx.glance.action.ActionParameters {
@@ -137,11 +134,6 @@ package androidx.glance.action {
     method public <T> T getOrDefault(androidx.glance.action.ActionParameters.Key<T> key, T defaultValue);
     method public <T> T? remove(androidx.glance.action.ActionParameters.Key<T> key);
     method public operator <T> T? set(androidx.glance.action.ActionParameters.Key<T> key, T? value);
-  }
-
-  public final class RunCallbackActionKt {
-    method public static <T extends androidx.glance.action.ActionCallback> androidx.glance.action.Action actionRunCallback(Class<T> callbackClass, optional androidx.glance.action.ActionParameters parameters);
-    method public static inline <reified T extends androidx.glance.action.ActionCallback> androidx.glance.action.Action! actionRunCallback(optional androidx.glance.action.ActionParameters parameters);
   }
 
 }
@@ -285,15 +277,15 @@ package androidx.glance.layout {
 
 package androidx.glance.state {
 
-  public final class GlanceState {
-    method public suspend <T> Object? getValue(android.content.Context context, androidx.glance.state.GlanceStateDefinition<T> definition, String fileName, kotlin.coroutines.Continuation<? super T> p);
-    method public suspend <T> Object? updateValue(android.content.Context context, androidx.glance.state.GlanceStateDefinition<T> definition, String fileName, kotlin.jvm.functions.Function2<? super T,? super kotlin.coroutines.Continuation<? super T>,?> updateBlock, kotlin.coroutines.Continuation<? super T> p);
-    field public static final androidx.glance.state.GlanceState INSTANCE;
+  public interface GlanceStateDefinition<T> {
+    method public suspend Object? getDataStore(android.content.Context context, String fileKey, kotlin.coroutines.Continuation<? super androidx.datastore.core.DataStore<T>> p);
+    method public java.io.File getLocation(android.content.Context context, String fileKey);
   }
 
-  public interface GlanceStateDefinition<T> {
-    method public suspend <T> Object? getDataStore(android.content.Context context, String fileKey, kotlin.coroutines.Continuation<? super androidx.datastore.core.DataStore<T>> p);
+  public final class PreferencesGlanceStateDefinition implements androidx.glance.state.GlanceStateDefinition<androidx.datastore.preferences.core.Preferences> {
+    method public suspend Object? getDataStore(android.content.Context context, String fileKey, kotlin.coroutines.Continuation<? super androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>> p);
     method public java.io.File getLocation(android.content.Context context, String fileKey);
+    field public static final androidx.glance.state.PreferencesGlanceStateDefinition INSTANCE;
   }
 
 }
