@@ -66,6 +66,7 @@ internal class CameraGraphSessionImpl(
     override fun stopRepeating() {
         check(!closed.value) { "Cannot call stopRepeating on $this after close." }
         graphProcessor.stopRepeating()
+        controller3A.onStopRepeating()
     }
 
     override fun close() {
@@ -143,15 +144,18 @@ internal class CameraGraphSessionImpl(
         )
     }
 
-    override suspend fun unlock3A(ae: Boolean?, af: Boolean?, awb: Boolean?): Deferred<Result3A> {
-        check(!closed.value) { "Cannot call unlock3A on $this after close." }
-        return controller3A.unlock3A(ae, af, awb)
-    }
-
-    override suspend fun lock3AForCapture(
+    override suspend fun unlock3A(
+        ae: Boolean?,
+        af: Boolean?,
+        awb: Boolean?,
         frameLimit: Int,
         timeLimitNs: Long
     ): Deferred<Result3A> {
+        check(!closed.value) { "Cannot call unlock3A on $this after close." }
+        return controller3A.unlock3A(ae, af, awb, frameLimit, timeLimitNs)
+    }
+
+    override suspend fun lock3AForCapture(frameLimit: Int, timeLimitNs: Long): Deferred<Result3A> {
         check(!closed.value) { "Cannot call lock3AForCapture on $this after close." }
         return controller3A.lock3AForCapture(frameLimit, timeLimitNs)
     }

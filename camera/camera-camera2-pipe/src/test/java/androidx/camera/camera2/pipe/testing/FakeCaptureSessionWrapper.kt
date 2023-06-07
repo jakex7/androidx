@@ -43,8 +43,9 @@ internal class FakeCaptureSessionWrapper(
 
     val unwrappedClasses = arrayListOf<Any>()
 
-    override fun abortCaptures() {
+    override fun abortCaptures(): Boolean {
         abortCapturesInvoked = true
+        return true
     }
 
     override fun capture(
@@ -95,14 +96,15 @@ internal class FakeCaptureSessionWrapper(
         return lastSequenceNumber
     }
 
-    override fun stopRepeating() {
+    override fun stopRepeating(): Boolean {
         stopRepeatingInvoked = true
+        return true
     }
 
-    override fun finalizeOutputConfigurations(outputConfigs: List<OutputConfigurationWrapper>) {
-        throw UnsupportedOperationException(
-            "finalizeOutputConfigurations is not supported"
-        )
+    override fun finalizeOutputConfigurations(
+        outputConfigs: List<OutputConfigurationWrapper>
+    ): Boolean {
+        throw UnsupportedOperationException("finalizeOutputConfigurations is not supported")
     }
 
     override fun <T : Any> unwrapAs(type: KClass<T>): T? {

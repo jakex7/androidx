@@ -16,10 +16,10 @@
 
 package androidx.privacysandbox.tools.apicompiler.util
 
-import androidx.privacysandbox.tools.core.model.ParsedApi
 import androidx.privacysandbox.tools.apicompiler.parser.ApiParser
-import androidx.privacysandbox.tools.testing.CompilationTestHelper.assertThat
+import androidx.privacysandbox.tools.core.model.ParsedApi
 import androidx.privacysandbox.tools.testing.CompilationResultSubject
+import androidx.privacysandbox.tools.testing.CompilationTestHelper.assertThat
 import androidx.room.compiler.processing.util.Source
 import androidx.room.compiler.processing.util.compiler.TestCompilationArguments
 import androidx.room.compiler.processing.util.compiler.compile

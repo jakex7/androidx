@@ -23,11 +23,13 @@ import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.lazy.layout.LazyLayoutPinnedItemList
 import androidx.compose.foundation.lazy.layout.LazyLayoutPrefetchState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collection.mutableVectorOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
@@ -134,7 +136,7 @@ class TvLazyGridState constructor(
     /**
      * Needed for [animateScrollToItem]. Updated on every measure.
      */
-    internal var slotsPerLine: Int by mutableStateOf(0)
+    internal var slotsPerLine: Int by mutableIntStateOf(0)
 
     /**
      * Needed for [animateScrollToItem]. Updated on every measure.
@@ -206,12 +208,18 @@ class TvLazyGridState constructor(
     /**
      * Finds items on a line and their measurement constraints. Used for prefetching.
      */
+    @Suppress("PrimitiveInLambda")
     internal var prefetchInfoRetriever: (line: LineIndex) -> List<Pair<Int, Constraints>> by
     mutableStateOf({ emptyList() })
 
     internal var placementAnimator by mutableStateOf<LazyGridItemPlacementAnimator?>(null)
 
     private val animateScrollScope = LazyGridAnimateScrollScope(this)
+
+    /**
+     * Stores currently pinned items which are always composed.
+     */
+    internal val pinnedItems = LazyLayoutPinnedItemList()
 
     /**
      * Instantly brings the item at [index] to the top of the viewport, offset by [scrollOffset]
@@ -435,4 +443,5 @@ private object EmptyTvLazyGridLayoutInfo : TvLazyGridLayoutInfo {
     override val reverseLayout = false
     override val beforeContentPadding: Int = 0
     override val afterContentPadding: Int = 0
+    override val mainAxisItemSpacing: Int = 0
 }

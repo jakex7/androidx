@@ -17,9 +17,13 @@
 package androidx.compose.compiler.plugins.kotlin
 
 import org.intellij.lang.annotations.Language
+import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.JUnit4
 
-abstract class FunctionBodySkippingTransformTestsBase : AbstractIrTransformTest() {
+@RunWith(JUnit4::class)
+abstract class FunctionBodySkippingTransformTestsBase : AbstractIrTransformTest(useFir = false) {
     protected fun comparisonPropagation(
         @Language("kotlin")
         unchecked: String,
@@ -47,7 +51,6 @@ abstract class FunctionBodySkippingTransformTestsBase : AbstractIrTransformTest(
 }
 
 class FunctionBodySkippingTransformTests : FunctionBodySkippingTransformTestsBase() {
-
     @Test
     fun testIfInLambda(): Unit = comparisonPropagation(
         """
@@ -1489,7 +1492,7 @@ class FunctionBodySkippingTransformTests : FunctionBodySkippingTransformTestsBas
                       traceEventStart(<>, %changed, -1, <>)
                     }
                     used(it)
-                    A(x, 0, %composer, 0b1110 and %dirty, 0b0010)
+                    A(x, 0, %composer, 0b1110 and %dirty@Test, 0b0010)
                     if (isTraceInProgress()) {
                       traceEventEnd()
                     }
@@ -2792,7 +2795,7 @@ class FunctionBodySkippingTransformTests : FunctionBodySkippingTransformTestsBas
                         if (isTraceInProgress()) {
                           traceEventStart(<>, %dirty, -1, <>)
                         }
-                        B(x, y, z, %composer, 0b1110 and %dirty or 0b01110000 and %dirty shl 0b0011 or 0b001110000000 and %dirty shl 0b0110, 0)
+                        B(x, y, z, %composer, 0b1110 and %dirty@A or 0b01110000 and %dirty@A.<anonymous> shl 0b0011 or 0b001110000000 and %dirty shl 0b0110, 0)
                         if (isTraceInProgress()) {
                           traceEventEnd()
                         }
@@ -2800,7 +2803,7 @@ class FunctionBodySkippingTransformTests : FunctionBodySkippingTransformTestsBas
                         %composer.skipToGroupEnd()
                       }
                     }, %composer, 0b0110)
-                    B(x, y, 0, %composer, 0b1110 and %dirty or 0b01110000 and %dirty shl 0b0011, 0b0100)
+                    B(x, y, 0, %composer, 0b1110 and %dirty@A or 0b01110000 and %dirty shl 0b0011, 0b0100)
                     if (isTraceInProgress()) {
                       traceEventEnd()
                     }
@@ -3405,7 +3408,7 @@ class FunctionBodySkippingTransformTests : FunctionBodySkippingTransformTestsBas
                     wontChange = 123
                   }
                   if (%default and 0b0010 !== 0) {
-                    mightChange = LocalColor.current
+                    mightChange = LocalColor.<get-current>(%composer, 0b0110)
                     %dirty = %dirty and 0b01110000.inv()
                   }
                 } else {
@@ -3906,18 +3909,9 @@ class FunctionBodySkippingTransformTests : FunctionBodySkippingTransformTestsBas
                   traceEventStart(<>, %changed, -1, <>)
                 }
                 Bug(listOf(1, 2, 3), { it: Int, %composer: Composer?, %changed: Int ->
-                  %composer.startReplaceableGroup(<>)
-                  sourceInformation(%composer, "C<Text(i...>:Test.kt")
-                  val %dirty = %changed
-                  if (%changed and 0b1110 === 0) {
-                    %dirty = %dirty or if (%composer.changed(it)) 0b0100 else 0b0010
-                  }
-                  if (%dirty and 0b01011011 !== 0b00010010 || !%composer.skipping) {
-                    Text(it.toString(), %composer, 0)
-                  } else {
-                    %composer.skipToGroupEnd()
-                  }
-                  %composer.endReplaceableGroup()
+                  sourceInformationMarkerStart(%composer, <>, "C<Text(i...>:Test.kt")
+                  Text(it.toString(), %composer, 0)
+                  sourceInformationMarkerEnd(%composer)
                 }, %composer, 0b0110)
                 if (isTraceInProgress()) {
                   traceEventEnd()
@@ -3952,7 +3946,9 @@ class FunctionBodySkippingTransformTests : FunctionBodySkippingTransformTestsBas
 }
 
 class FunctionBodySkippingTransformTestsNoSource : FunctionBodySkippingTransformTestsBase() {
-    override val sourceInformationEnabled: Boolean get() = false
+    override fun CompilerConfiguration.updateConfiguration() {
+        put(ComposeConfiguration.SOURCE_INFORMATION_ENABLED_KEY, false)
+    }
 
     @Test
     fun testGrouplessProperty(): Unit = comparisonPropagation(
@@ -4039,17 +4035,7 @@ class FunctionBodySkippingTransformTestsNoSource : FunctionBodySkippingTransform
                   traceEventStart(<>, %changed, -1, <>)
                 }
                 Bug(listOf(1, 2, 3), { it: Int, %composer: Composer?, %changed: Int ->
-                  %composer.startReplaceableGroup(<>)
-                  val %dirty = %changed
-                  if (%changed and 0b1110 === 0) {
-                    %dirty = %dirty or if (%composer.changed(it)) 0b0100 else 0b0010
-                  }
-                  if (%dirty and 0b01011011 !== 0b00010010 || !%composer.skipping) {
-                    Text(it.toString(), %composer, 0)
-                  } else {
-                    %composer.skipToGroupEnd()
-                  }
-                  %composer.endReplaceableGroup()
+                  Text(it.toString(), %composer, 0)
                 }, %composer, 0b0110)
                 if (isTraceInProgress()) {
                   traceEventEnd()
@@ -4078,6 +4064,54 @@ class FunctionBodySkippingTransformTestsNoSource : FunctionBodySkippingTransform
 
             @Composable
             fun Text(value: String) {}
+        """
+    )
+
+    @Test
+    fun test_InlineSkipping() = verifyComposeIrTransform(
+        source = """
+            import androidx.compose.runtime.*
+
+            @Composable
+            fun Test() {
+                InlineWrapperParam {
+                    Text("Function ${'$'}it")
+                }
+            }
+        """,
+        extra = """
+            import androidx.compose.runtime.*
+
+            @Composable
+            inline fun InlineWrapperParam(content: @Composable (Int) -> Unit) {
+                content(100)
+            }
+
+            @Composable
+            fun Text(text: String) { }
+        """,
+        expectedTransformed = """
+            @Composable
+            fun Test(%composer: Composer?, %changed: Int) {
+              %composer = %composer.startRestartGroup(<>)
+              sourceInformation(%composer, "C(Test)")
+              if (%changed !== 0 || !%composer.skipping) {
+                if (isTraceInProgress()) {
+                  traceEventStart(<>, %changed, -1, <>)
+                }
+                InlineWrapperParam({ it: Int, %composer: Composer?, %changed: Int ->
+                  Text("Function %it", %composer, 0)
+                }, %composer, 0)
+                if (isTraceInProgress()) {
+                  traceEventEnd()
+                }
+              } else {
+                %composer.skipToGroupEnd()
+              }
+              %composer.endRestartGroup()?.updateScope { %composer: Composer?, %force: Int ->
+                Test(%composer, updateChangedFlags(%changed or 0b0001))
+              }
+            }
         """
     )
 }

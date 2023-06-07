@@ -17,13 +17,13 @@
 package androidx.room.processor
 
 import androidx.room.compiler.codegen.CodeLanguage
+import androidx.room.compiler.codegen.XTypeName
 import androidx.room.parser.SQLTypeAffinity
 import androidx.room.vo.CallType
 import androidx.room.vo.Field
 import androidx.room.vo.FieldGetter
 import androidx.room.vo.FieldSetter
 import com.google.common.truth.Truth.assertThat
-import com.squareup.javapoet.TypeName
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -65,7 +65,7 @@ class EntityNameMatchingVariationsTest(triple: Triple<String, String, String>) :
                 .isEqualTo("foo.bar.MyEntity")
             assertThat(entity.fields.size).isEqualTo(1)
             val field = entity.fields.first()
-            val intType = invocation.processingEnv.requireType(TypeName.INT)
+            val intType = invocation.processingEnv.requireType(XTypeName.PRIMITIVE_INT)
             assertThat(field).isEqualTo(
                     Field(
                         element = field.element,
@@ -78,7 +78,7 @@ class EntityNameMatchingVariationsTest(triple: Triple<String, String, String>) :
             assertThat(field.setter)
                 .isEqualTo(FieldSetter(field.name, setterName, intType, CallType.METHOD))
             assertThat(field.getter)
-                .isEqualTo(FieldGetter(field.name, getterName, intType, CallType.METHOD, true))
+                .isEqualTo(FieldGetter(field.name, getterName, intType, CallType.METHOD))
         }
     }
 }

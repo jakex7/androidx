@@ -4,6 +4,8 @@ import androidx.privacysandbox.tools.PrivacySandboxCallback
 import androidx.privacysandbox.tools.PrivacySandboxInterface
 import androidx.privacysandbox.tools.PrivacySandboxService
 import androidx.privacysandbox.tools.PrivacySandboxValue
+import androidx.privacysandbox.ui.core.SandboxedUiAdapter
+import androidx.privacysandbox.ui.core.SdkActivityLauncher
 
 @PrivacySandboxService
 interface MySdk {
@@ -26,6 +28,14 @@ interface MySdk {
     suspend fun handleNullableValues(maybeRequest: Request?): Response?
 
     suspend fun handleNullableInterfaces(maybeCallback: MyCallback?): MyInterface?
+
+    suspend fun returnUiInterface(): MyUiInterface
+
+    fun acceptUiInterfaceParam(input: MyUiInterface)
+
+    fun acceptSdkActivityLauncherParam(activityLauncher: SdkActivityLauncher)
+
+    suspend fun returnSdkActivityLauncher(): SdkActivityLauncher
 }
 
 @PrivacySandboxInterface
@@ -37,6 +47,11 @@ interface MyInterface {
     suspend fun getMySecondInterface(input: MySecondInterface): MySecondInterface
 
     fun doMoreStuff(x: Int)
+}
+
+@PrivacySandboxInterface
+interface MyUiInterface : SandboxedUiAdapter {
+    fun doSomethingForUi(x: Int, y: Int)
 }
 
 @PrivacySandboxInterface
@@ -65,7 +80,9 @@ data class Request(
     val query: String,
     val extraValues: List<InnerValue>,
     val maybeValue: InnerValue?,
-    val myInterface: MyInterface
+    val myInterface: MyInterface,
+    val myUiInterface: MyUiInterface,
+    val activityLauncher: SdkActivityLauncher,
 )
 
 @PrivacySandboxValue
@@ -75,7 +92,8 @@ data class InnerValue(val numbers: List<Int>, val maybeNumber: Int?)
 data class Response(
     val response: String,
     val mySecondInterface: MySecondInterface,
-    val maybeOtherInterface: MySecondInterface
+    val maybeOtherInterface: MySecondInterface,
+    val myUiInterface: MyUiInterface,
 )
 
 @PrivacySandboxCallback
@@ -85,4 +103,6 @@ interface MyCallback {
     fun onClick(x: Int, y: Int)
 
     fun onCompleteInterface(myInterface: MyInterface)
+
+    fun onCompleteUiInterface(myUiInterface: MyUiInterface)
 }

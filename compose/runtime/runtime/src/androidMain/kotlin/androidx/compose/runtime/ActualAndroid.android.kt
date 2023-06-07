@@ -47,7 +47,10 @@ internal actual typealias CheckResult = androidx.annotation.CheckResult
 private object SdkStubsFallbackFrameClock : MonotonicFrameClock {
     private const val DefaultFrameDelay = 16L // milliseconds
 
-    override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R =
+    override suspend fun <R> withFrameNanos(
+        @Suppress("PrimitiveInLambda")
+        onFrame: (frameTimeNanos: Long) -> R
+    ): R =
         withContext(Dispatchers.Main) {
             delay(DefaultFrameDelay)
             onFrame(System.nanoTime())
@@ -60,6 +63,7 @@ private object DefaultChoreographerFrameClock : MonotonicFrameClock {
     }
 
     override suspend fun <R> withFrameNanos(
+        @Suppress("PrimitiveInLambda")
         onFrame: (frameTimeNanos: Long) -> R
     ): R = suspendCancellableCoroutine<R> { co ->
         val callback = Choreographer.FrameCallback { frameTimeNanos ->
@@ -91,6 +95,22 @@ internal actual fun <T> createSnapshotMutableState(
     value: T,
     policy: SnapshotMutationPolicy<T>
 ): SnapshotMutableState<T> = ParcelableSnapshotMutableState(value, policy)
+
+internal actual fun createSnapshotMutableIntState(
+    value: Int
+): MutableIntState = ParcelableSnapshotMutableIntState(value)
+
+internal actual fun createSnapshotMutableLongState(
+    value: Long
+): MutableLongState = ParcelableSnapshotMutableLongState(value)
+
+internal actual fun createSnapshotMutableFloatState(
+    value: Float
+): MutableFloatState = ParcelableSnapshotMutableFloatState(value)
+
+internal actual fun createSnapshotMutableDoubleState(
+    value: Double
+): MutableDoubleState = ParcelableSnapshotMutableDoubleState(value)
 
 private const val LogTag = "ComposeInternal"
 

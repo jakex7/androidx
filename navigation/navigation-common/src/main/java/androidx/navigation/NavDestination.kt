@@ -109,6 +109,33 @@ public open class NavDestination(
             }
             return mimeTypeMatchLevel - other.mimeTypeMatchLevel
         }
+
+        /**
+         * Returns true if all args from [DeepLinkMatch.matchingArgs] can be found within
+         * the [arguments].
+         *
+         * This returns true in both edge cases:
+         * 1. If the [arguments] contain more args than [DeepLinkMatch.matchingArgs].
+         * 2. If [DeepLinkMatch.matchingArgs] is empty
+         *
+         * @param [arguments] The arguments to match with the matchingArgs stored in this
+         * DeepLinkMatch.
+         */
+        public fun hasMatchingArgs(arguments: Bundle?): Boolean {
+            if (arguments == null || matchingArgs == null) return false
+
+            matchingArgs.keySet().forEach { key ->
+                // the arguments must at least contain every argument stored in this deep link
+                if (!arguments.containsKey(key)) return false
+
+                val type = destination.arguments[key]?.type
+                val matchingArgValue = type?.get(matchingArgs, key)
+                val entryArgValue = type?.get(arguments, key)
+                // fine if both argValues are null, i.e. arguments/params with nullable values
+                if (matchingArgValue != entryArgValue) return false
+            }
+            return true
+        }
     }
 
     /**
@@ -205,11 +232,8 @@ public open class NavDestination(
             field = route
         }
 
-    /**
-     * @hide
-     */
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public open val displayName: String
+        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
         get() = idName ?: id.toString()
 
     /**
@@ -324,16 +348,32 @@ public open class NavDestination(
      * @see NavController.navigate
      */
     public fun addDeepLink(navDeepLink: NavDeepLink) {
-        val missingRequiredArguments =
-            arguments.filterValues { !it.isNullable && !it.isDefaultValuePresent }
-                .keys
-                .filter { it !in navDeepLink.argumentsNames }
+        val missingRequiredArguments = arguments.missingRequiredArguments { key ->
+            key !in navDeepLink.argumentsNames
+        }
         require(missingRequiredArguments.isEmpty()) {
             "Deep link ${navDeepLink.uriPattern} can't be used to open destination $this.\n" +
                 "Following required arguments are missing: $missingRequiredArguments"
         }
 
         deepLinks.add(navDeepLink)
+    }
+
+    /**
+     * Determines if this NavDestination has a deep link of this route.
+     *
+     * @param [route] The route to match against this [NavDestination.route]
+     * @return The matching [DeepLinkMatch], or null if no match was found.
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun matchDeepLink(route: String): DeepLinkMatch? {
+        val request = NavDeepLinkRequest.Builder.fromUri(createRoute(route).toUri()).build()
+        val matchingDeepLink = if (this is NavGraph) {
+            matchDeepLinkExcludingChildren(request)
+        } else {
+            matchDeepLink(request)
+        }
+        return matchingDeepLink
     }
 
     /**
@@ -362,7 +402,9 @@ public open class NavDestination(
             val mimeType = navDeepLinkRequest.mimeType
             val mimeTypeMatchLevel =
                 if (mimeType != null) deepLink.getMimeTypeMatchRating(mimeType) else -1
-            if (matchingArguments != null || matchingAction || mimeTypeMatchLevel > -1) {
+            if (matchingArguments != null || ((matchingAction || mimeTypeMatchLevel > -1) &&
+                    hasRequiredArguments(deepLink, uri, arguments))
+            ) {
                 val newMatch = DeepLinkMatch(
                     this, matchingArguments,
                     deepLink.isExactDeepLink, matchingPathSegments, matchingAction,
@@ -374,6 +416,18 @@ public open class NavDestination(
             }
         }
         return bestMatch
+    }
+
+    private fun hasRequiredArguments(
+        deepLink: NavDeepLink,
+        uri: Uri?,
+        arguments: Map<String, NavArgument>
+    ): Boolean {
+        val matchingArgs = deepLink.getMatchingPathAndQueryArgs(uri, arguments)
+        val missingRequiredArguments = arguments.missingRequiredArguments { key ->
+            !matchingArgs.containsKey(key)
+        }
+        return missingRequiredArguments.isEmpty()
     }
 
     /**
@@ -417,47 +471,31 @@ public open class NavDestination(
      * 1. an exact route without arguments
      * 2. a route containing arguments where no arguments are filled in
      * 3. a route containing arguments where some or all arguments are filled in
+     * 4. a partial route
      *
      * In the case of 3., it will only match if the entry arguments
      * match exactly with the arguments that were filled in inside the route.
      *
      * @param [route] The route to match with the route of this destination
      *
-     * @param [arguments] The [NavBackStackEntry.arguments] of the entry for this destination.
+     * @param [arguments] The [NavBackStackEntry.arguments] that was used to navigate
+     * to this destination
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun hasRoute(route: String, arguments: Bundle?): Boolean {
         // this matches based on routePattern
         if (this.route == route) return true
 
-        // if no match based on routePattern, this means route contains filled in args.
-        val request = NavDeepLinkRequest.Builder.fromUri(createRoute(route).toUri()).build()
-        val matchingDeepLink = if (this is NavGraph) {
-            matchDeepLinkExcludingChildren(request)
-        } else {
-            matchDeepLink(request)
-        }
+        // if no match based on routePattern, this means route contains filled in args or query
+        // params
+        val matchingDeepLink = matchDeepLink(route)
 
-        // If matchingDeepLink is null or it has no matching args, the route does not contain
-        // filled in args. Since it didn't match with routePattern earlier, we just return false.
-        val matchingArgs = matchingDeepLink?.matchingArgs
-        if (matchingArgs == null || matchingArgs.isEmpty) return false
+        // if no matchingDeepLink or mismatching destination, return false directly
+        if (this != matchingDeepLink?.destination) return false
 
-        // any args (partially or completely filled in) must exactly match between
-        // the route and entry's route
-        matchingArgs.keySet().forEach { key ->
-            if (this != matchingDeepLink.destination || arguments == null ||
-                !arguments.containsKey(key)
-            ) {
-                return false
-            }
-            val type = matchingDeepLink.destination.arguments[key]?.type
-            val routeArgValue = type?.get(matchingArgs, key)
-            val entryArgValue = type?.get(arguments, key)
-            if (routeArgValue == null || entryArgValue == null || routeArgValue != entryArgValue)
-                return false
-        }
-        return true
+        // Any args (partially or completely filled in) must exactly match between
+        // the route and entry's route.
+        return matchingDeepLink.hasMatchingArgs(arguments)
     }
 
     /**
@@ -752,7 +790,6 @@ public open class NavDestination(
          * @param id The id to get a display name for
          * @return The resource's name if it is a valid id or just the id itself if it is not
          * a valid resource
-         * @hide
          */
         @JvmStatic
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -768,9 +805,6 @@ public open class NavDestination(
             }
         }
 
-        /**
-         * @hide
-         */
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
         public fun createRoute(route: String?): String =
             if (route != null) "android-app://androidx.navigation/$route" else ""

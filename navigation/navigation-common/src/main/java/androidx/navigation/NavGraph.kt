@@ -180,9 +180,6 @@ public open class NavGraph(navGraphNavigator: Navigator<out NavGraph>) :
         return if (!route.isNullOrBlank()) findNode(route, true) else null
     }
 
-    /**
-     * @hide
-     */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun findNode(@IdRes resId: Int, searchParents: Boolean): NavDestination? {
         val destination = nodes[resId]
@@ -192,13 +189,15 @@ public open class NavGraph(navGraphNavigator: Navigator<out NavGraph>) :
             ?: if (searchParents && parent != null) parent!!.findNode(resId) else null
     }
 
-    /**
-     * @hide
-     */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public fun findNode(route: String, searchParents: Boolean): NavDestination? {
+        // first try matching with routePattern
         val id = createRoute(route).hashCode()
-        val destination = nodes[id]
+        val destination = nodes[id] ?: nodes.valueIterator().asSequence().firstOrNull {
+            // if not found with routePattern, try matching with route args
+            it.matchDeepLink(route) != null
+        }
+
         // Search the parent for the NavDestination if it is not a child of this navigation graph
         // and searchParents is true
         return destination
@@ -276,11 +275,8 @@ public open class NavGraph(navGraphNavigator: Navigator<out NavGraph>) :
         }
     }
 
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     override val displayName: String
-        /**
-         * @hide
-         */
+        @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
         get() = if (id != 0) super.displayName else "the root navigation"
 
     /**

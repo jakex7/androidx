@@ -18,6 +18,8 @@ package androidx.compose.compiler.plugins.kotlin
 
 import androidx.compose.compiler.plugins.kotlin.AbstractIrTransformTest.TruncateTracingInfoMode
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.JUnit4
 
 /**
  * Verifies trace data passed to tracing. Relies on [TruncateTracingInfoMode.KEEP_INFO_STRING] to
@@ -26,7 +28,8 @@ import org.junit.Test
  * More complex cases tested in other IrTransform tests that use
  * the [TruncateTracingInfoMode.KEEP_INFO_STRING].
  */
-class TraceInformationTest : AbstractIrTransformTest() {
+@RunWith(JUnit4::class)
+class TraceInformationTest : AbstractIrTransformTest(useFir = false) {
     @Test
     fun testBasicComposableFunctions() = verifyComposeIrTransform(
         """
@@ -129,25 +132,20 @@ class TraceInformationTest : AbstractIrTransformTest() {
                 }
                 A(%composer, 0)
                 Wrapper({ %composer: Composer?, %changed: Int ->
-                  %composer.startReplaceableGroup(<>)
-                  sourceInformation(%composer, "C<A()>,<A()>:Test.kt")
-                  if (%changed and 0b1011 !== 0b0010 || !%composer.skipping) {
-                    A(%composer, 0)
-                    if (!condition) {
-                      %composer.endToMarker(tmp0_marker)
-                      if (isTraceInProgress()) {
-                        traceEventEnd()
-                      }
-                      %composer.endRestartGroup()?.updateScope { %composer: Composer?, %force: Int ->
-                        Test(condition, %composer, updateChangedFlags(%changed or 0b0001))
-                      }
-                      return
+                  sourceInformationMarkerStart(%composer, <>, "C<A()>,<A()>:Test.kt")
+                  A(%composer, 0)
+                  if (!condition) {
+                    %composer.endToMarker(tmp0_marker)
+                    if (isTraceInProgress()) {
+                      traceEventEnd()
                     }
-                    A(%composer, 0)
-                  } else {
-                    %composer.skipToGroupEnd()
+                    %composer@Test.endRestartGroup()?.updateScope { %composer: Composer?, %force: Int ->
+                      Test(condition, %composer, updateChangedFlags(%changed or 0b0001))
+                    }
+                    return
                   }
-                  %composer.endReplaceableGroup()
+                  A(%composer, 0)
+                  sourceInformationMarkerEnd(%composer)
                 }, %composer, 0)
                 A(%composer, 0)
                 if (isTraceInProgress()) {

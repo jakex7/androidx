@@ -16,21 +16,21 @@
 
 package androidx.tv.material3
 
-import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.with
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,13 +61,14 @@ import androidx.compose.ui.platform.LocalFocusManager
 @ExperimentalTvMaterial3Api
 @Composable
 fun ImmersiveList(
+    @Suppress("PrimitiveInLambda")
     background:
     @Composable ImmersiveListBackgroundScope.(index: Int, listHasFocus: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     listAlignment: Alignment = Alignment.BottomEnd,
     list: @Composable ImmersiveListScope.() -> Unit,
 ) {
-    var currentItemIndex by remember { mutableStateOf(0) }
+    var currentItemIndex by remember { mutableIntStateOf(0) }
     var listHasFocus by remember { mutableStateOf(false) }
 
     Box(modifier.bringIntoViewIfChildrenAreFocused()) {
@@ -156,18 +157,17 @@ by boxScope {
      * @link androidx.compose.animation.AnimatedContent
      * @see androidx.compose.animation.AnimatedContent
      * @see ContentTransform
-     * @see AnimatedContentScope
+     * @see AnimatedContentTransitionScope
      */
-    @Suppress("IllegalExperimentalApiUsage")
-    @ExperimentalAnimationApi
     @Composable
     fun AnimatedContent(
         targetState: Int,
         modifier: Modifier = Modifier,
-        transitionSpec: AnimatedContentScope<Int>.() -> ContentTransform = {
-            ImmersiveListDefaults.EnterTransition.with(ImmersiveListDefaults.ExitTransition)
+        transitionSpec: AnimatedContentTransitionScope<Int>.() -> ContentTransform = {
+            ImmersiveListDefaults.EnterTransition.togetherWith(ImmersiveListDefaults.ExitTransition)
         },
         contentAlignment: Alignment = Alignment.TopStart,
+        @Suppress("PrimitiveInLambda")
         content: @Composable AnimatedVisibilityScope.(targetState: Int) -> Unit
     ) {
         androidx.compose.animation.AnimatedContent(
@@ -182,7 +182,10 @@ by boxScope {
 
 @Immutable
 @ExperimentalTvMaterial3Api
-public class ImmersiveListScope internal constructor(private val onFocused: (Int) -> Unit) {
+public class ImmersiveListScope internal constructor(
+    @Suppress("PrimitiveInLambda")
+    private val onFocused: (Int) -> Unit
+) {
     /**
      * Modifier to be added to each of the items of the list within ImmersiveList to inform the
      * ImmersiveList of the index of the item in focus

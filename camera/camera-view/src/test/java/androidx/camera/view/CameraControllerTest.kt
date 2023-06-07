@@ -34,11 +34,15 @@ import androidx.camera.core.ViewPort
 import androidx.camera.core.impl.ImageAnalysisConfig
 import androidx.camera.core.impl.ImageCaptureConfig
 import androidx.camera.core.impl.ImageOutputConfig
+import androidx.camera.core.impl.utils.executor.CameraXExecutors.directExecutor
 import androidx.camera.core.impl.utils.executor.CameraXExecutors.mainThreadExecutor
 import androidx.camera.testing.fakes.FakeCamera
 import androidx.camera.testing.fakes.FakeCameraControl
 import androidx.camera.testing.fakes.FakeLifecycleOwner
+import androidx.camera.testing.fakes.FakeSurfaceEffect
+import androidx.camera.testing.fakes.FakeSurfaceProcessor
 import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
 import androidx.camera.view.CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED
 import androidx.camera.view.transform.OutputTransform
 import androidx.concurrent.futures.CallbackToFutureAdapter
@@ -90,6 +94,35 @@ class CameraControllerTest {
         controller = LifecycleCameraController(context, lifecycleCameraProviderFuture)
         controller.bindToLifecycle(FakeLifecycleOwner())
         controller.attachPreviewSurface({ }, fakeViewPort)
+    }
+
+    @Test
+    fun setEffects_unbindInvoked() {
+        // Arrange.
+        completeCameraInitialization()
+        assertThat(processCameraProviderWrapper.unbindInvoked()).isFalse()
+        // Act.
+        controller.setEffects(
+            setOf(
+                FakeSurfaceEffect(
+                    directExecutor(),
+                    FakeSurfaceProcessor(directExecutor())
+                )
+            )
+        )
+        // Assert.
+        assertThat(processCameraProviderWrapper.unbindInvoked()).isTrue()
+    }
+
+    @Test
+    fun clearEffects_unbindInvoked() {
+        // Arrange.
+        completeCameraInitialization()
+        assertThat(processCameraProviderWrapper.unbindInvoked()).isFalse()
+        // Act.
+        controller.clearEffects()
+        // Assert.
+        assertThat(processCameraProviderWrapper.unbindInvoked()).isTrue()
     }
 
     @Test
@@ -352,8 +385,9 @@ class CameraControllerTest {
     @UiThreadTest
     @Test
     fun setVideoCaptureQuality() {
-        controller.videoCaptureTargetQuality = targetVideoQuality
-        assertThat(controller.videoCaptureTargetQuality).isEqualTo(targetVideoQuality)
+        val qualitySelector = QualitySelector.from(targetVideoQuality)
+        controller.videoCaptureQualitySelector = qualitySelector
+        assertThat(controller.videoCaptureQualitySelector).isEqualTo(qualitySelector)
     }
 
     @UiThreadTest

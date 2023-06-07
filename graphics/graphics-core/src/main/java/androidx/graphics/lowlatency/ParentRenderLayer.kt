@@ -16,6 +16,7 @@
 
 package androidx.graphics.lowlatency
 
+import androidx.graphics.opengl.FrameBufferPool
 import androidx.graphics.opengl.GLRenderer
 import androidx.graphics.surface.SurfaceControlCompat
 
@@ -91,15 +92,20 @@ internal interface ParentRenderLayer<T> {
 
     /**
      * Clear the contents of the parent buffer. This triggers a call to
-     * [GLFrontBufferedRenderer.Callback.onDoubleBufferedLayerRenderComplete] to update the
+     * [GLFrontBufferedRenderer.Callback.onMultiBufferedLayerRenderComplete] to update the
      * buffer shown for the dry layer as well as hides the front buffered layer.
      */
     fun clear()
 
     /**
+     * Detach the parent [SurfaceControlCompat] as part of the provided transaction
+     */
+    fun detach(transaction: SurfaceControlCompat.Transaction)
+
+    /**
      * Release all resources associated with this [ParentRenderLayer] instance
      */
-    fun release(transaction: SurfaceControlCompat.Transaction)
+    fun release()
 
     /**
      * Callbacks to be implemented by the consumer of [ParentRenderLayer] to be alerted
@@ -130,7 +136,7 @@ internal interface ParentRenderLayer<T> {
          * be committed, that is the entire scene is re-rendered into the double buffered layer.
          * This can return null if all the double buffered params have already been queried.
          */
-        fun obtainDoubleBufferedLayerParams(): MutableCollection<T>?
+        fun obtainMultiBufferedLayerParams(): MutableCollection<T>?
 
         /**
          * Obtain a handle to the front buffered layer [SurfaceControlCompat] to be used in

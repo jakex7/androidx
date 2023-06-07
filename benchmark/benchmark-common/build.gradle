@@ -66,19 +66,25 @@ dependencies {
 }
 
 androidx {
-    name = "Android Benchmark - Common"
+    name = "Benchmark - Common"
     publish = Publish.SNAPSHOT_AND_RELEASE
     inceptionYear = "2018"
     description = "Android Benchmark - Common"
 }
 
+tasks.withType(KotlinCompile).configureEach {
+    kotlinOptions {
+        // Enable using experimental APIs from within same version group
+        freeCompilerArgs += [
+                "-opt-in=androidx.benchmark.perfetto.ExperimentalPerfettoCaptureApi"
+        ]
+    }
+}
+
 // https://github.com/square/wire/issues/1947
 // Remove when we upgrade to fixed wire library
 afterEvaluate {
-    tasks.named("compileReleaseKotlin").configure {
-        it.dependsOn("generateDebugProtos")
-    }
-    tasks.named("compileDebugKotlin").configure {
-        it.dependsOn("generateReleaseProtos")
-    }
+    tasks.named("compileReleaseKotlin").configure {it.dependsOn("generateDebugProtos")}
+    tasks.named("compileDebugKotlin").configure {it.dependsOn("generateReleaseProtos")}
+    tasks.named("generateKmpDocs").configure {it.dependsOn("generateDebugProtos", "generateReleaseProtos")}
 }

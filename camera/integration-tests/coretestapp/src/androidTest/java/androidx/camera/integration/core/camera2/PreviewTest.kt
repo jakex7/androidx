@@ -29,11 +29,12 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraXConfig
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
-import androidx.camera.core.ResolutionSelector
 import androidx.camera.core.UseCase
 import androidx.camera.core.impl.ImageOutputConfig
 import androidx.camera.core.impl.utils.executor.CameraXExecutors
 import androidx.camera.core.internal.CameraUseCaseAdapter
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE
 import androidx.camera.testing.CameraPipeConfigTestRule
 import androidx.camera.testing.CameraUtil
 import androidx.camera.testing.CameraUtil.PreTestCameraIdList
@@ -87,6 +88,7 @@ class PreviewTest(
     companion object {
         private const val ANY_THREAD_NAME = "any-thread-name"
         private val DEFAULT_RESOLUTION: Size by lazy { Size(640, 480) }
+
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
         fun data() = listOf(
@@ -107,11 +109,15 @@ class PreviewTest(
     @Before
     @Throws(ExecutionException::class, InterruptedException::class)
     fun setUp() {
+        assumeTrue(CameraUtil.hasCameraWithLensFacing(cameraSelector.lensFacing!!))
+
         context = ApplicationProvider.getApplicationContext()
         CameraXUtil.initialize(context!!, cameraConfig).get()
 
         // init CameraX before creating Preview to get preview size with CameraX's context
-        defaultBuilder = Preview.Builder.fromConfig(Preview.DEFAULT_CONFIG.config)
+        defaultBuilder = Preview.Builder.fromConfig(Preview.DEFAULT_CONFIG.config).also {
+            it.mutableConfig.removeOption(ImageOutputConfig.OPTION_TARGET_ASPECT_RATIO)
+        }
         surfaceFutureSemaphore = Semaphore( /*permits=*/0)
         safeToReleaseSemaphore = Semaphore( /*permits=*/0)
     }
@@ -138,20 +144,22 @@ class PreviewTest(
 
         // TODO(b/160261462) move off of main thread when setSurfaceProvider does not need to be
         //  done on the main thread
-        instrumentation.runOnMainSync { preview.setSurfaceProvider { request ->
-            val surfaceTexture = SurfaceTexture(0)
-            surfaceTexture.setDefaultBufferSize(
-                request.resolution.width,
-                request.resolution.height
-            )
-            surfaceTexture.detachFromGLContext()
-            val surface = Surface(surfaceTexture)
-            request.provideSurface(surface, CameraXExecutors.directExecutor()) {
-                surface.release()
-                surfaceTexture.release()
+        instrumentation.runOnMainSync {
+            preview.setSurfaceProvider { request ->
+                val surfaceTexture = SurfaceTexture(0)
+                surfaceTexture.setDefaultBufferSize(
+                    request.resolution.width,
+                    request.resolution.height
+                )
+                surfaceTexture.detachFromGLContext()
+                val surface = Surface(surfaceTexture)
+                request.provideSurface(surface, CameraXExecutors.directExecutor()) {
+                    surface.release()
+                    surfaceTexture.release()
+                }
+                completableDeferred.complete(Unit)
             }
-            completableDeferred.complete(Unit)
-        } }
+        }
         camera = CameraUtil.createCameraAndAttachUseCase(context!!, cameraSelector, preview)
         withTimeout(3_000) {
             completableDeferred.await()
@@ -179,7 +187,9 @@ class PreviewTest(
         Truth.assertThat(surfaceFutureSemaphore!!.tryAcquire(5, TimeUnit.SECONDS)).isTrue()
 
         // Remove the UseCase from the camera
-        camera!!.removeUseCases(setOf<UseCase>(preview))
+        instrumentation.runOnMainSync {
+            camera!!.removeUseCases(setOf<UseCase>(preview))
+        }
 
         // Assert.
         Truth.assertThat(safeToReleaseSemaphore!!.tryAcquire(5, TimeUnit.SECONDS)).isTrue()
@@ -323,6 +333,7 @@ class PreviewTest(
         Truth.assertThat(config.targetAspectRatio).isEqualTo(AspectRatio.RATIO_4_3)
     }
 
+    @Suppress("DEPRECATION") // test for legacy resolution API
     @Test
     fun defaultAspectRatioWillBeSet_whenRatioDefaultIsSet() {
         val useCase = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_DEFAULT).build()
@@ -331,6 +342,7 @@ class PreviewTest(
         Truth.assertThat(config.targetAspectRatio).isEqualTo(AspectRatio.RATIO_4_3)
     }
 
+    @Suppress("DEPRECATION") // legacy resolution API
     @Test
     fun defaultAspectRatioWontBeSet_whenTargetResolutionIsSet() {
         Assume.assumeTrue(CameraUtil.hasCameraWithLensFacing(CameraSelector.LENS_FACING_BACK))
@@ -421,6 +433,8 @@ class PreviewTest(
     @Test
     @Throws(InterruptedException::class)
     fun useCaseCanBeReusedInDifferentCamera() {
+        assumeTrue(CameraUtil.hasCameraWithLensFacing(CameraSelector.LENS_FACING_FRONT))
+
         val preview = defaultBuilder!!.build()
         instrumentation.runOnMainSync { preview.setSurfaceProvider(getSurfaceProvider(null)) }
 
@@ -548,9 +562,10 @@ class PreviewTest(
         // Arrange.
         val resolutionSelector =
             ResolutionSelector.Builder()
-                .setMaxResolution(maxHighResolutionOutputSize!!)
-                .setPreferredResolution(maxHighResolutionOutputSize)
-                .setHighResolutionEnabled(true)
+                .setAllowedResolutionMode(PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE)
+                .setResolutionFilter { _, _ ->
+                    listOf(maxHighResolutionOutputSize)
+                }
                 .build()
         val preview = Preview.Builder().setResolutionSelector(resolutionSelector).build()
 

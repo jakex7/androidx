@@ -20,14 +20,18 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
 import androidx.compose.ui.unit.Density
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlin.math.sign
 
 @OptIn(ExperimentalFoundationApi::class)
 fun SnapLayoutInfoProvider(
     scrollState: ScrollState,
+    @Suppress("PrimitiveInLambda")
     itemSize: Density.() -> Float,
+    @Suppress("PrimitiveInLambda")
     layoutSize: Density.() -> Float
 ) = object : SnapLayoutInfoProvider {
 
@@ -43,11 +47,12 @@ fun SnapLayoutInfoProvider(
             intItemSize
     }
 
-    override fun Density.calculateSnappingOffsetBounds(): ClosedFloatingPointRange<Float> {
+    override fun Density.calculateSnappingOffset(currentVelocity: Float): Float {
         val layoutCenter = layoutSize() / 2f + scrollState.value + calculateSnapStepSize() / 2f
         val lowerBound = nextFullItemCenter(layoutCenter) - layoutCenter
         val upperBound = previousFullItemCenter(layoutCenter) - layoutCenter
-        return upperBound.rangeTo(lowerBound)
+
+        return calculateFinalOffset(currentVelocity, upperBound, lowerBound)
     }
 
     override fun Density.calculateSnapStepSize(): Float {
@@ -55,4 +60,31 @@ fun SnapLayoutInfoProvider(
     }
 
     override fun Density.calculateApproachOffset(initialVelocity: Float): Float = 0f
+}
+
+internal fun calculateFinalOffset(velocity: Float, lowerBound: Float, upperBound: Float): Float {
+
+    fun Float.isValidDistance(): Boolean {
+        return this != Float.POSITIVE_INFINITY && this != Float.NEGATIVE_INFINITY
+    }
+
+    val finalDistance = when (sign(velocity)) {
+        0f -> {
+            if (abs(upperBound) <= abs(lowerBound)) {
+                upperBound
+            } else {
+                lowerBound
+            }
+        }
+
+        1f -> upperBound
+        -1f -> lowerBound
+        else -> 0f
+    }
+
+    return if (finalDistance.isValidDistance()) {
+        finalDistance
+    } else {
+        0f
+    }
 }

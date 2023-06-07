@@ -77,6 +77,11 @@ public class MainActivity extends AppCompatActivity {
     public static final String INTENT_EXTRA_E2E_TEST_CASE = "e2e_test_case";
     public static final String PREVIEW_TEST_CASE = "preview_test_case";
 
+    // Launch the activity with the specified scale type.
+    public static final String INTENT_EXTRA_SCALE_TYPE = "scale_type";
+    // The default scale type is FILL_CENTER.
+    public static final int DEFAULT_SCALE_TYPE_ID = 1;
+
     /** Intent extra representing type of camera implementation. */
     public static final String INTENT_EXTRA_CAMERA_IMPLEMENTATION = "camera_implementation";
 
@@ -185,6 +190,9 @@ public class MainActivity extends AppCompatActivity {
             case R.id.mlkit:
                 mFragmentType = FragmentType.MLKIT;
                 break;
+            case R.id.effects:
+                mFragmentType = FragmentType.EFFECTS;
+                break;
         }
         startFragment();
         return true;
@@ -217,6 +225,9 @@ public class MainActivity extends AppCompatActivity {
             case MLKIT:
                 startFragment(R.string.mlkit, new MlKitFragment());
                 break;
+            case EFFECTS:
+                startFragment(R.string.effects, new EffectsFragment());
+                break;
         }
     }
 
@@ -238,6 +249,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private enum FragmentType {
-        PREVIEW_VIEW, CAMERA_CONTROLLER, TRANSFORM, COMPOSE_UI, MLKIT
+        PREVIEW_VIEW, CAMERA_CONTROLLER, TRANSFORM, COMPOSE_UI, MLKIT, EFFECTS
     }
 }

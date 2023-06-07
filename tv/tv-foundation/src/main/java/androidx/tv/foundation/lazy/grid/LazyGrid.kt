@@ -77,7 +77,7 @@ internal fun LazyGrid(
 ) {
     val itemProvider = rememberLazyGridItemProvider(state, content)
 
-    val semanticState = rememberLazyGridSemanticState(state, itemProvider, reverseLayout)
+    val semanticState = rememberLazyGridSemanticState(state, reverseLayout)
 
     val scope = rememberCoroutineScope()
     val placementAnimator = remember(state, isVertical) {
@@ -110,7 +110,8 @@ internal fun LazyGrid(
                 itemProvider = itemProvider,
                 state = semanticState,
                 orientation = orientation,
-                userScrollEnabled = userScrollEnabled
+                userScrollEnabled = userScrollEnabled,
+                reverseScrolling = reverseLayout
             )
             .clipScrollableContainer(orientation)
             .scrollableWithPivot(
@@ -221,9 +222,13 @@ private fun rememberLazyGridMeasurePolicy(
         state.slotsPerLine = resolvedSlotSizesSums.size
 
         val spaceBetweenLinesDp = if (isVertical) {
-            requireNotNull(verticalArrangement).spacing
+            requireNotNull(verticalArrangement) {
+                "encountered null verticalArrangement when isVertical == true"
+            }.spacing
         } else {
-            requireNotNull(horizontalArrangement).spacing
+            requireNotNull(horizontalArrangement) {
+                "encountered null horizontalArrangement when isVertical == false"
+            }.spacing
         }
         val spaceBetweenLines = spaceBetweenLinesDp.roundToPx()
         val spaceBetweenSlotsDp = if (isVertical) {
@@ -324,6 +329,7 @@ private fun rememberLazyGridMeasurePolicy(
         }
         measureLazyGrid(
             itemsCount = itemsCount,
+            itemProvider = itemProvider,
             measuredLineProvider = measuredLineProvider,
             measuredItemProvider = measuredItemProvider,
             mainAxisAvailableSize = mainAxisAvailableSize,
@@ -341,6 +347,7 @@ private fun rememberLazyGridMeasurePolicy(
             density = this,
             placementAnimator = placementAnimator,
             spanLayoutProvider = spanLayoutProvider,
+            pinnedItems = state.pinnedItems,
             layout = { width, height, placement ->
                 layout(
                     containerConstraints.constrainWidth(width + totalHorizontalPadding),

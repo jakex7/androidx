@@ -16,6 +16,7 @@
 
 package androidx.graphics.surface
 
+import android.annotation.SuppressLint
 import android.graphics.Rect
 import android.graphics.Region
 import android.hardware.HardwareBuffer
@@ -24,11 +25,11 @@ import android.view.AttachedSurfaceControl
 import android.view.SurfaceView
 import androidx.annotation.RequiresApi
 import androidx.graphics.lowlatency.BufferTransformHintResolver.Companion.UNKNOWN_TRANSFORM
-import androidx.graphics.lowlatency.SyncFenceImpl
-import androidx.graphics.lowlatency.SyncFenceV19
+import androidx.graphics.lowlatency.FrontBufferUtils
 import androidx.graphics.surface.SurfaceControlCompat.Companion.BUFFER_TRANSFORM_ROTATE_270
 import androidx.graphics.surface.SurfaceControlCompat.Companion.BUFFER_TRANSFORM_ROTATE_90
-import androidx.hardware.SyncFence
+import androidx.hardware.SyncFenceImpl
+import androidx.hardware.SyncFenceV19
 import java.util.concurrent.Executor
 
 /**
@@ -64,6 +65,14 @@ internal class SurfaceControlV29 internal constructor(
          */
         override fun setParent(surfaceView: SurfaceView): SurfaceControlImpl.Builder {
             builder.setParent(surfaceView.holder.surface)
+            return this
+        }
+
+        /**
+         * See [SurfaceControlWrapper.Builder.setParent]
+         */
+        override fun setParent(surfaceControl: SurfaceControlCompat): SurfaceControlImpl.Builder {
+            builder.setParent(surfaceControl.scImpl.asWrapperSurfaceControl())
             return this
         }
 
@@ -199,26 +208,29 @@ internal class SurfaceControlV29 internal constructor(
          */
         override fun setBuffer(
             surfaceControl: SurfaceControlImpl,
-            buffer: HardwareBuffer,
+            buffer: HardwareBuffer?,
             fence: SyncFenceImpl?,
             releaseCallback: (() -> Unit)?
         ): SurfaceControlImpl.Transaction {
-            // we have a previous mapping in the same transaction, invoke callback
-            val data = BufferData(
-                width = buffer.width,
-                height = buffer.height,
-                releaseCallback = releaseCallback
-            )
-            uncommittedBufferCallbackMap.put(surfaceControl, data)?.releaseCallback?.invoke()
+            if (buffer != null) {
+                // we have a previous mapping in the same transaction, invoke callback
+                val data = BufferData(
+                    width = buffer.width,
+                    height = buffer.height,
+                    releaseCallback = releaseCallback
+                )
+                uncommittedBufferCallbackMap.put(surfaceControl, data)?.releaseCallback?.invoke()
+            }
 
+            val targetBuffer = buffer ?: PlaceholderBuffer
             // Ensure if we have a null value, we default to the default value for SyncFence
             // argument to prevent null pointer dereference
             if (fence == null) {
-                transaction.setBuffer(surfaceControl.asWrapperSurfaceControl(), buffer)
+                transaction.setBuffer(surfaceControl.asWrapperSurfaceControl(), targetBuffer)
             } else {
                 transaction.setBuffer(
                     surfaceControl.asWrapperSurfaceControl(),
-                    buffer,
+                    targetBuffer,
                     fence.asSyncFenceCompat()
                 )
             }
@@ -371,21 +383,40 @@ internal class SurfaceControlV29 internal constructor(
             )
         }
 
-        private fun SurfaceControlImpl.asWrapperSurfaceControl(): SurfaceControlWrapper =
-            if (this is SurfaceControlV29) {
-                surfaceControl
-            } else {
-                throw IllegalArgumentException("Parent implementation is only for Android T+.")
-            }
-
-        private fun SyncFenceImpl.asSyncFenceCompat(): SyncFence =
+        private fun SyncFenceImpl.asSyncFenceCompat(): SyncFenceV19 =
             if (this is SyncFenceV19) {
-                mSyncFence
+                this
             } else {
                 throw IllegalArgumentException(
                     "Expected SyncFenceCompat implementation " +
                         "for API level 19"
                 )
+            }
+    }
+
+    private companion object {
+
+        // Certain Android platform versions have inconsistent behavior when it comes to
+        // configuring a null HardwareBuffer. More specifically Android Q appears to crash
+        // and restart emulator instances.
+        // Additionally the SDK setBuffer API hides the buffer from the display if it is
+        // null but the NDK API does not and persists the buffer contents on screen.
+        // So instead change the buffer to a 1 x 1 placeholder to achieve a similar effect
+        // with more consistent behavior.
+        @SuppressLint("WrongConstant")
+        val PlaceholderBuffer = HardwareBuffer.create(
+            1,
+            1,
+            HardwareBuffer.RGBA_8888,
+            1,
+            FrontBufferUtils.BaseFlags
+        )
+
+        fun SurfaceControlImpl.asWrapperSurfaceControl(): SurfaceControlWrapper =
+            if (this is SurfaceControlV29) {
+                surfaceControl
+            } else {
+                throw IllegalArgumentException("Parent implementation is only for Android T+.")
             }
     }
 }

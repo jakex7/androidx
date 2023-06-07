@@ -21,14 +21,16 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.support.wearable.complications.ComplicationData.Companion.TYPE_NO_DATA
+import android.support.wearable.complications.ComplicationData.Companion.TYPE_SHORT_TEXT
 import android.support.wearable.complications.ComplicationText.plainText
 import android.util.Log
 import androidx.test.core.app.ApplicationProvider
+import androidx.wear.protolayout.expression.DynamicBuilders.DynamicFloat
+import androidx.wear.protolayout.expression.DynamicBuilders.DynamicString
 import androidx.wear.watchface.complications.data.ComplicationDisplayPolicies
 import androidx.wear.watchface.complications.data.ComplicationPersistencePolicies
-import androidx.wear.watchface.complications.data.FloatExpression
 import androidx.wear.watchface.complications.data.SharedRobolectricTestRunner
-import androidx.wear.watchface.complications.data.StringExpression
 import com.google.common.truth.Expect
 import kotlin.random.Random
 import org.junit.Before
@@ -40,8 +42,7 @@ import org.robolectric.shadows.ShadowLog
 
 @RunWith(SharedRobolectricTestRunner::class)
 class ComplicationDataEqualityTest {
-    @get:Rule
-    val expect = Expect.create()
+    @get:Rule val expect = Expect.create()
 
     @Before
     fun setup() {
@@ -68,12 +69,12 @@ class ComplicationDataEqualityTest {
         val setterTwo: ComplicationData.Builder.() -> Unit,
     ) {
         PERSISTENCE_POLICY(
-            { setPersistencePolicy(ComplicationPersistencePolicies.CACHING_ALLOWED) },
             { setPersistencePolicy(ComplicationPersistencePolicies.DO_NOT_PERSIST) },
+            { setPersistencePolicy(ComplicationPersistencePolicies.CACHING_ALLOWED) },
         ),
         DISPLAY_POLICY(
-            { setDisplayPolicy(ComplicationDisplayPolicies.ALWAYS_DISPLAY) },
             { setDisplayPolicy(ComplicationDisplayPolicies.DO_NOT_SHOW_WHEN_DEVICE_LOCKED) },
+            { setDisplayPolicy(ComplicationDisplayPolicies.ALWAYS_DISPLAY) },
         ),
         START_DATE_TIME_MILLIS(
             { setStartDateTimeMillis(1) },
@@ -88,20 +89,8 @@ class ComplicationDataEqualityTest {
             { setRangedValue(2f) },
         ),
         RANGED_VALUE_EXPRESSION(
-            {
-                setRangedValueExpression(
-                    object : FloatExpression() {
-                        override fun asByteArray() = byteArrayOf(1, 2)
-                    }
-                )
-            },
-            {
-                setRangedValueExpression(
-                    object : FloatExpression() {
-                        override fun asByteArray() = byteArrayOf(3, 4)
-                    }
-                )
-            },
+            { setRangedDynamicValue(DynamicFloat.constant(1.2f)) },
+            { setRangedDynamicValue(DynamicFloat.constant(3.4f)) },
         ),
         RANGED_VALUE_TYPE(
             { setRangedValueType(1) },
@@ -194,20 +183,8 @@ class ComplicationDataEqualityTest {
             { setTapActionLostDueToSerialization(false) },
         ),
         PLACEHOLDER(
-            {
-                setPlaceholder(
-                    ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
-                        .setShortText(plainText("1"))
-                        .build()
-                )
-            },
-            {
-                setPlaceholder(
-                    ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
-                        .setShortText(plainText("2"))
-                        .build()
-                )
-            },
+            { setPlaceholder(staticData("1")) },
+            { setPlaceholder(staticData("2")) },
         ),
         DATA_SOURCE(
             { setDataSource(ComponentName.createRelative("", "1")) },
@@ -234,24 +211,8 @@ class ComplicationDataEqualityTest {
             { setColorRampIsSmoothShaded(false) },
         ),
         LIST_ENTRY_COLLECTION(
-            {
-                setListEntryCollection(
-                    listOf(
-                        ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
-                            .setShortText(plainText("1"))
-                            .build()
-                    )
-                )
-            },
-            {
-                setListEntryCollection(
-                    listOf(
-                        ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
-                            .setShortText(plainText("2"))
-                            .build()
-                    )
-                )
-            },
+            { setListEntryCollection(listOf(staticData("1"))) },
+            { setListEntryCollection(listOf(staticData("2"))) },
         ),
         ELEMENT_WEIGHTS(
             { setElementWeights(floatArrayOf(1f, 2f)) },
@@ -265,19 +226,27 @@ class ComplicationDataEqualityTest {
             { setElementBackgroundColor(1) },
             { setElementBackgroundColor(2) },
         ),
+        TIMELINE_START_TIME(
+            { build().apply { timelineStartEpochSecond = 100 } },
+            { build().apply { timelineStartEpochSecond = 200 } },
+        ),
+        TIMELINE_END_TIME(
+            { build().apply { timelineEndEpochSecond = 100 } },
+            { build().apply { timelineEndEpochSecond = 200 } },
+        ),
+        TIMELINE_ENTRIES(
+            { build().apply { setTimelineEntryCollection(listOf(staticData("1"))) } },
+            { build().apply { setTimelineEntryCollection(listOf(staticData("2"))) } },
+        ),
         ;
 
+        val base = ComplicationData.Builder(TYPE_NO_DATA).build()
+
         /** Builds a [ComplicationData] with the first variation. */
-        fun buildOne() =
-            ComplicationData.Builder(ComplicationData.TYPE_NO_DATA)
-                .apply { setterOne(this) }
-                .build()
+        fun buildOne() = ComplicationData.Builder(base).apply { setterOne(this) }.build()
 
         /** Builds a [ComplicationData] with the second variation. */
-        fun buildTwo() =
-            ComplicationData.Builder(ComplicationData.TYPE_NO_DATA)
-                .apply { setterTwo(this) }
-                .build()
+        fun buildTwo() = ComplicationData.Builder(base).apply { setterTwo(this) }.build()
     }
 
     @Test
@@ -292,6 +261,10 @@ class ComplicationDataEqualityTest {
                 .withMessage("${scenario.name} does not equal another")
                 .that(scenario.buildOne())
                 .isNotEqualTo(scenario.buildTwo())
+            expect
+                .withMessage("${scenario.name} does not equal unset")
+                .that(scenario.buildOne())
+                .isNotEqualTo(scenario.base)
         }
     }
 
@@ -307,6 +280,10 @@ class ComplicationDataEqualityTest {
                 .withMessage("${scenario.name} does not equal another")
                 .that(scenario.buildOne().hashCode())
                 .isNotEqualTo(scenario.buildTwo().hashCode())
+            expect
+                .withMessage("${scenario.name} does not equal unset")
+                .that(scenario.buildOne().hashCode())
+                .isNotEqualTo(scenario.base.hashCode())
         }
     }
 
@@ -332,216 +309,90 @@ class ComplicationDataEqualityTest {
         RANGED_VALUE_EXPRESSION(
             {
                 setRangedValue(Random.nextFloat()) // Ignored when there's an expression.
-                    .setRangedValueExpression(
-                        object : FloatExpression() {
-                            override fun asByteArray() = byteArrayOf(1, 2)
-                        }
-                    )
+                    .setRangedDynamicValue(DynamicFloat.constant(1.2f))
             },
             {
                 setRangedValue(Random.nextFloat()) // Ignored when there's an expression.
-                    .setRangedValueExpression(
-                        object : FloatExpression() {
-                            override fun asByteArray() = byteArrayOf(3, 4)
-                        }
-                    )
+                    .setRangedDynamicValue(DynamicFloat.constant(3.4f))
             },
         ),
-
-        // Not ignored without an expression.
         RANGED_VALUE_NO_EXPRESSION(
             { setRangedValue(1f) },
             { setRangedValue(2f) },
         ),
         SHORT_TITLE_EXPRESSION(
-            {
-                setShortTitle(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(1, 2))
-                    )
-                )
-            },
-            {
-                setShortTitle(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(3, 4))
-                    )
-                )
-            },
+            { setShortTitle(expressionText("1")) },
+            { setShortTitle(expressionText("2")) },
         ),
-
-        // Not ignored without an expression.
         SHORT_TITLE_NO_EXPRESSION(
             { setShortTitle(plainText("1")) },
             { setShortTitle(plainText("2")) },
         ),
         SHORT_TEXT_EXPRESSION(
-            {
-                setShortText(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(1, 2))
-                    )
-                )
-            },
-            {
-                setShortText(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(3, 4))
-                    )
-                )
-            },
+            { setShortText(expressionText("1")) },
+            { setShortText(expressionText("2")) },
         ),
-
-        // Not ignored without an expression.
         SHORT_TEXT_NO_EXPRESSION(
             { setShortText(plainText("1")) },
             { setShortText(plainText("2")) },
         ),
         LONG_TITLE_EXPRESSION(
-            {
-                setLongTitle(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(1, 2))
-                    )
-                )
-            },
-            {
-                setLongTitle(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(3, 4))
-                    )
-                )
-            },
+            { setLongTitle(expressionText("1")) },
+            { setLongTitle(expressionText("2")) },
         ),
-
-        // Not ignored without an expression.
         LONG_TITLE_NO_EXPRESSION(
             { setLongTitle(plainText("1")) },
             { setLongTitle(plainText("2")) },
         ),
         LONG_TEXT_EXPRESSION(
-            {
-                setLongText(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(1, 2))
-                    )
-                )
-            },
-            {
-                setLongText(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(3, 4))
-                    )
-                )
-            },
+            { setLongText(expressionText("1")) },
+            { setLongText(expressionText("2")) },
         ),
-
-        // Not ignored without an expression.
         LONG_TEXT_NO_EXPRESSION(
             { setLongText(plainText("1")) },
             { setLongText(plainText("2")) },
         ),
         CONTENT_DESCRIPTION_EXPRESSION(
-            {
-                setContentDescription(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(1, 2))
-                    )
-                )
-            },
-            {
-                setContentDescription(
-                    ComplicationText(
-                        Random.nextInt().toString(), // Ignored when there's an expression.
-                        /* timeDependentText = */ null,
-                        StringExpression(byteArrayOf(3, 4))
-                    )
-                )
-            },
+            { setContentDescription(expressionText("1")) },
+            { setContentDescription(expressionText("2")) },
         ),
-
-        // Not ignored without an expression.
         CONTENT_DESCRIPTION_NO_EXPRESSION(
             { setContentDescription(plainText("1")) },
             { setContentDescription(plainText("2")) },
         ),
         PLACEHOLDER_EXPRESSION(
-            {
-                setPlaceholder(
-                    ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
-                        .setShortText(
-                            ComplicationText(
-                                Random.nextInt().toString(), // Ignored when there's an expression.
-                                /* timeDependentText = */ null,
-                                StringExpression(byteArrayOf(1, 2))
-                            )
-                        )
-                        .build()
-                )
-            },
-            {
-                setPlaceholder(
-                    ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
-                        .setShortText(
-                            ComplicationText(
-                                Random.nextInt().toString(), // Ignored when there's an expression.
-                                /* timeDependentText = */ null,
-                                StringExpression(byteArrayOf(3, 4))
-                            )
-                        )
-                        .build()
-                )
-            },
+            { setPlaceholder(expressionData("1")) },
+            { setPlaceholder(expressionData("2")) },
         ),
-
-        // Not ignored without an expression.
         PLACEHOLDER_NO_EXPRESSION(
-            {
-                setPlaceholder(
-                    ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
-                        .setShortText(plainText("1"))
-                        .build()
-                )
-            },
-            {
-                setPlaceholder(
-                    ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
-                        .setShortText(plainText("2"))
-                        .build()
-                )
-            },
+            { setPlaceholder(staticData("1")) },
+            { setPlaceholder(staticData("2")) },
+        ),
+        LIST_ENTRY_COLLECTION_EXPRESSION(
+            { setListEntryCollection(listOf(expressionData("1"))) },
+            { setListEntryCollection(listOf(expressionData("2"))) },
+        ),
+        LIST_ENTRY_COLLECTION_EXPRESSION_DIFFERENT_SIZE(
+            { setListEntryCollection(listOf(expressionData("1"), expressionData("1"))) },
+            { setListEntryCollection(listOf(expressionData("1"))) },
+        ),
+        LIST_ENTRY_COLLECTION_NO_EXPRESSION(
+            { setListEntryCollection(listOf(staticData("1"))) },
+            { setListEntryCollection(listOf(staticData("2"))) },
+        ),
+        LIST_ENTRY_COLLECTION_NO_EXPRESSION_DIFFERENT_SIZE(
+            { setListEntryCollection(listOf(staticData("1"), staticData("1"))) },
+            { setListEntryCollection(listOf(staticData("1"))) },
         ),
         ;
 
+        val base = ComplicationData.Builder(TYPE_NO_DATA).build()
+
         /** Builds a [ComplicationData] with the first variation. */
-        fun buildOne() =
-            ComplicationData.Builder(ComplicationData.TYPE_NO_DATA)
-                .apply { setterOne(this) }
-                .build()
+        fun buildOne() = ComplicationData.Builder(base).apply { setterOne(this) }.build()
 
         /** Builds a [ComplicationData] with the second variation. */
-        fun buildTwo() =
-            ComplicationData.Builder(ComplicationData.TYPE_NO_DATA)
-                .apply { setterTwo(this) }
-                .build()
+        fun buildTwo() = ComplicationData.Builder(base).apply { setterTwo(this) }.build()
     }
 
     @Test
@@ -555,6 +406,24 @@ class ComplicationDataEqualityTest {
                 .withMessage("${scenario.name} does not unevaluated equal another")
                 .that(scenario.buildOne().equalsUnevaluated(scenario.buildTwo()))
                 .isFalse()
+            expect
+                .withMessage("${scenario.name} does not unevaluated equal unset")
+                .that(scenario.buildOne().equalsUnevaluated(scenario.base))
+                .isFalse()
         }
+    }
+
+    private companion object {
+        fun staticData(value: String) =
+            ComplicationData.Builder(TYPE_SHORT_TEXT).setShortText(plainText(value)).build()
+
+        fun expressionData(value: String) =
+            ComplicationData.Builder(TYPE_SHORT_TEXT).setShortText(expressionText(value)).build()
+
+        fun expressionText(value: String) =
+            ComplicationText(
+                Random.nextInt().toString(), // Ignored when there's an expression.
+                DynamicString.constant(value)
+            )
     }
 }

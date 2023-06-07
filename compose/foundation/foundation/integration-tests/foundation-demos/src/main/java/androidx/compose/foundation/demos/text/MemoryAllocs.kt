@@ -16,13 +16,26 @@
 
 package androidx.compose.foundation.demos.text
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.Divider
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReusableContent
+import androidx.compose.runtime.ReusableContentHost
 import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
+private val style = TextStyle.Default
 /**
  * These demos are for using the memory profiler to observe initial compo and recompo memory
  * pressure.
@@ -32,8 +45,12 @@ import androidx.compose.runtime.withFrameMillis
 @Composable
 fun MemoryAllocsSetText() {
     Column {
-        Text("Run in memory profiler to emulate setting text value when observable loads")
-        Text("This is designed to be used in the Android Studio memory profiler")
+        Preamble("""
+            @Composable
+            fun SetText(text: State<String>) {
+                Text(text.value)
+            }""".trimIndent()
+        )
         SetText(textToggler())
     }
 }
@@ -47,22 +64,75 @@ fun MemoryAllocsSetText() {
 @Composable
 fun MemoryAllocsIfNotEmptyText() {
     Column {
-        Text("Run in memory profiler to emulate calling Text after an observable loads")
-        Text("This is designed to be used in the Android Studio memory profiler")
+        Preamble("""
+            @Composable
+            fun IfNotEmptyText(text: State<String>) {
+                if (text.value.isNotEmpty()) {
+                    Text(text.value)
+                }
+            }""".trimIndent()
+        )
         IfNotEmptyText(textToggler())
     }
 }
 
 @Composable
+fun MemoryAllocsLazyList() {
+    val states = produceLazyListReuseDriver()
+    Column {
+        Preamble(sourceCode = """
+                item { Text("Some static text") }
+            """.trimIndent()
+        )
+        LazyListReuse(states)
+    }
+}
+
+@Composable
+fun Preamble(sourceCode: String) {
+    Text("Run in memory profiler to emulate text behavior during observable loads")
+    Text(text = sourceCode,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(220, 230, 240)),
+        fontFamily = FontFamily.Monospace,
+        color = Color(41, 17, 27),
+        fontSize = 10.sp
+    )
+    Divider(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp))
+    Text("\uD83D\uDC47 running here \uD83D\uDC47")
+}
+
+@Composable
 fun IfNotEmptyText(text: State<String>) {
     if (text.value.isNotEmpty()) {
-        Text(text.value)
+        Text(
+            text.value,
+            style = style
+        )
+    }
+}
+
+@Composable
+fun LazyListReuse(active: State<Pair<Boolean, Int>>) {
+    // this emulates what a LazyList does during reuse
+    ReusableContentHost(active.value.first) {
+        ReusableContent(active.value.second) {
+            Text(
+                "Some static text",
+                style = style,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
 @Composable
 private fun SetText(text: State<String>) {
-    Text(text.value)
+    Text(text.value, style = style)
 }
 
 @Composable
@@ -73,6 +143,20 @@ private fun textToggler(): State<String> = produceState("") {
                 "This text and empty string swap every frame"
             } else {
                 ""
+            }
+        }
+    }
+}
+
+@Composable
+fun produceLazyListReuseDriver(): State<Pair<Boolean, Int>> = produceState(false to 0) {
+    while (true) {
+        withFrameMillis {
+            val (oldToggle, oldCount) = value
+            value = if (oldToggle) {
+                false to oldCount
+            } else {
+                true to oldCount + 1
             }
         }
     }

@@ -27,7 +27,7 @@ import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresOptIn;
-import androidx.annotation.RestrictTo;
+import androidx.annotation.VisibleForTesting;
 
 import java.util.Locale;
 
@@ -47,11 +47,9 @@ public class BuildCompat {
      * @param buildCodename the value of {@link Build.VERSION#CODENAME}
      *
      * @return {@code true} if APIs from the requested codename are available in the build.
-     *
-     * @hide
      */
-    @RestrictTo(RestrictTo.Scope.TESTS)
-    protected static boolean isAtLeastPreReleaseCodename(@NonNull String codename,
+    @VisibleForTesting
+    static boolean isAtLeastPreReleaseCodename(@NonNull String codename,
             @NonNull String buildCodename) {
 
         // Special case "REL", which means the build is not a pre-release build.
@@ -195,7 +193,8 @@ public class BuildCompat {
     @Deprecated
     public static boolean isAtLeastSv2() {
         return VERSION.SDK_INT >= 32
-                || (VERSION.SDK_INT >= 31 && isAtLeastPreReleaseCodename("Sv2", VERSION.CODENAME));
+                || (VERSION.SDK_INT >= 31
+                && isAtLeastPreReleaseCodename("Sv2", VERSION.CODENAME));
     }
 
     /**
@@ -206,9 +205,13 @@ public class BuildCompat {
      * removed and all calls must be replaced with {@code Build.VERSION.SDK_INT >= 33}.
      *
      * @return {@code true} if Tiramisu APIs are available for use, {@code false} otherwise
+     * @deprecated Android Tiramisu is a finalized release and this method is no longer necessary.
+     *             It will be removed in a future release of this library. Instead, use
+     *             {@code Build.VERSION.SDK_INT >= 33}.
      */
     @PrereleaseSdkCheck
     @ChecksSdkIntAtLeast(api = 33, codename = "Tiramisu")
+    @Deprecated
     public static boolean isAtLeastT() {
         return VERSION.SDK_INT >= 33
                 || (VERSION.SDK_INT >= 32
@@ -216,19 +219,36 @@ public class BuildCompat {
     }
 
     /**
-     * Checks if the device is running on a pre-release version of Android U.
+     * Checks if the device is running on a pre-release version of Android UpsideDownCake or a
+     * release version of Android UpsideDownCake or newer.
      * <p>
-     * <strong>Note:</strong> When Android U is finalized for release, this method will be
-     * removed and all calls must be replaced with {@code Build.VERSION.SDK_INT >=
-     * Build.VERSION_CODES.U}.
+     * <strong>Note:</strong> When Android UpsideDownCake is finalized for release, this method
+     * will be removed and all calls must be replaced with {@code Build.VERSION.SDK_INT >= 34}.
      *
-     * @return {@code true} if U APIs are available for use, {@code false} otherwise
+     * @return {@code true} if UpsideDownCake APIs are available for use, {@code false} otherwise
      */
     @PrereleaseSdkCheck
-    @ChecksSdkIntAtLeast(codename = "UpsideDownCake")
+    @ChecksSdkIntAtLeast(api = 34, codename = "UpsideDownCake")
     public static boolean isAtLeastU() {
-        return VERSION.SDK_INT >= 33
-                && isAtLeastPreReleaseCodename("UpsideDownCake", VERSION.CODENAME);
+        return VERSION.SDK_INT >= 34
+                || (VERSION.SDK_INT >= 33
+                && isAtLeastPreReleaseCodename("UpsideDownCake", VERSION.CODENAME));
+    }
+
+    /**
+     * Checks if the device is running on a pre-release version of Android VanillaIceCream.
+     * <p>
+     * <strong>Note:</strong> When Android anillaIceCream is finalized for release, this method will
+     * be removed and all calls must be replaced with {@code Build.VERSION.SDK_INT >=
+     * Build.VERSION_CODES.VANILLA_ICE_CREAM}.
+     *
+     * @return {@code true} if VanillaIceCream APIs are available for use, {@code false} otherwise
+     */
+    @PrereleaseSdkCheck
+    @ChecksSdkIntAtLeast(codename = "VanillaIceCream")
+    public static boolean isAtLeastV() {
+        return VERSION.SDK_INT >= 34
+                && isAtLeastPreReleaseCodename("VanillaIceCream", VERSION.CODENAME);
     }
 
     /**
@@ -297,16 +317,11 @@ public class BuildCompat {
     public static final int AD_SERVICES_EXTENSION_INT =
             VERSION.SDK_INT >= 30 ? Extensions30Impl.AD_SERVICES : 0;
 
-    @SuppressLint("ClassVerificationFailure") // Remove when SDK including b/206996004 is imported
     @RequiresApi(30)
     private static final class Extensions30Impl {
-        @SuppressLint("NewApi") // Remove when SDK including b/206996004 is imported
         static final int R = getExtensionVersion(Build.VERSION_CODES.R);
-        @SuppressLint("NewApi") // Remove when SDK including b/206996004 is imported
         static final int S = getExtensionVersion(Build.VERSION_CODES.S);
-        @SuppressLint("NewApi") // Remove when SDK including b/206996004 is imported
         static final int TIRAMISU = getExtensionVersion(Build.VERSION_CODES.TIRAMISU);
-        @SuppressLint("NewApi") // Remove when SDK including b/206996004 is imported
         static final int AD_SERVICES = getExtensionVersion(SdkExtensions.AD_SERVICES);
     }
 

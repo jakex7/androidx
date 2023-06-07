@@ -22,6 +22,7 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CaptureRequest
 import android.util.ArrayMap
 import android.view.Surface
+import androidx.annotation.GuardedBy
 import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraGraph
 import androidx.camera.camera2.pipe.CaptureSequence
@@ -34,6 +35,7 @@ import androidx.camera.camera2.pipe.RequestNumber
 import androidx.camera.camera2.pipe.RequestTemplate
 import androidx.camera.camera2.pipe.StreamGraph
 import androidx.camera.camera2.pipe.StreamId
+import androidx.camera.camera2.pipe.core.Debug
 import androidx.camera.camera2.pipe.core.Log
 import androidx.camera.camera2.pipe.core.Threads
 import androidx.camera.camera2.pipe.graph.StreamGraphImpl
@@ -41,6 +43,7 @@ import androidx.camera.camera2.pipe.writeParameters
 import javax.inject.Inject
 import kotlin.reflect.KClass
 import kotlinx.atomicfu.atomic
+import kotlinx.coroutines.runBlocking
 
 internal interface Camera2CaptureSequenceProcessorFactory {
     fun create(
@@ -49,10 +52,13 @@ internal interface Camera2CaptureSequenceProcessorFactory {
     ): CaptureSequenceProcessor<*, *>
 }
 
-internal class StandardCamera2CaptureSequenceProcessorFactory @Inject constructor(
+internal class StandardCamera2CaptureSequenceProcessorFactory
+@Inject
+constructor(
     private val threads: Threads,
     private val graphConfig: CameraGraph.Config,
-    private val streamGraph: StreamGraphImpl
+    private val streamGraph: StreamGraphImpl,
+    private val quirks: Camera2Quirks,
 ) : Camera2CaptureSequenceProcessorFactory {
     @Suppress("UNCHECKED_CAST")
     override fun create(
@@ -65,14 +71,17 @@ internal class StandardCamera2CaptureSequenceProcessorFactory @Inject constructo
             threads,
             graphConfig.defaultTemplate,
             surfaceMap,
-            streamGraph
-        ) as CaptureSequenceProcessor<Any, CaptureSequence<Any>>
+            streamGraph,
+            quirks.shouldWaitForRepeatingRequest(graphConfig)
+        )
+            as CaptureSequenceProcessor<Any, CaptureSequence<Any>>
     }
 }
 
 internal val captureSequenceProcessorDebugIds = atomic(0)
 internal val captureSequenceDebugIds = atomic(0L)
 internal val requestTags = atomic(0L)
+
 internal fun nextRequestTag(): RequestNumber = RequestNumber(requestTags.incrementAndGet())
 
 private const val REQUIRE_SURFACE_FOR_ALL_STREAMS = false
@@ -86,9 +95,18 @@ internal class Camera2CaptureSequenceProcessor(
     private val threads: Threads,
     private val template: RequestTemplate,
     private val surfaceMap: Map<StreamId, Surface>,
-    private val streamGraph: StreamGraph
+    private val streamGraph: StreamGraph,
+    private val shouldWaitForRepeatingRequest: Boolean = false,
 ) : CaptureSequenceProcessor<CaptureRequest, Camera2CaptureSequence> {
     private val debugId = captureSequenceProcessorDebugIds.incrementAndGet()
+    private val lock = Any()
+
+    @GuardedBy("lock")
+    private var closed = false
+
+    @GuardedBy("lock")
+    private var lastSingleRepeatingRequestSequence: Camera2CaptureSequence? = null
+
     override fun build(
         isRepeating: Boolean,
         requests: List<Request>,
@@ -120,13 +138,12 @@ internal class Camera2CaptureSequenceProcessor(
 
             val requestTemplate = request.template ?: template
 
-            // Create the request builder. There is a risk this will throw an exception or return null
+            // Create the request builder. There is a risk this will throw an exception or return
+            // null
             // if the CameraDevice has been closed or disconnected. If this fails, indicate that the
             // request was not submitted.
-            val requestBuilder: CaptureRequest.Builder
-            try {
-                requestBuilder = session.device.createCaptureRequest(requestTemplate)
-            } catch (exception: ObjectUnavailableException) {
+            val requestBuilder = session.device.createCaptureRequest(requestTemplate)
+            if (requestBuilder == null) {
                 Log.info { "  Failed to create a CaptureRequest.Builder from $requestTemplate!" }
                 return null
             }
@@ -178,8 +195,9 @@ internal class Camera2CaptureSequenceProcessor(
                 // Check if video stream use case is present
                 val containsVideoStream =
                     request.streams.any {
-                        streamGraph.outputs
-                            .any { it.streamUseCase == OutputStream.StreamUseCase.VIDEO_RECORD }
+                        streamGraph.outputs.any {
+                            it.streamUseCase == OutputStream.StreamUseCase.VIDEO_RECORD
+                        }
                     }
 
                 // If preview stream is present with no recording stream, then only submit the first
@@ -189,40 +207,43 @@ internal class Camera2CaptureSequenceProcessor(
                 // the same value instead of smoothly changing across each frame.
                 if (!containsVideoStream) {
                     captureRequests.add(highSpeedRequestList[0])
-                    // If recording video with or without preview stream, then add all requests to list
+                    // If recording video with or without preview stream, then add all requests to
+                    // list
                 } else {
                     captureRequests.addAll(highSpeedRequestList)
                 }
 
                 @Suppress("SyntheticAccessor")
-                val metadata = Camera2RequestMetadata(
-                    session,
-                    highSpeedRequestList[0],
-                    defaultParameters,
-                    requiredParameters,
-                    streamToSurfaceMap,
-                    requestTemplate,
-                    isRepeating,
-                    request,
-                    requestTag
-                )
+                val metadata =
+                    Camera2RequestMetadata(
+                        session,
+                        highSpeedRequestList[0],
+                        defaultParameters,
+                        requiredParameters,
+                        streamToSurfaceMap,
+                        requestTemplate,
+                        isRepeating,
+                        request,
+                        requestTag
+                    )
                 requestMap[requestTag] = metadata
                 requestList.add(metadata)
             } else {
                 captureRequests.add(captureRequest)
 
                 @Suppress("SyntheticAccessor")
-                val metadata = Camera2RequestMetadata(
-                    session,
-                    captureRequest,
-                    defaultParameters,
-                    requiredParameters,
-                    streamToSurfaceMap,
-                    requestTemplate,
-                    isRepeating,
-                    request,
-                    requestTag
-                )
+                val metadata =
+                    Camera2RequestMetadata(
+                        session,
+                        captureRequest,
+                        defaultParameters,
+                        requiredParameters,
+                        streamToSurfaceMap,
+                        requestTemplate,
+                        isRepeating,
+                        request,
+                        requestTag
+                    )
                 requestMap[requestTag] = metadata
                 requestList.add(metadata)
             }
@@ -242,52 +263,62 @@ internal class Camera2CaptureSequenceProcessor(
         )
     }
 
-    override fun submit(captureSequence: Camera2CaptureSequence): Int {
+    override fun submit(captureSequence: Camera2CaptureSequence): Int? = synchronized(lock) {
+        if (closed) {
+            Log.warn { "Capture sequence processor closed. $captureSequence won't be submitted" }
+            return null
+        }
         val captureCallback = captureSequence as CameraCaptureSession.CaptureCallback
         // TODO: Update these calls to use executors on newer versions of the OS
         return if (captureSequence.captureRequestList.size == 1 &&
             session !is CameraConstrainedHighSpeedCaptureSessionWrapper
         ) {
             if (captureSequence.repeating) {
+                if (shouldWaitForRepeatingRequest) {
+                    lastSingleRepeatingRequestSequence = captureSequence
+                }
                 session.setRepeatingRequest(
-                    captureSequence.captureRequestList[0],
-                    captureCallback,
-                    threads.camera2Handler
+                    captureSequence.captureRequestList[0], captureCallback, threads.camera2Handler
                 )
             } else {
                 session.capture(
-                    captureSequence.captureRequestList[0],
-                    captureSequence,
-                    threads.camera2Handler
+                    captureSequence.captureRequestList[0], captureSequence, threads.camera2Handler
                 )
             }
         } else {
             if (captureSequence.repeating) {
                 session.setRepeatingBurst(
-                    captureSequence.captureRequestList,
-                    captureSequence,
-                    threads.camera2Handler
+                    captureSequence.captureRequestList, captureSequence, threads.camera2Handler
                 )
             } else {
                 session.captureBurst(
-                    captureSequence.captureRequestList,
-                    captureSequence,
-                    threads.camera2Handler
+                    captureSequence.captureRequestList, captureSequence, threads.camera2Handler
                 )
             }
         }
     }
 
-    override fun abortCaptures() {
+    override fun abortCaptures(): Unit = synchronized(lock) {
+        if (closed) return
         session.abortCaptures()
     }
 
-    override fun stopRepeating() {
+    override fun stopRepeating(): Unit = synchronized(lock) {
+        if (closed) return
         session.stopRepeating()
     }
 
-    override fun close() {
+    override fun close() = synchronized(lock) {
         // Close should not shut down
+        Debug.trace("$this#close") {
+            if (shouldWaitForRepeatingRequest) {
+                lastSingleRepeatingRequestSequence?.let {
+                    Log.debug { "Waiting for the last repeating request sequence $it" }
+                    runBlocking { it.awaitStarted() }
+                }
+            }
+            closed = true
+        }
     }
 
     override fun toString(): String {
@@ -316,8 +347,9 @@ internal class Camera2CaptureSequenceProcessor(
                 // Check if preview stream use case is present
                 containsPreviewStream =
                     request.streams.any {
-                        streamGraph.outputs
-                            .any { it.streamUseCase == OutputStream.StreamUseCase.PREVIEW }
+                        streamGraph.outputs.any {
+                            it.streamUseCase == OutputStream.StreamUseCase.PREVIEW
+                        }
                     }
 
                 // Check if all high speed requests have the same preview use case
@@ -336,8 +368,9 @@ internal class Camera2CaptureSequenceProcessor(
                 // Check if video stream use case is present
                 containsVideoStream =
                     request.streams.any {
-                        streamGraph.outputs
-                            .any { it.streamUseCase == OutputStream.StreamUseCase.VIDEO_RECORD }
+                        streamGraph.outputs.any {
+                            it.streamUseCase == OutputStream.StreamUseCase.VIDEO_RECORD
+                        }
                     }
 
                 // Check if all high speed requests have the same video use case
@@ -420,9 +453,7 @@ internal class Camera2CaptureSequenceProcessor(
     }
 }
 
-/**
- * This class packages together information about a request that was submitted to the camera.
- */
+/** This class packages together information about a request that was submitted to the camera. */
 @RequiresApi(21)
 @Suppress("SyntheticAccessor") // Using an inline class generates a synthetic constructor
 internal class Camera2RequestMetadata(
@@ -437,32 +468,33 @@ internal class Camera2RequestMetadata(
     override val requestNumber: RequestNumber
 ) : RequestMetadata {
     override fun <T> get(key: CaptureRequest.Key<T>): T? = captureRequest[key]
-    override fun <T> getOrDefault(key: CaptureRequest.Key<T>, default: T): T =
-        get(key) ?: default
+    override fun <T> getOrDefault(key: CaptureRequest.Key<T>, default: T): T = get(key) ?: default
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T> get(key: Metadata.Key<T>): T? = when {
-        requiredParameters.containsKey(key) -> {
-            requiredParameters[key] as T?
-        }
+    override fun <T> get(key: Metadata.Key<T>): T? =
+        when {
+            requiredParameters.containsKey(key) -> {
+                requiredParameters[key] as T?
+            }
 
-        request.extras.containsKey(key) -> {
-            request.extras[key] as T?
-        }
+            request.extras.containsKey(key) -> {
+                request.extras[key] as T?
+            }
 
-        else -> {
-            defaultParameters[key] as T?
+            else -> {
+                defaultParameters[key] as T?
+            }
         }
-    }
 
     override fun <T> getOrDefault(key: Metadata.Key<T>, default: T): T = get(key) ?: default
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : Any> unwrapAs(type: KClass<T>): T? = when (type) {
-        CaptureRequest::class -> captureRequest as T
-        CameraCaptureSession::class ->
-            cameraCaptureSessionWrapper.unwrapAs(CameraCaptureSession::class) as? T
+    override fun <T : Any> unwrapAs(type: KClass<T>): T? =
+        when (type) {
+            CaptureRequest::class -> captureRequest as T
+            CameraCaptureSession::class ->
+                cameraCaptureSessionWrapper.unwrapAs(CameraCaptureSession::class) as? T
 
-        else -> null
-    }
+            else -> null
+        }
 }

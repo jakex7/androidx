@@ -126,7 +126,9 @@ class XExecutableElementTest {
             """
             interface Subject {
                 fun method(vararg inputs: String)
-                suspend fun suspendMethod(vararg inputs: String);
+                suspend fun suspendMethod(vararg inputs: String)
+                fun method2(vararg inputs: String, arg: Int)
+                fun String.extFun(vararg inputs: String)
             }
             """.trimIndent()
         )
@@ -134,8 +136,35 @@ class XExecutableElementTest {
             sources = listOf(subject)
         ) {
             val element = it.processingEnv.requireTypeElement("Subject")
-            assertThat(element.getMethodByJvmName("method").isVarArgs()).isTrue()
-            assertThat(element.getMethodByJvmName("suspendMethod").isVarArgs()).isFalse()
+
+            element.getMethodByJvmName("method").let { method ->
+                assertThat(method.isVarArgs()).isTrue()
+                assertThat(method.parameters).hasSize(1)
+                assertThat(method.parameters.single().isVarArgs()).isTrue()
+            }
+
+            element.getMethodByJvmName("suspendMethod").let { suspendMethod ->
+                assertThat(suspendMethod.isVarArgs()).isFalse()
+                assertThat(suspendMethod.parameters).hasSize(2)
+                assertThat(
+                    suspendMethod.parameters.first { it.name == "inputs" }.isVarArgs()
+                ).isTrue()
+            }
+
+            element.getMethodByJvmName("extFun").let { extFun ->
+                assertThat(extFun.isVarArgs()).isTrue()
+                assertThat(extFun.parameters).hasSize(2)
+                // kapt messed with parameter names, sometimes the synthetic parameter can use the
+                // second parameter's name.
+                assertThat(extFun.parameters.get(1).isVarArgs()).isTrue()
+            }
+
+            element.getMethodByJvmName("method2").let { method2 ->
+                assertThat(method2.isVarArgs()).isFalse()
+                assertThat(method2.parameters).hasSize(2)
+                assertThat(method2.parameters.first { it.name == "inputs" }.isVarArgs())
+                    .isTrue()
+            }
         }
     }
 
@@ -441,6 +470,7 @@ class XExecutableElementTest {
                     assertThat(method.parameters.first().type.asTypeName()).isEqualTo(
                         String::class.asClassName()
                     )
+                    assertThat(method.parameters.first().isKotlinPropertyParam()).isTrue()
                     assertThat(method.isPublic()).isTrue()
                     assertThat(method.parameters.first().type.nullability).isEqualTo(
                         XNullability.NONNULL
@@ -982,6 +1012,7 @@ class XExecutableElementTest {
                 element.getDeclaredMethodByJvmName("ext1").let { method ->
                     assertThat(method.isExtensionFunction()).isTrue()
                     assertThat(method.parameters.size).isEqualTo(1)
+                    assertThat(method.parameters[0].isReceiverParam()).isTrue()
                     assertThat(method.parameters[0].name).isEqualTo("\$this\$ext1")
                     assertThat(method.parameters[0].type.asTypeName())
                         .isEqualTo(String::class.asClassName())
@@ -1024,6 +1055,7 @@ class XExecutableElementTest {
                     assertThat(method.parameters.size).isEqualTo(2)
                     assertThat(method.parameters[0].type.asTypeName())
                         .isEqualTo(String::class.asClassName())
+                    assertThat(method.parameters[1].isContinuationParam()).isTrue()
                     assertThat(method.parameters[1].type.typeName).isEqualTo(
                         ParameterizedTypeName.get(
                             ClassName.get("kotlin.coroutines", "Continuation"),

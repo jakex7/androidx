@@ -16,6 +16,8 @@
 
 package androidx.paging.testing
 
+import androidx.annotation.VisibleForTesting
+import androidx.paging.CombinedLoadStates
 import androidx.paging.DifferCallback
 import androidx.paging.ItemSnapshotList
 import androidx.paging.LoadState
@@ -24,32 +26,36 @@ import androidx.paging.NullPaddedList
 import androidx.paging.Pager
 import androidx.paging.PagingData
 import androidx.paging.PagingDataDiffer
+import androidx.paging.testing.ErrorRecovery.RETRY
+import androidx.paging.testing.ErrorRecovery.RETURN_CURRENT_SNAPSHOT
+import androidx.paging.testing.ErrorRecovery.THROW
 import androidx.paging.testing.LoaderCallback.CallbackType.ON_CHANGED
 import androidx.paging.testing.LoaderCallback.CallbackType.ON_INSERTED
 import androidx.paging.testing.LoaderCallback.CallbackType.ON_REMOVED
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Runs the [SnapshotLoader] load operations that are passed in and returns a List of data
  * that would be presented to the UI after all load operations are complete.
  *
- * @param coroutineScope The [CoroutineScope] to collect from this Flow<PagingData> and contains
- * the [CoroutineScope.coroutineContext] to load data from.
+ * @param onError The error recovery strategy when PagingSource returns LoadResult.Error. A lambda
+ * that returns an [ErrorRecovery] value. The default strategy is [ErrorRecovery.THROW].
  *
  * @param loadOperations The block containing [SnapshotLoader] load operations.
  */
+@VisibleForTesting
 public suspend fun <Value : Any> Flow<PagingData<Value>>.asSnapshot(
-    coroutineScope: CoroutineScope,
-    loadOperations: suspend SnapshotLoader<Value>.() -> @JvmSuppressWildcards Unit
-): @JvmSuppressWildcards List<Value> {
+    onError: LoadErrorHandler = LoadErrorHandler { THROW },
+    loadOperations: suspend SnapshotLoader<Value>.() -> @JvmSuppressWildcards Unit = { }
+): @JvmSuppressWildcards List<Value> = coroutineScope {
 
     lateinit var loader: SnapshotLoader<Value>
 
@@ -74,8 +80,8 @@ public suspend fun <Value : Any> Flow<PagingData<Value>>.asSnapshot(
         }
     }
 
-    // PagingDataDiffer automatically switches to Dispatchers.Main to call presentNewList
-    val differ = object : PagingDataDiffer<Value>(callback) {
+    // PagingDataDiffer will collect from coroutineContext instead of main dispatcher
+    val differ = object : PagingDataDiffer<Value>(callback, coroutineContext) {
         override suspend fun presentNewList(
             previousList: NullPaddedList<Value>,
             newList: NullPaddedList<Value>,
@@ -102,14 +108,14 @@ public suspend fun <Value : Any> Flow<PagingData<Value>>.asSnapshot(
         }
     }
 
-    loader = SnapshotLoader(differ)
+    loader = SnapshotLoader(differ, onError)
 
     /**
      * Launches collection on this [Pager.flow].
      *
      * The collection job is cancelled automatically after [loadOperations] completes.
       */
-    val job = coroutineScope.launch {
+    val collectPagingData = launch {
         this@asSnapshot.collectLatest {
             incrementGeneration(loader)
             differ.collectFrom(it)
@@ -122,34 +128,86 @@ public suspend fun <Value : Any> Flow<PagingData<Value>>.asSnapshot(
      * Awaits for initial refresh to complete before invoking [loadOperations]. Automatically
      * cancels the collection on this [Pager.flow] after [loadOperations] completes and Paging
      * is idle.
-     *
-     * Returns a List of loaded data.
      */
-    return withContext(coroutineScope.coroutineContext) {
-        differ.awaitNotLoading()
+    try {
+        differ.awaitNotLoading(onError)
         loader.loadOperations()
-        differ.awaitNotLoading()
-
-        job.cancelAndJoin()
-
-        differ.snapshot().items
+        differ.awaitNotLoading(onError)
+    } catch (stub: ReturnSnapshotStub) {
+        // we just want to stub and return snapshot early
+    } catch (throwable: Throwable) {
+        throw throwable
+    } finally {
+        collectPagingData.cancelAndJoin()
     }
+
+    differ.snapshot().items
 }
 
 /**
  * Awaits until both source and mediator states are NotLoading. We do not care about the state of
  * endOfPaginationReached. Source and mediator states need to be checked individually because
  * the aggregated LoadStates can reflect `NotLoading` when source states are `Loading`.
+ *
+ * We debounce(1ms) to prevent returning too early if this collected a `NotLoading` from the
+ * previous load. Without a way to determine whether the `NotLoading` it collected was from
+ * a previous operation or current operation, we debounce 1ms to allow collection on a potential
+ * incoming `Loading` state.
  */
-internal suspend fun <Value : Any> PagingDataDiffer<Value>.awaitNotLoading() {
-    loadStateFlow.filterNotNull().filter {
-        it.source.isIdle() && it.mediator?.isIdle() ?: true
+@OptIn(kotlinx.coroutines.FlowPreview::class)
+internal suspend fun <Value : Any> PagingDataDiffer<Value>.awaitNotLoading(
+    errorHandler: LoadErrorHandler
+) {
+    val state = loadStateFlow.filterNotNull().debounce(1).filter {
+        it.isIdle() || it.hasError()
     }.firstOrNull()
+
+    if (state != null && state.hasError()) {
+        handleLoadError(state, errorHandler)
+    }
+}
+
+internal fun <Value : Any> PagingDataDiffer<Value>.handleLoadError(
+    state: CombinedLoadStates,
+    errorHandler: LoadErrorHandler
+) {
+    val recovery = errorHandler.onError(state)
+    when (recovery) {
+        THROW -> throw (state.getErrorState()).error
+        RETRY -> retry()
+        RETURN_CURRENT_SNAPSHOT -> throw ReturnSnapshotStub()
+    }
+}
+private class ReturnSnapshotStub : Exception()
+
+private fun CombinedLoadStates?.isIdle(): Boolean {
+    if (this == null) return false
+    return source.isIdle() && mediator?.isIdle() ?: true
 }
 
 private fun LoadStates.isIdle(): Boolean {
     return refresh is LoadState.NotLoading && append is LoadState.NotLoading &&
         prepend is LoadState.NotLoading
+}
+
+private fun CombinedLoadStates?.hasError(): Boolean {
+    if (this == null) return false
+    return source.hasError() || mediator?.hasError() ?: false
+}
+
+private fun LoadStates.hasError(): Boolean {
+    return refresh is LoadState.Error || append is LoadState.Error ||
+        prepend is LoadState.Error
+}
+
+private fun CombinedLoadStates.getErrorState(): LoadState.Error {
+    return if (refresh is LoadState.Error) {
+        refresh as LoadState.Error
+    } else if (append is LoadState.Error) {
+        append as LoadState.Error
+    } else {
+        prepend as LoadState.Error
+    }
 }
 
 private fun <Value : Any> incrementGeneration(loader: SnapshotLoader<Value>) {

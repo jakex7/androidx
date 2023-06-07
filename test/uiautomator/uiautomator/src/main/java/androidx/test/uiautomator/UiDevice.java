@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,11 +71,14 @@ import java.util.concurrent.TimeoutException;
  * such as pressing the d-pad or pressing the Home and Menu buttons.
  */
 public class UiDevice implements Searchable {
-    private static final String TAG = UiDevice.class.getSimpleName();
+    static final String TAG = UiDevice.class.getSimpleName();
 
     // Use a short timeout after HOME or BACK key presses, as no events might be generated if
     // already on the home page or if there is nothing to go back to.
     private static final long KEY_PRESS_EVENT_TIMEOUT = 1_000; // ms
+    private static final long ROTATION_TIMEOUT = 2_000; // ms
+    private static final int MAX_UIAUTOMATION_RETRY = 3;
+    private static final int UIAUTOMATION_RETRY_INTERVAL = 500;
 
     // Singleton instance.
     private static UiDevice sInstance;
@@ -93,7 +97,7 @@ public class UiDevice implements Searchable {
     private final Map<Integer, Context> mUiContexts = new HashMap<>();
 
     // Track registered UiWatchers, and whether currently in a UiWatcher execution.
-    private final Map<String, UiWatcher> mWatchers = new HashMap<>();
+    private final Map<String, UiWatcher> mWatchers = new LinkedHashMap<>();
     private final List<String> mWatchersTriggers = new ArrayList<>();
     private boolean mInWatcherContext = false;
 
@@ -124,6 +128,7 @@ public class UiDevice implements Searchable {
     /** Returns whether there is a match for the given {@code selector} criteria. */
     @Override
     public boolean hasObject(@NonNull BySelector selector) {
+        Log.d(TAG, String.format("Searching for node with selector: %s.", selector));
         AccessibilityNodeInfo node = ByMatcher.findMatch(this, selector, getWindowRoots());
         if (node != null) {
             node.recycle();
@@ -139,23 +144,27 @@ public class UiDevice implements Searchable {
     @Override
     @SuppressLint("UnknownNullness") // Avoid unnecessary null checks from nullable testing APIs.
     public UiObject2 findObject(@NonNull BySelector selector) {
+        Log.d(TAG, String.format("Retrieving node with selector: %s.", selector));
         AccessibilityNodeInfo node = ByMatcher.findMatch(this, selector, getWindowRoots());
         if (node == null) {
             Log.d(TAG, String.format("Node not found with selector: %s.", selector));
             return null;
         }
-        return new UiObject2(this, selector, node);
+        return UiObject2.create(this, selector, node);
     }
 
     /** Returns all objects that match the {@code selector} criteria. */
     @Override
     @NonNull
     public List<UiObject2> findObjects(@NonNull BySelector selector) {
+        Log.d(TAG, String.format("Retrieving nodes with selector: %s.", selector));
         List<UiObject2> ret = new ArrayList<>();
         for (AccessibilityNodeInfo node : ByMatcher.findMatches(this, selector, getWindowRoots())) {
-            ret.add(new UiObject2(this, selector, node));
+            UiObject2 object = UiObject2.create(this, selector, node);
+            if (object != null) {
+                ret.add(object);
+            }
         }
-
         return ret;
     }
 
@@ -163,12 +172,12 @@ public class UiDevice implements Searchable {
     /**
      * Waits for given the {@code condition} to be met.
      *
-     * @param condition The {@link SearchCondition} to evaluate.
+     * @param condition The {@link Condition} to evaluate.
      * @param timeout Maximum amount of time to wait in milliseconds.
      * @return The final result returned by the {@code condition}, or null if the {@code condition}
      * was not met before the {@code timeout}.
      */
-    public <U> U wait(@NonNull SearchCondition<U> condition, long timeout) {
+    public <U> U wait(@NonNull Condition<? super UiDevice, U> condition, long timeout) {
         Log.d(TAG, String.format("Waiting %dms for %s.", timeout, condition));
         return mWaitMixin.wait(condition, timeout);
     }
@@ -188,10 +197,10 @@ public class UiDevice implements Searchable {
                 condition));
         try {
             event = getUiAutomation().executeAndWaitForEvent(
-                action, new EventForwardingFilter(condition), timeout);
+                    action, condition, timeout);
         } catch (TimeoutException e) {
             // Ignore
-            Log.w(TAG, String.format("Timed out waiting %dms on the condition.", timeout));
+            Log.w(TAG, String.format("Timed out waiting %dms on the condition.", timeout), e);
         }
 
         if (event != null) {
@@ -199,22 +208,6 @@ public class UiDevice implements Searchable {
         }
 
         return condition.getResult();
-    }
-
-    /** Proxy class which acts as an {@link AccessibilityEventFilter} and forwards calls to an
-     * {@link EventCondition} instance. */
-    private static class EventForwardingFilter implements AccessibilityEventFilter {
-        private final EventCondition<?> mCondition;
-
-        public EventForwardingFilter(EventCondition<?> condition) {
-            mCondition = condition;
-        }
-
-        @Override
-        public boolean accept(AccessibilityEvent event) {
-            // Guard against nulls
-            return Boolean.TRUE.equals(mCondition.apply(event));
-        }
     }
 
     /**
@@ -766,19 +759,16 @@ public class UiDevice implements Searchable {
     }
 
     /**
-     * Check if the device is in its natural orientation. This is determined by checking if the
-     * orientation is at 0 or 180 degrees.
-     * @return true if it is in natural orientation
+     * @return true if device is in its natural orientation (0 or 180 degrees)
      */
     public boolean isNaturalOrientation() {
-        waitForIdle();
         int ret = getDisplayRotation();
         return ret == UiAutomation.ROTATION_FREEZE_0 ||
                 ret == UiAutomation.ROTATION_FREEZE_180;
     }
 
     /**
-     * Returns the current rotation of the display, as defined in {@link Surface}
+     * @return the current rotation of the display, as defined in {@link Surface}
      */
     public int getDisplayRotation() {
         waitForIdle();
@@ -786,66 +776,112 @@ public class UiDevice implements Searchable {
     }
 
     /**
-     * Disables the sensors and freezes the device rotation at its
-     * current rotation state.
-     * @throws RemoteException
+     * Freezes the device rotation at its current state.
+     * @throws RemoteException never
      */
     public void freezeRotation() throws RemoteException {
         Log.d(TAG, "Freezing rotation.");
-        getInteractionController().freezeRotation();
+        getUiAutomation().setRotation(UiAutomation.ROTATION_FREEZE_CURRENT);
     }
 
     /**
-     * Re-enables the sensors and un-freezes the device rotation allowing its contents
-     * to rotate with the device physical rotation. During a test execution, it is best to
-     * keep the device frozen in a specific orientation until the test case execution has completed.
-     * @throws RemoteException
+     * Un-freezes the device rotation allowing its contents to rotate with the device physical
+     * rotation. During testing, it is best to keep the device frozen in a specific orientation.
+     * @throws RemoteException never
      */
     public void unfreezeRotation() throws RemoteException {
         Log.d(TAG, "Unfreezing rotation.");
-        getInteractionController().unfreezeRotation();
+        getUiAutomation().setRotation(UiAutomation.ROTATION_UNFREEZE);
     }
 
     /**
-     * Simulates orienting the device to the left and also freezes rotation
-     * by disabling the sensors.
-     *
-     * If you want to un-freeze the rotation and re-enable the sensors
-     * see {@link #unfreezeRotation()}.
-     * @throws RemoteException
+     * Orients the device to the left and freezes rotation. Use {@link #unfreezeRotation()} to
+     * un-freeze the rotation.
+     * <p>Note: This rotation is relative to the natural orientation which depends on the device
+     * type (e.g. phone vs. tablet). Consider using {@link #setOrientationPortrait()} and
+     * {@link #setOrientationLandscape()}.
+     * @throws RemoteException never
      */
     public void setOrientationLeft() throws RemoteException {
         Log.d(TAG, "Setting orientation to left.");
-        getInteractionController().setRotationLeft();
-        waitForIdle(); // we don't need to check for idle on entry for this. We'll sync on exit
+        rotate(UiAutomation.ROTATION_FREEZE_90);
     }
 
     /**
-     * Simulates orienting the device to the right and also freezes rotation
-     * by disabling the sensors.
-     *
-     * If you want to un-freeze the rotation and re-enable the sensors
-     * see {@link #unfreezeRotation()}.
-     * @throws RemoteException
+     * Orients the device to the right and freezes rotation. Use {@link #unfreezeRotation()} to
+     * un-freeze the rotation.
+     * <p>Note: This rotation is relative to the natural orientation which depends on the device
+     * type (e.g. phone vs. tablet). Consider using {@link #setOrientationPortrait()} and
+     * {@link #setOrientationLandscape()}.
+     * @throws RemoteException never
      */
     public void setOrientationRight() throws RemoteException {
         Log.d(TAG, "Setting orientation to right.");
-        getInteractionController().setRotationRight();
-        waitForIdle(); // we don't need to check for idle on entry for this. We'll sync on exit
+        rotate(UiAutomation.ROTATION_FREEZE_270);
     }
 
     /**
-     * Simulates orienting the device into its natural orientation and also freezes rotation
-     * by disabling the sensors.
-     *
-     * If you want to un-freeze the rotation and re-enable the sensors
-     * see {@link #unfreezeRotation()}.
-     * @throws RemoteException
+     * Orients the device to its natural orientation (0 or 180 degrees) and freezes rotation. Use
+     * {@link #unfreezeRotation()} to un-freeze the rotation.
+     * <p>Note: The natural orientation depends on the device type (e.g. phone vs. tablet).
+     * Consider using {@link #setOrientationPortrait()} and {@link #setOrientationLandscape()}.
+     * @throws RemoteException never
      */
     public void setOrientationNatural() throws RemoteException {
         Log.d(TAG, "Setting orientation to natural.");
-        getInteractionController().setRotationNatural();
-        waitForIdle(); // we don't need to check for idle on entry for this. We'll sync on exit
+        rotate(UiAutomation.ROTATION_FREEZE_0);
+    }
+
+    /**
+     * Orients the device to its portrait orientation (height > width) and freezes rotation. Use
+     * {@link #unfreezeRotation()} to un-freeze the rotation.
+     * @throws RemoteException never
+     */
+    public void setOrientationPortrait() throws RemoteException {
+        Log.d(TAG, "Setting orientation to portrait.");
+        if (getDisplayHeight() > getDisplayWidth()) {
+            freezeRotation(); // Already in portrait orientation.
+        } else if (isNaturalOrientation()) {
+            rotate(UiAutomation.ROTATION_FREEZE_90);
+        } else {
+            rotate(UiAutomation.ROTATION_FREEZE_0);
+        }
+    }
+
+    /**
+     * Orients the device to its landscape orientation (width > height) and freezes rotation. Use
+     * {@link #unfreezeRotation()} to un-freeze the rotation.
+     * @throws RemoteException never
+     */
+    public void setOrientationLandscape() throws RemoteException {
+        Log.d(TAG, "Setting orientation to landscape.");
+        if (getDisplayWidth() > getDisplayHeight()) {
+            freezeRotation(); // Already in landscape orientation.
+        } else if (isNaturalOrientation()) {
+            rotate(UiAutomation.ROTATION_FREEZE_90);
+        } else {
+            rotate(UiAutomation.ROTATION_FREEZE_0);
+        }
+    }
+
+    // Rotates the device and waits for the rotation to be detected.
+    private void rotate(int rotation) {
+        getUiAutomation().setRotation(rotation);
+        Condition<UiDevice, Boolean> rotationCondition = new Condition<UiDevice, Boolean>() {
+            @Override
+            public Boolean apply(UiDevice device) {
+                return device.getDisplayRotation() == rotation;
+            }
+
+            @NonNull
+            @Override
+            public String toString() {
+                return String.format("Condition[displayRotation=%d]", rotation);
+            }
+        };
+        if (!wait(rotationCondition, ROTATION_TIMEOUT)) {
+            Log.w(TAG, String.format("Didn't detect rotation within %dms.", ROTATION_TIMEOUT));
+        }
     }
 
     /**
@@ -964,7 +1000,7 @@ public class UiDevice implements Searchable {
         try {
             getUiAutomation().executeAndWaitForEvent(emptyRunnable, checkWindowUpdate, timeout);
         } catch (TimeoutException e) {
-            Log.w(TAG, String.format("Timed out waiting %dms on window update.", timeout));
+            Log.w(TAG, String.format("Timed out waiting %dms on window update.", timeout), e);
             return false;
         } catch (Exception e) {
             Log.e(TAG, "Failed to wait for window update.", e);
@@ -1053,7 +1089,7 @@ public class UiDevice implements Searchable {
      * @param cmd the command to run
      * @return the standard output of the command
      * @throws IOException
-     * @hide
+     * @hide legacy hidden method, kept for compatibility with existing tests.
      */
     @RequiresApi(21)
     @NonNull
@@ -1126,8 +1162,14 @@ public class UiDevice implements Searchable {
         Context context = mUiContexts.get(displayId);
         if (context == null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                Display display = mDisplayManager.getDisplay(displayId);
-                context = Api31Impl.createWindowContext(mInstrumentation.getContext(), display);
+                final Display display = mDisplayManager.getDisplay(displayId);
+                if (display != null) {
+                    context = Api31Impl.createWindowContext(mInstrumentation.getContext(), display);
+                } else {
+                    // The display may be null because it may be private display, for example. In
+                    // such a case, use the instrumentation's context instead.
+                    context = mInstrumentation.getContext();
+                }
             } else {
                 context = mInstrumentation.getContext();
             }
@@ -1140,7 +1182,7 @@ public class UiDevice implements Searchable {
         UiAutomation uiAutomation;
         int flags = Configurator.getInstance().getUiAutomationFlags();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            uiAutomation = Api24Impl.getUiAutomation(getInstrumentation(), flags);
+            uiAutomation = Api24Impl.getUiAutomationWithRetry(getInstrumentation(), flags);
         } else {
             if (flags != Configurator.DEFAULT_UIAUTOMATION_FLAGS) {
                 Log.w(TAG, "UiAutomation flags not supported prior to API 24");
@@ -1148,6 +1190,9 @@ public class UiDevice implements Searchable {
             uiAutomation = getInstrumentation().getUiAutomation();
         }
 
+        if (uiAutomation == null) {
+            throw new NullPointerException("Got null UiAutomation from instrumentation.");
+        }
         // Verify and update the accessibility service flags if necessary. These might get reset
         // if the underlying UiAutomationConnection is recreated.
         AccessibilityServiceInfo serviceInfo = uiAutomation.getServiceInfo();
@@ -1209,8 +1254,19 @@ public class UiDevice implements Searchable {
         }
 
         @DoNotInline
-        static UiAutomation getUiAutomation(Instrumentation instrumentation, int flags) {
-            return instrumentation.getUiAutomation(flags);
+        static UiAutomation getUiAutomationWithRetry(Instrumentation instrumentation, int flags) {
+            UiAutomation uiAutomation = null;
+            for (int i = 0; i < MAX_UIAUTOMATION_RETRY; i++) {
+                uiAutomation = instrumentation.getUiAutomation(flags);
+                if (uiAutomation != null) {
+                    break;
+                }
+                if (i < MAX_UIAUTOMATION_RETRY - 1) {
+                    Log.e(TAG, "Got null UiAutomation from instrumentation - Retrying...");
+                    SystemClock.sleep(UIAUTOMATION_RETRY_INTERVAL);
+                }
+            }
+            return uiAutomation;
         }
     }
 

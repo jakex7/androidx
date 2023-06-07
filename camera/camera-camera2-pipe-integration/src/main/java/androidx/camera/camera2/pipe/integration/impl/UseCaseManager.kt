@@ -16,12 +16,17 @@
 
 package androidx.camera.camera2.pipe.integration.impl
 
+import android.content.Context
 import android.media.MediaCodec
 import android.os.Build
 import androidx.annotation.GuardedBy
 import androidx.annotation.RequiresApi
+import androidx.camera.camera2.pipe.CameraGraph
 import androidx.camera.camera2.pipe.core.Log
 import androidx.camera.camera2.pipe.integration.adapter.CameraStateAdapter
+import androidx.camera.camera2.pipe.integration.adapter.EncoderProfilesProviderAdapter
+import androidx.camera.camera2.pipe.integration.adapter.SupportedSurfaceCombination
+import androidx.camera.camera2.pipe.integration.compat.quirk.CameraQuirks
 import androidx.camera.camera2.pipe.integration.config.CameraConfig
 import androidx.camera.camera2.pipe.integration.config.CameraScope
 import androidx.camera.camera2.pipe.integration.config.UseCaseCameraComponent
@@ -29,11 +34,12 @@ import androidx.camera.camera2.pipe.integration.config.UseCaseCameraConfig
 import androidx.camera.camera2.pipe.integration.interop.Camera2CameraControl
 import androidx.camera.camera2.pipe.integration.interop.ExperimentalCamera2Interop
 import androidx.camera.core.UseCase
+import androidx.camera.core.impl.CameraInternal
+import androidx.camera.core.impl.CameraMode
 import androidx.camera.core.impl.DeferrableSurface
 import androidx.camera.core.impl.SessionConfig.ValidatingBuilder
-import androidx.camera.core.impl.utils.Threads
-import androidx.lifecycle.MutableLiveData
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.joinAll
 
@@ -73,6 +79,10 @@ class UseCaseManager @Inject constructor(
     private val controls: java.util.Set<UseCaseCameraControl>,
     private val camera2CameraControl: Camera2CameraControl,
     private val cameraStateAdapter: CameraStateAdapter,
+    private val cameraQuirks: CameraQuirks,
+    private val cameraGraphFlags: CameraGraph.Flags,
+    private val cameraInternal: Provider<CameraInternal>,
+    context: Context,
     cameraProperties: CameraProperties,
     displayInfoManager: DisplayInfoManager,
 ) {
@@ -84,11 +94,22 @@ class UseCaseManager @Inject constructor(
     @GuardedBy("lock")
     private val activeUseCases = mutableSetOf<UseCase>()
 
+    @GuardedBy("lock")
+    private var activeResumeEnabled = false
+
     private val meteringRepeating by lazy {
         MeteringRepeating.Builder(
             cameraProperties,
             displayInfoManager
         ).build()
+    }
+
+    private val supportedSurfaceCombination by lazy {
+        SupportedSurfaceCombination(
+            context,
+            cameraProperties.metadata,
+            EncoderProfilesProviderAdapter(cameraConfig.cameraId.value)
+        )
     }
 
     @Volatile
@@ -122,9 +143,7 @@ class UseCaseManager @Inject constructor(
         }
 
         if (attachedUseCases.addAll(useCases)) {
-            if (shouldAddRepeatingUseCase(getRunningUseCases())) {
-                addRepeatingUseCase()
-            } else {
+            if (!addOrRemoveRepeatingUseCase(getRunningUseCases())) {
                 refreshAttachedUseCases(attachedUseCases)
             }
         }
@@ -162,8 +181,7 @@ class UseCaseManager @Inject constructor(
         // TODO: We might only want to tear down when the number of attached use cases goes to
         //  zero. If a single UseCase is removed, we could deactivate it?
         if (attachedUseCases.removeAll(useCases)) {
-            if (shouldRemoveRepeatingUseCase(getRunningUseCases())) {
-                removeRepeatingUseCase()
+            if (addOrRemoveRepeatingUseCase(getRunningUseCases())) {
                 return
             }
             refreshAttachedUseCases(attachedUseCases)
@@ -206,6 +224,11 @@ class UseCaseManager @Inject constructor(
         }
     }
 
+    fun setActiveResumeMode(enabled: Boolean) = synchronized(lock) {
+        activeResumeEnabled = enabled
+        camera?.setActiveResumeMode(enabled)
+    }
+
     suspend fun close() {
         val closingJobs = synchronized(lock) {
             if (attachedUseCases.isNotEmpty()) {
@@ -225,7 +248,7 @@ class UseCaseManager @Inject constructor(
         when {
             shouldAddRepeatingUseCase(runningUseCases) -> addRepeatingUseCase()
             shouldRemoveRepeatingUseCase(runningUseCases) -> removeRepeatingUseCase()
-            else -> camera?.runningUseCasesLiveData?.setLiveDataValue(runningUseCases)
+            else -> camera?.runningUseCases = runningUseCases
         }
     }
 
@@ -256,10 +279,20 @@ class UseCaseManager @Inject constructor(
         }
 
         // Create and configure the new camera component.
-        _activeComponent = builder.config(UseCaseCameraConfig(useCases, cameraStateAdapter)).build()
+        _activeComponent =
+            builder.config(
+                UseCaseCameraConfig(
+                    useCases,
+                    cameraStateAdapter,
+                    cameraQuirks,
+                    cameraGraphFlags
+                )
+            )
+                .build()
         for (control in allControls) {
             control.useCaseCamera = camera
         }
+        camera?.setActiveResumeMode(activeResumeEnabled)
 
         refreshRunningUseCases()
     }
@@ -269,18 +302,40 @@ class UseCaseManager @Inject constructor(
         return attachedUseCases.intersect(activeUseCases)
     }
 
+    /**
+     * Adds or removes repeating use case if needed.
+     *
+     * @param runningUseCases the set of currently running use cases
+     * @return true if repeating use cases is added or removed, false otherwise
+     */
+    @GuardedBy("lock")
+    private fun addOrRemoveRepeatingUseCase(runningUseCases: Set<UseCase>): Boolean {
+        if (shouldAddRepeatingUseCase(runningUseCases)) {
+            addRepeatingUseCase()
+            return true
+        }
+        if (shouldRemoveRepeatingUseCase(runningUseCases)) {
+            removeRepeatingUseCase()
+            return true
+        }
+        return false
+    }
+
     @GuardedBy("lock")
     private fun shouldAddRepeatingUseCase(runningUseCases: Set<UseCase>): Boolean {
         val meteringRepeatingEnabled = attachedUseCases.contains(meteringRepeating)
-
-        val coreLibraryUseCases = runningUseCases.filterNot { it is MeteringRepeating }
-        val onlyVideoCapture = coreLibraryUseCases.onlyVideoCapture()
-        val requireMeteringRepeating = coreLibraryUseCases.requireMeteringRepeating()
-
-        return !meteringRepeatingEnabled && (onlyVideoCapture || requireMeteringRepeating)
+        if (!meteringRepeatingEnabled) {
+            val activeSurfaces = runningUseCases.withoutMetering().surfaceCount()
+            return activeSurfaces > 0 && with(attachedUseCases.withoutMetering()) {
+                (onlyVideoCapture() || requireMeteringRepeating()) && supportMeteringCombination()
+            }
+        }
+        return false
     }
+
     @GuardedBy("lock")
     private fun addRepeatingUseCase() {
+        meteringRepeating.bindToCamera(cameraInternal.get(), null, null)
         meteringRepeating.setupSession()
         attach(listOf(meteringRepeating))
         activate(meteringRepeating)
@@ -289,19 +344,20 @@ class UseCaseManager @Inject constructor(
     @GuardedBy("lock")
     private fun shouldRemoveRepeatingUseCase(runningUseCases: Set<UseCase>): Boolean {
         val meteringRepeatingEnabled = runningUseCases.contains(meteringRepeating)
-
-        val coreLibraryUseCases = runningUseCases.filterNot { it is MeteringRepeating }
-        val onlyVideoCapture = coreLibraryUseCases.onlyVideoCapture()
-        val requireMeteringRepeating = coreLibraryUseCases.requireMeteringRepeating()
-
-        return meteringRepeatingEnabled && !onlyVideoCapture && !requireMeteringRepeating
+        if (meteringRepeatingEnabled) {
+            val activeSurfaces = runningUseCases.withoutMetering().surfaceCount()
+            return activeSurfaces == 0 || with(attachedUseCases.withoutMetering()) {
+                !(onlyVideoCapture() || requireMeteringRepeating()) || !supportMeteringCombination()
+            }
+        }
+        return false
     }
 
     @GuardedBy("lock")
     private fun removeRepeatingUseCase() {
         deactivate(meteringRepeating)
         detach(listOf(meteringRepeating))
-        meteringRepeating.onUnbind()
+        meteringRepeating.unbindFromCamera(cameraInternal.get())
     }
 
     private fun Collection<UseCase>.onlyVideoCapture(): Boolean {
@@ -311,6 +367,39 @@ class UseCaseManager @Inject constructor(
             }
         }
     }
+
+    private fun Collection<UseCase>.supportMeteringCombination(): Boolean {
+        val useCases = this.toMutableList().apply { add(meteringRepeating) }
+        if (meteringRepeating.attachedSurfaceResolution == null) {
+            meteringRepeating.setupSession()
+        }
+        return isCombinationSupported(useCases).also {
+            Log.debug { "Combination of $useCases is supported: $it" }
+        }
+    }
+
+    private fun isCombinationSupported(currentUseCases: Collection<UseCase>): Boolean {
+        val surfaceConfigs = currentUseCases.map { useCase ->
+            // TODO: Test with correct Camera Mode when concurrent mode / ultra high resolution is
+            //  implemented.
+            supportedSurfaceCombination.transformSurfaceConfig(
+                CameraMode.DEFAULT,
+                useCase.imageFormat,
+                useCase.attachedSurfaceResolution!!
+            )
+        }
+
+        return supportedSurfaceCombination.checkSupported(CameraMode.DEFAULT, surfaceConfigs)
+    }
+
+    private fun Collection<UseCase>.surfaceCount(): Int =
+        ValidatingBuilder().let { validatingBuilder ->
+            forEach { useCase -> validatingBuilder.add(useCase.sessionConfig) }
+            return validatingBuilder.build().surfaces.size
+        }
+
+    private fun Collection<UseCase>.withoutMetering(): Collection<UseCase> =
+        filterNot { it is MeteringRepeating }
 
     private fun Collection<UseCase>.requireMeteringRepeating(): Boolean {
         return isNotEmpty() && checkSurfaces { repeatingSurfaces, sessionSurfaces ->
@@ -330,13 +419,5 @@ class UseCaseManager @Inject constructor(
         val sessionConfig = validatingBuilder.build()
         val captureConfig = sessionConfig.repeatingCaptureConfig
         return predicate(captureConfig.surfaces, sessionConfig.surfaces)
-    }
-
-    private fun <T> MutableLiveData<T>.setLiveDataValue(value: T?) {
-        if (Threads.isMainThread()) {
-            this.value = value
-        } else {
-            this.postValue(value)
-        }
     }
 }

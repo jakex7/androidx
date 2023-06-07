@@ -48,6 +48,8 @@ private const val ENABLE_FLAG_NAME = VERIFY_UP_TO_DATE
 val ALLOW_RERUNNING_TASKS = setOf(
     "buildOnServer",
     "checkExternalLicenses",
+    // caching disabled for now while we look for a fix for b/273294710
+    "createAllArchives",
     // https://youtrack.jetbrains.com/issue/KT-52632
     "commonizeNativeDistribution",
     "createDiffArchiveForAll",
@@ -118,13 +120,22 @@ val ALLOW_RERUNNING_TASKS = setOf(
     ":lint-checks:integration-tests:copyDebugAndroidLintReports",
 
     // https://youtrack.jetbrains.com/issue/KT-49933
-    "generateProjectStructureMetadata"
+    "generateProjectStructureMetadata",
+
+    // https://github.com/google/protobuf-gradle-plugin/issues/667
+    ":appactions:interaction:interaction-service-proto:extractIncludeTestProto",
+    ":datastore:datastore-preferences-proto:extractIncludeTestProto",
+    ":glance:glance-appwidget-proto:extractIncludeTestProto",
+    ":health:connect:connect-client-proto:extractIncludeTestProto",
+    ":privacysandbox:tools:tools-core:extractIncludeTestProto",
+    ":test:screenshot:screenshot-proto:extractIncludeTestProto",
+    ":wear:protolayout:protolayout-proto:extractIncludeTestProto",
+    ":wear:tiles:tiles-proto:extractIncludeTestProto"
 )
 
 // Additional tasks that are expected to be temporarily out-of-date after running once
 // Tasks in this set we don't even try to rerun, because they're known to be unnecessary
 val DONT_TRY_RERUNNING_TASKS = setOf(
-    ":buildSrc-tests:project-subsets:test",
     "listTaskOutputs",
     "tasks",
 
@@ -135,7 +146,10 @@ val DONT_TRY_RERUNNING_TASKS = setOf(
     // https://github.com/gradle/gradle/issues/11203
     "partiallyDejetifyArchive",
     "stripArchiveForPartialDejetification",
-    "createArchive"
+    "createArchive",
+
+    // https://github.com/spdx/spdx-gradle-plugin/issues/18
+    "spdxSbomForRelease",
 )
 
 val DONT_TRY_RERUNNING_TASK_TYPES = setOf(
@@ -156,7 +170,6 @@ val DONT_TRY_RERUNNING_TASK_TYPES = setOf(
     "androidx.build.license.CheckExternalDependencyLicensesTask_Decorated",
 )
 
-@Suppress("UnstableApiUsage") // usage of BuildService that's incubating
 abstract class TaskUpToDateValidator :
     BuildService<TaskUpToDateValidator.Parameters>, OperationCompletionListener {
     interface Parameters : BuildServiceParameters {

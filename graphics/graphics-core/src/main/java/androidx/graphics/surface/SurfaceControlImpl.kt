@@ -25,9 +25,9 @@ import android.view.Surface
 import android.view.SurfaceControl
 import android.view.SurfaceView
 import androidx.annotation.RequiresApi
-import androidx.graphics.lowlatency.SyncFenceCompat
-import androidx.graphics.lowlatency.SyncFenceImpl
 import androidx.graphics.surface.SurfaceControlCompat.TransactionCommittedListener
+import androidx.hardware.SyncFenceCompat
+import androidx.hardware.SyncFenceImpl
 import java.util.concurrent.Executor
 
 /**
@@ -65,6 +65,15 @@ internal interface SurfaceControlImpl {
          * [SurfaceControlImpl] is associated with.
          */
         fun setParent(surfaceView: SurfaceView): Builder
+
+        /**
+         * Set a parent [SurfaceControlCompat] for the new [SurfaceControlCompat] instance.
+         * Furthermore they stack relatively in Z order, and inherit the transformation of the
+         * parent.
+         * @param surfaceControl Target [SurfaceControlCompat] used as the parent for the newly
+         * created [SurfaceControlCompat] instance
+         */
+        fun setParent(surfaceControl: SurfaceControlCompat): Builder
 
         /**
          * Set a debugging-name for the [SurfaceControlImpl].
@@ -166,7 +175,7 @@ internal interface SurfaceControlImpl {
          */
         fun setBuffer(
             surfaceControl: SurfaceControlImpl,
-            buffer: HardwareBuffer,
+            buffer: HardwareBuffer?,
             fence: SyncFenceImpl? = null,
             releaseCallback: (() -> Unit)? = null
         ): Transaction

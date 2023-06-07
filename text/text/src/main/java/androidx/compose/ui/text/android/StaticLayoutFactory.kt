@@ -39,8 +39,12 @@ import java.lang.reflect.InvocationTargetException
 
 private const val TAG = "StaticLayoutFactory"
 
+/**
+* @suppress
+*/
 @OptIn(InternalPlatformTextApi::class)
-internal object StaticLayoutFactory {
+@InternalPlatformTextApi
+object StaticLayoutFactory {
 
     private val delegate: StaticLayoutFactoryImpl = if (Build.VERSION.SDK_INT >= 23) {
         StaticLayoutFactory23()
@@ -149,12 +153,12 @@ private class StaticLayoutParams constructor(
     val rightIndents: IntArray?
 ) {
     init {
-        require(start in 0..end)
-        require(end in 0..text.length)
-        require(maxLines >= 0)
-        require(width >= 0)
-        require(ellipsizedWidth >= 0)
-        require(lineSpacingMultiplier >= 0f)
+        require(start in 0..end) { "invalid start value" }
+        require(end in 0..text.length) { "invalid end value" }
+        require(maxLines >= 0) { "invalid maxLines value" }
+        require(width >= 0) { "invalid width value" }
+        require(ellipsizedWidth >= 0) { "invalid ellipsizedWidth value" }
+        require(lineSpacingMultiplier >= 0f) { "invalid lineSpacingMultiplier value" }
     }
 }
 
@@ -207,7 +211,7 @@ private class StaticLayoutFactory23 : StaticLayoutFactoryImpl {
         layout: StaticLayout,
         useFallbackLineSpacing: Boolean
     ): Boolean {
-        return if (BuildCompat.isAtLeastT()) {
+        return if (Build.VERSION.SDK_INT >= 33) {
             StaticLayoutFactory33.isFallbackLineSpacingEnabled(layout)
         } else if (Build.VERSION.SDK_INT >= 28) {
             useFallbackLineSpacing

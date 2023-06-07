@@ -21,22 +21,15 @@ import com.android.build.gradle.LibraryPlugin
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.google.gson.stream.JsonWriter
-import org.gradle.api.artifacts.Configuration
 import groovy.util.Node
 import java.io.File
-import java.io.StringReader
 import java.io.StringWriter
-import java.util.StringTokenizer
-import org.apache.xerces.jaxp.SAXParserImpl.JAXPSAXParser
-import org.dom4j.Document
-import org.dom4j.DocumentException
-import org.dom4j.DocumentFactory
 import org.dom4j.Element
-import org.dom4j.io.SAXReader
 import org.dom4j.io.XMLWriter
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.XmlProvider
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.component.ComponentWithVariants
 import org.gradle.api.component.SoftwareComponent
 import org.gradle.api.component.SoftwareComponentFactory
@@ -56,8 +49,6 @@ import org.gradle.kotlin.dsl.findByType
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinMultiplatformPluginWrapper
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinAndroidTarget
-import org.xml.sax.InputSource
-import org.xml.sax.XMLReader
 
 fun Project.configureMavenArtifactUpload(
     extension: AndroidXExtension,
@@ -123,11 +114,14 @@ private fun Project.configureComponentPublishing(
         // Check every project is the project map to see if they are an Android Library
         val projectModules = project.getProjectsMap()
         for ((mavenCoordinates, projectPath) in projectModules) {
-            project.findProject(projectPath)?.plugins?.hasPlugin(
-                LibraryPlugin::class.java
-            )?.let { hasLibraryPlugin ->
-                if (hasLibraryPlugin) {
-                    androidxAndroidProjects.add(mavenCoordinates)
+            project.findProject(projectPath)?.plugins?.let { plugins ->
+                if (plugins.hasPlugin(LibraryPlugin::class.java)) {
+                    if (plugins.hasPlugin(KotlinMultiplatformPluginWrapper::class.java)) {
+                        // For KMP projects, android AAR is published under -android
+                        androidxAndroidProjects.add("$mavenCoordinates-android")
+                    } else {
+                        androidxAndroidProjects.add(mavenCoordinates)
+                    }
                 }
             }
         }
@@ -213,11 +207,7 @@ private fun Project.configureComponentPublishing(
 fun sortPomDependencies(pom: String): String {
     // Workaround for using the default namespace in dom4j.
     val namespaceUris = mapOf("ns" to "http://maven.apache.org/POM/4.0.0")
-    val docFactory = DocumentFactory()
-    docFactory.xPathNamespaceURIs = namespaceUris
-    // Ensure that we're consistently using JAXP parser.
-    val xmlReader = JAXPSAXParser()
-    val document = parseText(docFactory, xmlReader, pom)
+    val document = parseXml(pom, namespaceUris)
 
     // For each <dependencies> element, sort the contained elements in-place.
     document.rootElement
@@ -251,47 +241,6 @@ fun sortPomDependencies(pom: String): String {
     }
 
     return stringWriter.toString()
-}
-
-// Coped from org.dom4j.DocumentHelper with modifications to allow SAXReader configuration.
-@Throws(DocumentException::class)
-fun parseText(
-    documentFactory: DocumentFactory,
-    xmlReader: XMLReader,
-    text: String,
-): Document {
-    val reader = SAXReader.createDefault()
-    reader.documentFactory = documentFactory
-    reader.xmlReader = xmlReader
-    val encoding = getEncoding(text)
-    val source = InputSource(StringReader(text))
-    source.encoding = encoding
-    val result = reader.read(source)
-    if (result.xmlEncoding == null) {
-        result.xmlEncoding = encoding
-    }
-    return result
-}
-
-// Coped from org.dom4j.DocumentHelper.
-private fun getEncoding(text: String): String? {
-    var result: String? = null
-    val xml = text.trim { it <= ' ' }
-    if (xml.startsWith("<?xml")) {
-        val end = xml.indexOf("?>")
-        val sub = xml.substring(0, end)
-        val tokens = StringTokenizer(sub, " =\"'")
-        while (tokens.hasMoreTokens()) {
-            val token = tokens.nextToken()
-            if ("encoding" == token) {
-                if (tokens.hasMoreTokens()) {
-                    result = tokens.nextToken()
-                }
-                break
-            }
-        }
-    }
-    return result
 }
 
 /**
@@ -344,7 +293,7 @@ private fun Project.replaceBaseMultiplatformPublication(
     val kotlinComponent = components.findByName("kotlin") as SoftwareComponentInternal
     withSourcesComponents(
         componentFactory,
-        setOf("sourcesElements", "androidxSourcesElements")
+        setOf("androidxSourcesElements")
     ) { sourcesComponents ->
         configure<PublishingExtension> {
             publications { pubs ->
@@ -439,7 +388,10 @@ private fun Project.releaseComponentName() = when {
 
 private fun Project.validateCoordinatesAndGetGroup(extension: AndroidXExtension): LibraryGroup {
     val mavenGroup = extension.mavenGroup
-        ?: throw Exception("You must specify mavenGroup for $name project")
+    if (mavenGroup == null) {
+        val groupExplanation = extension.explainMavenGroup().joinToString("\n")
+        throw Exception("You must specify mavenGroup for $path :\n$groupExplanation")
+    }
     val strippedGroupId = mavenGroup.group.substringAfterLast(".")
     if (
         !extension.bypassCoordinateValidation &&
