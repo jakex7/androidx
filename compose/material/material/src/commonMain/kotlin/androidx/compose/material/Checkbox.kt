@@ -157,7 +157,13 @@ fun TriStateCheckbox(
         enabled = enabled,
         value = state,
         modifier = modifier
-            .then(if (onClick != null) { Modifier.minimumTouchTargetSize() } else { Modifier })
+            .then(
+                if (onClick != null) {
+                    Modifier.minimumInteractiveComponentSize()
+                } else {
+                    Modifier
+                }
+            )
             .then(toggleableModifier)
             .padding(CheckboxDefaultPadding),
         colors = colors
@@ -319,21 +325,29 @@ private fun DrawScope.drawBox(
     val halfStrokeWidth = strokeWidth / 2.0f
     val stroke = Stroke(strokeWidth)
     val checkboxSize = size.width
-    drawRoundRect(
-        boxColor,
-        topLeft = Offset(strokeWidth, strokeWidth),
-        size = Size(checkboxSize - strokeWidth * 2, checkboxSize - strokeWidth * 2),
-        // Set the inner radius to be equal to the outer radius - border's stroke width.
-        cornerRadius = CornerRadius(max(0f, radius - strokeWidth)),
-        style = Fill
-    )
-    drawRoundRect(
-        borderColor,
-        topLeft = Offset(halfStrokeWidth, halfStrokeWidth),
-        size = Size(checkboxSize - strokeWidth, checkboxSize - strokeWidth),
-        cornerRadius = CornerRadius(radius),
-        style = stroke
-    )
+    if (boxColor == borderColor) {
+        drawRoundRect(
+            boxColor,
+            size = Size(checkboxSize, checkboxSize),
+            cornerRadius = CornerRadius(radius),
+            style = Fill
+        )
+    } else {
+        drawRoundRect(
+            boxColor,
+            topLeft = Offset(strokeWidth, strokeWidth),
+            size = Size(checkboxSize - strokeWidth * 2, checkboxSize - strokeWidth * 2),
+            cornerRadius = CornerRadius(max(0f, radius - strokeWidth)),
+            style = Fill
+        )
+        drawRoundRect(
+            borderColor,
+            topLeft = Offset(halfStrokeWidth, halfStrokeWidth),
+            size = Size(checkboxSize - strokeWidth, checkboxSize - strokeWidth),
+            cornerRadius = CornerRadius(radius - halfStrokeWidth),
+            style = stroke
+        )
+    }
 }
 
 private fun DrawScope.drawCheck(

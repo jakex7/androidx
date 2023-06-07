@@ -49,6 +49,7 @@ internal class CameraGraphSessionImpl(
 
     override fun submit(requests: List<Request>) {
         check(!closed.value) { "Cannot call submit on $this after close." }
+        check(requests.isNotEmpty()) { "Cannot call submit with an empty list of Requests!" }
         graphProcessor.submit(requests)
     }
 
@@ -121,6 +122,7 @@ internal class CameraGraphSessionImpl(
         aeLockBehavior: Lock3ABehavior?,
         afLockBehavior: Lock3ABehavior?,
         awbLockBehavior: Lock3ABehavior?,
+        afTriggerStartAeMode: AeMode?,
         frameLimit: Int,
         timeLimitNs: Long
     ): Deferred<Result3A> {
@@ -135,6 +137,7 @@ internal class CameraGraphSessionImpl(
             aeLockBehavior,
             afLockBehavior,
             awbLockBehavior,
+            afTriggerStartAeMode,
             frameLimit,
             timeLimitNs
         )

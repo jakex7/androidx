@@ -178,7 +178,7 @@ class ComposableDeclarationCheckerTests : AbstractComposeDiagnosticsTest() {
             interface Bar {
                 @Composable
                 fun composableFunction(param: Boolean): Boolean
-                val composableProperty: Boolean @Composable get()
+                @get:Composable val composableProperty: Boolean
                 fun nonComposableFunction(param: Boolean): Boolean
                 val nonComposableProperty: Boolean
             }
@@ -253,6 +253,21 @@ class ComposableDeclarationCheckerTests : AbstractComposeDiagnosticsTest() {
                 @Composable abstract fun foo(x: Int)
             }
         """
+        )
+    }
+
+    fun testOverrideWithoutComposeAnnotation() {
+        doTest(
+            """
+                import androidx.compose.runtime.Composable
+                interface Base {
+                    fun compose(content: () -> Unit)
+                }
+
+                class Impl : Base {
+                    <!CONFLICTING_OVERLOADS!>override fun compose(content: @Composable () -> Unit)<!> {}
+                }
+            """
         )
     }
 }

@@ -19,17 +19,14 @@ package androidx.compose.compiler.plugins.kotlin
 import android.widget.TextView
 import androidx.compose.runtime.Composer
 import com.intellij.openapi.util.io.FileUtil
+import java.io.File
+import java.net.URLClassLoader
 import org.jetbrains.kotlin.backend.common.output.OutputFile
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import java.io.File
-import java.net.URLClassLoader
 
 @RunWith(RobolectricTestRunner::class)
 @Config(
@@ -145,7 +142,7 @@ class KtxCrossModuleTests : AbstractCodegenTest() {
             // In the dump, $ is mapped to %.
             val declaration = "synthetic access%foo"
             val occurrences = it.windowed(declaration.length) { candidate ->
-                if (candidate.equals(declaration))
+                if (candidate == declaration)
                     1
                 else
                     0
@@ -187,6 +184,88 @@ class KtxCrossModuleTests : AbstractCodegenTest() {
             assert(it.contains("INVOKESTATIC y/J.constructor-impl (I)I"))
             // Check that the inline class prop getter is correctly mangled.
             assert(it.contains("INVOKESTATIC x/I.getProp-impl (I)I"))
+        }
+    }
+
+    @Test // see: b/255983530
+    fun testNonComposableWithComposableReturnTypeCrossModule(): Unit = ensureSetup {
+        compile(
+            mapOf(
+                "library module" to mapOf(
+                    "x/MakeComposable.kt" to """
+                      package x
+                      import androidx.compose.runtime.Composable
+
+                      fun makeComposable(): @Composable () -> Unit = @Composable {}
+                    """.trimIndent()
+                ),
+                "Main" to mapOf(
+                    "y/User.kt" to """
+                      package y
+                      import x.makeComposable
+                      import androidx.compose.runtime.Composable
+
+                      fun acceptComposable(composable: @Composable () -> Unit) {
+
+                      }
+
+                      fun test() {
+                        acceptComposable(makeComposable())
+                      }
+                    """.trimIndent()
+                )
+            ),
+        ) {
+            assert(
+                it.contains("public final static makeComposable()Lkotlin/jvm/functions/Function2;")
+            )
+            assert(
+                !it.contains(
+                "INVOKESTATIC x/MakeComposableKt.makeComposable ()Lkotlin/jvm/functions/Function0;"
+                )
+            )
+            assert(
+                it.contains(
+                "INVOKESTATIC x/MakeComposableKt.makeComposable ()Lkotlin/jvm/functions/Function2;"
+                )
+            )
+        }
+    }
+
+    @Test // see: b/255983530
+    fun testNonComposableWithNestedComposableReturnTypeCrossModule(): Unit = ensureSetup {
+        compile(
+            mapOf(
+                "library module" to mapOf(
+                    "x/MakeComposable.kt" to """
+                      package x
+                      import androidx.compose.runtime.Composable
+
+                      fun makeComposable(): List<@Composable () -> Unit> = listOf(@Composable {})
+                    """.trimIndent()
+                ),
+                "Main" to mapOf(
+                    "y/User.kt" to """
+                      package y
+                      import x.makeComposable
+                      import androidx.compose.runtime.Composable
+
+                      fun acceptComposable(composable: @Composable () -> Unit) {
+
+                      }
+
+                      fun test() {
+                        acceptComposable(makeComposable().single())
+                      }
+                    """.trimIndent()
+                )
+            ),
+        ) {
+            assert(
+                it.contains("INVOKESTATIC x/MakeComposableKt.makeComposable ()Ljava/util/List;")
+            )
+            assert(!it.contains("CHECKCAST kotlin/jvm/functions/Function0"))
+            assert(it.contains("CHECKCAST kotlin/jvm/functions/Function2"))
         }
     }
 
@@ -929,7 +1008,97 @@ class KtxCrossModuleTests : AbstractCodegenTest() {
         )
     }
 
-    fun compile(
+    @Test
+    fun testAnnotationInferenceAcrossModules() = ensureSetup {
+        compile(
+            mapOf(
+                "Base" to mapOf(
+                    "base/Library.kt" to """
+                    package base
+
+                    import androidx.compose.runtime.*
+
+                    @Composable
+                    @ComposableTarget("UI")
+                    fun Text(text: String) { }
+
+                    @Composable
+                    @ComposableTarget("UI")
+                    fun Row(content: @Composable @ComposableTarget("UI") () -> Unit) {
+                      content()
+                    }
+                    """
+                ),
+                "Client" to mapOf(
+                    "client/Library.kt" to """
+                    package client
+
+                    import androidx.compose.runtime.*
+                    import base.*
+
+                    @Composable
+                    fun Labeled(text: String, content: @Composable () -> Unit) {
+                      Text(text)
+                      Row { content() }
+                    }
+                    """
+                ),
+                "Main" to mapOf(
+                    "Main.kt" to """
+                    package main
+
+                    import androidx.compose.runtime.*
+                    import client.*
+
+                    @Composable
+                    fun Main() {
+                      Labeled("test") { }
+                    }
+                    """
+                )
+            )
+        ) {
+            assert(it.contains("[UI[UI]]", false)) {
+                "Layered composable didn't store the inferred composable target"
+            }
+        }
+    }
+
+    /**
+     * Test for b/221280935
+     */
+    @Test
+    fun testOverriddenSymbolParentsInDefaultParameters() = ensureSetup {
+        compile(
+            mapOf(
+                "Base" to mapOf(
+                    "base/Base.kt" to """
+                    package base
+
+                    import androidx.compose.runtime.Composable
+
+                    open class Base {
+                      fun f(block: (@Composable () -> Unit)? = null) {}
+                    }
+                    """
+                ),
+                "Main" to mapOf(
+                    "Main.kt" to """
+                    package main
+
+                    import androidx.compose.runtime.Composable
+                    import base.Base
+
+                    class Child : Base() {
+                      init { f {} }
+                    }
+                    """
+                )
+            )
+        )
+    }
+
+    private fun compile(
         modules: Map<String, Map<String, String>>,
         dumpClasses: Boolean = false,
         validate: ((String) -> Unit)? = null
@@ -939,12 +1108,12 @@ class KtxCrossModuleTests : AbstractCodegenTest() {
                 // Setup for compile
                 this.classFileFactory = null
                 this.myEnvironment = null
-                setUp(it.key.contains("--ktx=false"))
+                setUp()
 
-                classLoader(it.value, dumpClasses).allGeneratedFiles.also {
+                classLoader(it.value, dumpClasses).allGeneratedFiles.also { outputFiles ->
                     // Write the files to the class directory so they can be used by the next module
                     // and the application
-                    it.writeToDir(classesDirectory)
+                    outputFiles.writeToDir(classesDirectory)
                 }
             } + emptyList()
             ).reduce { acc, mutableList -> acc + mutableList }
@@ -973,7 +1142,7 @@ class KtxCrossModuleTests : AbstractCodegenTest() {
         return outputFiles
     }
 
-    fun compose(
+    private fun compose(
         mainClassName: String,
         modules: Map<String, Map<String, String>>,
         dumpClasses: Boolean = false
@@ -993,7 +1162,7 @@ class KtxCrossModuleTests : AbstractCodegenTest() {
             instanceClass ?: error("Could not find class $mainClassName in loaded classes")
         }
 
-        val instanceOfClass = instanceClass.newInstance()
+        val instanceOfClass = instanceClass.getDeclaredConstructor().newInstance()
         val advanceMethod = instanceClass.getMethod("advance")
         val composeMethod = instanceClass.getMethod(
             "compose",
@@ -1005,42 +1174,6 @@ class KtxCrossModuleTests : AbstractCodegenTest() {
             composeMethod.invoke(instanceOfClass, composer, 1)
         }) {
             advanceMethod.invoke(instanceOfClass)
-        }
-    }
-
-    fun setUp(disable: Boolean = false) {
-        if (disable) {
-            this.disableIrAndKtx = true
-            try {
-                setUp()
-            } finally {
-                this.disableIrAndKtx = false
-            }
-        } else {
-            setUp()
-        }
-    }
-
-    override fun setUp() {
-        if (disableIrAndKtx) {
-            super.setUp()
-        } else {
-            super.setUp()
-        }
-    }
-
-    override fun setupEnvironment(environment: KotlinCoreEnvironment) {
-        if (!disableIrAndKtx) {
-            super.setupEnvironment(environment)
-        }
-    }
-
-    private var disableIrAndKtx = false
-
-    override fun updateConfiguration(configuration: CompilerConfiguration) {
-        super.updateConfiguration(configuration)
-        if (disableIrAndKtx) {
-            configuration.put(JVMConfigurationKeys.IR, false)
         }
     }
 

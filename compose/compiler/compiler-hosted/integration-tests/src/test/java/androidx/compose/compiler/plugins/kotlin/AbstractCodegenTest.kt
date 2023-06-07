@@ -35,6 +35,7 @@ import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.AnalyzingUtils
 import java.io.File
+import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
 
 abstract class AbstractCodegenTest : AbstractCompilerTest() {
     override fun setUp() {
@@ -43,6 +44,7 @@ abstract class AbstractCodegenTest : AbstractCompilerTest() {
 
         val configuration = newConfiguration()
         configuration.addJvmClasspathRoots(classPath)
+        configuration.configureJdkClasspathRoots()
         updateConfiguration(configuration)
 
         myEnvironment = KotlinCoreEnvironment.createForTests(
@@ -141,7 +143,7 @@ abstract class AbstractCodegenTest : AbstractCompilerTest() {
         val loader = createClassLoader()
         if (dumpClasses) dumpClasses(loader)
         val loadedClass = loader.loadClass("Test")
-        val instance = loadedClass.newInstance()
+        val instance = loadedClass.getDeclaredConstructor().newInstance()
         val instanceClass = instance::class.java
         val testMethod = instanceClass.getMethod("test")
         testMethod.invoke(instance)

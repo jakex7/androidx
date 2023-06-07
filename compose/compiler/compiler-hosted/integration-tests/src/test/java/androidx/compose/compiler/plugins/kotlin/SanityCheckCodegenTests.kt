@@ -57,4 +57,78 @@ class SanityCheckCodegenTests : AbstractCodegenTest() {
         """
         )
     }
+
+    // Regression test for b/222979253
+    fun testLabeledLambda() = ensureSetup {
+        testCompile(
+            """
+                import androidx.compose.runtime.Composable
+
+                @Composable
+                fun test(): Unit {
+                    Box box@{}
+                }
+
+                @Composable
+                fun Box(content: @Composable () -> Unit) {}
+        """
+        )
+    }
+
+    // Regression test for b/180168881
+    fun testFunctionReferenceWithinInferredComposableLambda() = ensureSetup {
+        testCompile(
+            """
+                import androidx.compose.runtime.Composable
+
+                fun Problem() {
+                    fun foo() { }
+                    val lambda: @Composable ()->Unit = {
+                        ::foo
+                    }
+                }
+        """
+        )
+    }
+
+    // Regression test for KT-52843
+    fun testParameterInlineCaptureLambda() = ensureSetup {
+        testCompile(
+            """
+            import androidx.compose.runtime.Composable
+            import androidx.compose.ui.graphics.Color
+
+            @Composable
+            inline fun InlineWidget(
+                propagateMinConstraints: Boolean = false,
+                content: () -> Unit
+            ) {
+            }
+
+            @Composable
+            fun DarkThemeSample() {
+                val color = Color.Black
+                InlineWidget {
+                    println(color)
+                }
+            }
+        """
+        )
+    }
+
+    // Regression validating b/237863365
+    fun testComposableAsLastStatementInUnitReturningLambda() {
+        testCompile(
+            """
+            import androidx.compose.runtime.Composable
+
+            fun foo(lambda: ()->Unit){}
+            fun main() {
+                foo {
+                    @Composable {}
+                }
+            }
+            """
+        )
+    }
 }

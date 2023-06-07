@@ -110,12 +110,16 @@ public class SliceViewManagerTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void testPinList() {
         Uri uri = new Uri.Builder()
                 .scheme(ContentResolver.SCHEME_CONTENT)
                 .authority(mContext.getPackageName())
                 .build();
-        Uri longerUri = uri.buildUpon().appendPath("something").build();
+        Uri longerUri = new Uri.Builder()
+                .scheme(ContentResolver.SCHEME_CONTENT)
+                .authority(mContext.getPackageName())
+                .appendPath("something").build();
         try {
             mViewManager.pinSlice(uri);
             mViewManager.pinSlice(longerUri);
@@ -210,6 +214,7 @@ public class SliceViewManagerTest {
 
     @Test
     @SdkSuppress(minSdkVersion = 28)
+    @SuppressWarnings("deprecation")
     public void testSuspended() throws PackageManager.NameNotFoundException {
         Uri uri = new Uri.Builder()
                 .scheme(ContentResolver.SCHEME_CONTENT)

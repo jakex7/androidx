@@ -20,17 +20,17 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 
-@RunWith(JUnit4::class)
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(JUnit4::class)
 internal class WakeLockTest {
 
     @Test
-    fun testWakeLockInvokesCallbackAfterTokenIsReleased() = runBlocking {
+    fun testWakeLockInvokesCallbackAfterTokenIsReleased() = runTest {
         val result = CompletableDeferred<Boolean>()
 
         val wakelock = WakeLock(this) {
@@ -42,7 +42,7 @@ internal class WakeLockTest {
     }
 
     @Test
-    fun testWakelockDoesNotCompleteUntilAllTokensAreReleased() = runBlocking {
+    fun testWakelockDoesNotCompleteUntilAllTokensAreReleased() = runTest {
         val result = CompletableDeferred<Boolean>()
 
         val wakelock = WakeLock(this) {
@@ -62,12 +62,21 @@ internal class WakeLockTest {
     }
 
     @Test
-    fun testClosingWakelockInvokesCallback() = runBlocking {
+    fun testClosingWakelockInvokesCallback() = runTest {
         val result = CompletableDeferred<Boolean>()
         val wakelock = WakeLock(this, 100) {
             result.complete(true)
         }
         wakelock.release()
+        assertThat(result.await()).isTrue()
+    }
+
+    @Test
+    fun testWakeLockCompletesWhenStartTimeoutOnCreation() = runTest {
+        val result = CompletableDeferred<Boolean>()
+        WakeLock(this, 100, startTimeoutOnCreation = true) {
+            result.complete(true)
+        }
         assertThat(result.await()).isTrue()
     }
 }

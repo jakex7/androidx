@@ -16,9 +16,10 @@
 
 package androidx.appcompat.app
 
-import androidx.lifecycle.ViewTreeLifecycleOwner
+import androidx.lifecycle.findViewTreeLifecycleOwner
 import androidx.lifecycle.ViewTreeViewModelStoreOwner
-import androidx.savedstate.ViewTreeSavedStateRegistryOwner
+import androidx.savedstate.findViewTreeSavedStateRegistryOwner
+import androidx.activity.findViewTreeOnBackPressedDispatcherOwner
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
 import com.google.common.truth.Truth.assertThat
@@ -37,7 +38,7 @@ class AppCompatActivityViewTreeTest {
 
     @Test
     fun queryViewTreeLifecycleTest() {
-        val lfOwner = ViewTreeLifecycleOwner.get(activityRule.activity.window.decorView)
+        val lfOwner = activityRule.activity.window.decorView.findViewTreeLifecycleOwner()
         assertThat(lfOwner).isEqualTo(activityRule.activity)
     }
 
@@ -49,7 +50,14 @@ class AppCompatActivityViewTreeTest {
 
     @Test
     fun queryViewTreeSavedStateRegistryTest() {
-        val ssrOwner = ViewTreeSavedStateRegistryOwner.get(activityRule.activity.window.decorView)
+        val ssrOwner = activityRule.activity.window.decorView.findViewTreeSavedStateRegistryOwner()
         assertThat(ssrOwner).isEqualTo(activityRule.activity)
+    }
+
+    @Test
+    fun queryViewTreeOnBackPressedDispatcherOwnerTest() {
+        val bpOwner =
+            activityRule.activity.window.decorView.findViewTreeOnBackPressedDispatcherOwner()
+        assertThat(bpOwner).isEqualTo(activityRule.activity)
     }
 }

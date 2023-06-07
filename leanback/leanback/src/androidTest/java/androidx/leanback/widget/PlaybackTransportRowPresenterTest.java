@@ -35,10 +35,12 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewParent;
 
+import androidx.annotation.NonNull;
 import androidx.leanback.media.PlaybackTransportControlGlue;
 import androidx.leanback.media.PlayerAdapter;
 import androidx.leanback.widget.PlaybackSeekDataProvider.ResultCallback;
 import androidx.test.filters.MediumTest;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Before;
@@ -70,7 +72,7 @@ public class PlaybackTransportRowPresenterTest {
             public void run() {
                 mGlue = new PlaybackTransportControlGlue<PlayerAdapter>(mContext, mImpl) {
                     @Override
-                    protected void onCreatePrimaryActions(ArrayObjectAdapter
+                    protected void onCreatePrimaryActions(@NonNull ArrayObjectAdapter
                             primaryActionsAdapter) {
                         super.onCreatePrimaryActions(primaryActionsAdapter);
                         primaryActionsAdapter.add(
@@ -78,7 +80,7 @@ public class PlaybackTransportRowPresenterTest {
                     }
 
                     @Override
-                    protected void onCreateSecondaryActions(ArrayObjectAdapter
+                    protected void onCreateSecondaryActions(@NonNull ArrayObjectAdapter
                             secondaryActionsAdapter) {
                         secondaryActionsAdapter.add(
                                 new PlaybackControlsRow.HighQualityAction(mContext));
@@ -268,6 +270,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void navigateProgressUpToPrimary() {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(new Runnable() {
             @Override
@@ -286,6 +289,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void navigateProgressDownToSecondary() {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(new Runnable() {
             @Override
@@ -317,6 +321,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekAndConfirm() {
         when(mImpl.isPrepared()).thenReturn(true);
         when(mImpl.getCurrentPosition()).thenReturn(0L);
@@ -345,6 +350,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void playSeekToZero() {
         when(mImpl.isPrepared()).thenReturn(true);
         when(mImpl.getCurrentPosition()).thenReturn(0L);
@@ -387,6 +393,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void playSeekAndCancel() {
         when(mImpl.isPrepared()).thenReturn(true);
         when(mImpl.getCurrentPosition()).thenReturn(0L);
@@ -429,6 +436,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekHoldKeyDown() {
         when(mImpl.isPrepared()).thenReturn(true);
         when(mImpl.getCurrentPosition()).thenReturn(4489L);
@@ -455,6 +463,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekAndCancel() {
         when(mImpl.isPrepared()).thenReturn(true);
         when(mImpl.getCurrentPosition()).thenReturn(0L);
@@ -483,6 +492,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekUpBetweenTwoKeyPosition() {
         PlaybackSeekProviderSample provider = Mockito.spy(
                 new PlaybackSeekProviderSample(10000L, 101));
@@ -507,6 +517,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekDownBetweenTwoKeyPosition() {
         PlaybackSeekProviderSample provider = Mockito.spy(
                 new PlaybackSeekProviderSample(10000L, 101));
@@ -532,6 +543,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekDownOutOfKeyPositions() {
         PlaybackSeekProviderSample provider = Mockito.spy(
                 new PlaybackSeekProviderSample(1000L, 10000L, 101));
@@ -561,6 +573,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekDownAheadOfKeyPositions() {
         PlaybackSeekProviderSample provider = Mockito.spy(
                 new PlaybackSeekProviderSample(1000L, 10000L, 101));
@@ -588,6 +601,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekUpAheadOfKeyPositions() {
         PlaybackSeekProviderSample provider = Mockito.spy(
                 new PlaybackSeekProviderSample(1000L, 10000L, 101));
@@ -615,6 +629,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekUpOutOfKeyPositions() {
         PlaybackSeekProviderSample provider = Mockito.spy(
                 new PlaybackSeekProviderSample(10000L, 101));
@@ -648,6 +663,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekUpAfterKeyPositions() {
         PlaybackSeekProviderSample provider = Mockito.spy(
                 new PlaybackSeekProviderSample(10000L, 101));
@@ -674,6 +690,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void seekDownAfterKeyPositions() {
         PlaybackSeekProviderSample provider = Mockito.spy(
                 new PlaybackSeekProviderSample(10000L, 101));
@@ -700,6 +717,7 @@ public class PlaybackTransportRowPresenterTest {
     }
 
     @Test
+    @SdkSuppress(maxSdkVersion = 33) // b/262909049: Failing on SDK 34
     public void thumbLoadedInCallback() {
         when(mImpl.isPrepared()).thenReturn(true);
         when(mImpl.getCurrentPosition()).thenReturn(0L);

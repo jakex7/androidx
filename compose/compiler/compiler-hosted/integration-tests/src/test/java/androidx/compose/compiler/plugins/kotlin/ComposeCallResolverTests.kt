@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.resolve.BindingContext
-import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
+import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
 import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
 import kotlin.reflect.KClass
 
@@ -221,9 +221,9 @@ class ComposeCallResolverTests : AbstractCodegenTest() {
         val environment = myEnvironment ?: error("Environment not initialized")
 
         val ktFile = KtPsiFactory(environment.project).createFile(text)
-        val bindingContext = JvmResolveUtil.analyze(
-            ktFile,
-            environment
+        val bindingContext = JvmResolveUtil.analyzeAndCheckForErrors(
+            environment,
+            listOf(ktFile)
         ).bindingContext
 
         carets.forEachIndexed { index, (offset, calltype) ->

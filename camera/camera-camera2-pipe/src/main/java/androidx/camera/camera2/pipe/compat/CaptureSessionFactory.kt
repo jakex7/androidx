@@ -25,10 +25,11 @@ import android.view.Surface
 import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraGraph
 import androidx.camera.camera2.pipe.StreamId
-import androidx.camera.camera2.pipe.config.CameraGraphScope
-import androidx.camera.camera2.pipe.core.Log
 import androidx.camera.camera2.pipe.compat.OutputConfigurationWrapper.Companion.SURFACE_GROUP_ID_NONE
+import androidx.camera.camera2.pipe.config.Camera2ControllerScope
+import androidx.camera.camera2.pipe.core.Log
 import androidx.camera.camera2.pipe.core.Threads
+import androidx.camera.camera2.pipe.graph.StreamGraphImpl
 import dagger.Module
 import dagger.Provides
 import javax.inject.Inject
@@ -45,14 +46,14 @@ internal interface CaptureSessionFactory {
     fun create(
         cameraDevice: CameraDeviceWrapper,
         surfaces: Map<StreamId, Surface>,
-        virtualSessionState: VirtualSessionState
+        captureSessionState: CaptureSessionState
     ): Map<StreamId, OutputConfigurationWrapper>
 }
 
 @Module
-internal object SessionFactoryModule {
+internal object Camera2CaptureSessionsModule {
     @SuppressLint("ObsoleteSdkInt")
-    @CameraGraphScope
+    @Camera2ControllerScope
     @Provides
     fun provideSessionFactory(
         androidLProvider: Provider<AndroidLSessionFactory>,
@@ -98,19 +99,19 @@ internal class AndroidLSessionFactory @Inject constructor(
     override fun create(
         cameraDevice: CameraDeviceWrapper,
         surfaces: Map<StreamId, Surface>,
-        virtualSessionState: VirtualSessionState
+        captureSessionState: CaptureSessionState
     ): Map<StreamId, OutputConfigurationWrapper> {
         try {
             cameraDevice.createCaptureSession(
                 surfaces.map { it.value },
-                virtualSessionState,
+                captureSessionState,
                 threads.camera2Handler
             )
         } catch (e: Throwable) {
             Log.warn {
-                "Failed to create capture session from $cameraDevice for $virtualSessionState!"
+                "Failed to create capture session from $cameraDevice for $captureSessionState!"
             }
-            virtualSessionState.disconnect()
+            captureSessionState.disconnect()
         }
         return emptyMap()
     }
@@ -124,7 +125,7 @@ internal class AndroidMSessionFactory @Inject constructor(
     override fun create(
         cameraDevice: CameraDeviceWrapper,
         surfaces: Map<StreamId, Surface>,
-        virtualSessionState: VirtualSessionState
+        captureSessionState: CaptureSessionState
     ): Map<StreamId, OutputConfigurationWrapper> {
         if (graphConfig.input != null) {
             try {
@@ -136,28 +137,28 @@ internal class AndroidMSessionFactory @Inject constructor(
                         outputConfig.format.value
                     ),
                     surfaces.map { it.value },
-                    virtualSessionState,
+                    captureSessionState,
                     threads.camera2Handler
                 )
             } catch (e: Throwable) {
                 Log.warn {
                     "Failed to create reprocessable captures session from $cameraDevice for" +
-                        " $virtualSessionState!"
+                        " $captureSessionState!"
                 }
-                virtualSessionState.disconnect()
+                captureSessionState.disconnect()
             }
         } else {
             try {
                 cameraDevice.createCaptureSession(
                     surfaces.map { it.value },
-                    virtualSessionState,
+                    captureSessionState,
                     threads.camera2Handler
                 )
             } catch (e: Throwable) {
                 Log.warn {
-                    "Failed to create captures session from $cameraDevice for $virtualSessionState!"
+                    "Failed to create captures session from $cameraDevice for $captureSessionState!"
                 }
-                virtualSessionState.disconnect()
+                captureSessionState.disconnect()
             }
         }
         return emptyMap()
@@ -171,34 +172,51 @@ internal class AndroidMHighSpeedSessionFactory @Inject constructor(
     override fun create(
         cameraDevice: CameraDeviceWrapper,
         surfaces: Map<StreamId, Surface>,
-        virtualSessionState: VirtualSessionState
+        captureSessionState: CaptureSessionState
     ): Map<StreamId, OutputConfigurationWrapper> {
-        TODO("Implement this")
+        try {
+            cameraDevice.createConstrainedHighSpeedCaptureSession(
+                surfaces.map { it.value },
+                captureSessionState,
+                threads.camera2Handler
+            )
+        } catch (e: Throwable) {
+            Log.warn {
+                "Failed to create ConstrainedHighSpeedCaptureSession " +
+                    "from $cameraDevice for $captureSessionState!"
+            }
+            captureSessionState.disconnect()
+        }
+        return emptyMap()
     }
 }
 
 @RequiresApi(Build.VERSION_CODES.N)
 internal class AndroidNSessionFactory @Inject constructor(
     private val threads: Threads,
-    private val streamGraph: Camera2StreamGraph,
+    private val streamGraph: StreamGraphImpl,
     private val graphConfig: CameraGraph.Config
 ) : CaptureSessionFactory {
     override fun create(
         cameraDevice: CameraDeviceWrapper,
         surfaces: Map<StreamId, Surface>,
-        virtualSessionState: VirtualSessionState
+        captureSessionState: CaptureSessionState
     ): Map<StreamId, OutputConfigurationWrapper> {
         val outputs = buildOutputConfigurations(
             graphConfig,
             streamGraph,
             surfaces
         )
+        if (outputs.all.isEmpty()) {
+            Log.warn { "Failed to create OutputConfigurations for $graphConfig" }
+            return emptyMap()
+        }
 
         try {
             if (graphConfig.input == null) {
                 cameraDevice.createCaptureSessionByOutputConfigurations(
                     outputs.all,
-                    virtualSessionState,
+                    captureSessionState,
                     threads.camera2Handler
                 )
             } else {
@@ -210,15 +228,15 @@ internal class AndroidNSessionFactory @Inject constructor(
                         outputConfig.format.value
                     ),
                     outputs.all,
-                    virtualSessionState,
+                    captureSessionState,
                     threads.camera2Handler
                 )
             }
         } catch (e: Throwable) {
             Log.warn {
-                "Failed to create capture session from $cameraDevice for $virtualSessionState!"
+                "Failed to create capture session from $cameraDevice for $captureSessionState!"
             }
-            virtualSessionState.disconnect()
+            captureSessionState.disconnect()
         }
         return emptyMap()
     }
@@ -228,12 +246,12 @@ internal class AndroidNSessionFactory @Inject constructor(
 internal class AndroidPSessionFactory @Inject constructor(
     private val threads: Threads,
     private val graphConfig: CameraGraph.Config,
-    private val streamGraph: Camera2StreamGraph
+    private val streamGraph: StreamGraphImpl
 ) : CaptureSessionFactory {
     override fun create(
         cameraDevice: CameraDeviceWrapper,
         surfaces: Map<StreamId, Surface>,
-        virtualSessionState: VirtualSessionState
+        captureSessionState: CaptureSessionState
     ): Map<StreamId, OutputConfigurationWrapper> {
 
         val operatingMode =
@@ -247,6 +265,10 @@ internal class AndroidPSessionFactory @Inject constructor(
             streamGraph,
             surfaces
         )
+        if (outputs.all.isEmpty()) {
+            Log.warn { "Failed to create OutputConfigurations for $graphConfig" }
+            return emptyMap()
+        }
 
         val input = graphConfig.input?.let {
             val outputConfig = it.stream.outputs.single()
@@ -262,7 +284,7 @@ internal class AndroidPSessionFactory @Inject constructor(
             input,
             outputs.all,
             threads.camera2Executor,
-            virtualSessionState,
+            captureSessionState,
             graphConfig.sessionTemplate.value,
             graphConfig.sessionParameters
         )
@@ -271,9 +293,9 @@ internal class AndroidPSessionFactory @Inject constructor(
             cameraDevice.createCaptureSession(sessionConfig)
         } catch (e: Throwable) {
             Log.warn {
-                "Failed to create capture session from $cameraDevice for $virtualSessionState!"
+                "Failed to create capture session from $cameraDevice for $captureSessionState!"
             }
-            virtualSessionState.disconnect()
+            captureSessionState.disconnect()
         }
         return outputs.deferred
     }
@@ -282,7 +304,7 @@ internal class AndroidPSessionFactory @Inject constructor(
 @RequiresApi(Build.VERSION_CODES.N)
 internal fun buildOutputConfigurations(
     graphConfig: CameraGraph.Config,
-    streamGraph: Camera2StreamGraph,
+    streamGraph: StreamGraphImpl,
     surfaces: Map<StreamId, Surface>
 ): OutputConfigurations {
     val allOutputs = arrayListOf<OutputConfigurationWrapper>()
@@ -314,6 +336,10 @@ internal fun buildOutputConfigurations(
                 null,
                 size = outputConfig.size,
                 outputType = outputConfig.deferredOutputType!!,
+                mirrorMode = outputConfig.mirrorMode,
+                timestampBase = outputConfig.timestampBase,
+                dynamicRangeProfile = outputConfig.dynamicRangeProfile,
+                streamUseCase = outputConfig.streamUseCase,
                 surfaceSharing = outputConfig.surfaceSharing,
                 surfaceGroupId = outputConfig.groupNumber ?: SURFACE_GROUP_ID_NONE,
                 physicalCameraId = if (outputConfig.camera != graphConfig.camera) {
@@ -322,6 +348,10 @@ internal fun buildOutputConfigurations(
                     null
                 }
             )
+            if (output == null) {
+                Log.warn { "Failed to create AndroidOutputConfiguration for $outputConfig" }
+                continue
+            }
             allOutputs.add(output)
             for (outputSurface in outputConfig.streamBuilder) {
                 deferredOutputs[outputSurface.id] = output
@@ -337,6 +367,10 @@ internal fun buildOutputConfigurations(
         }
         val output = AndroidOutputConfiguration.create(
             outputSurfaces.first(),
+            mirrorMode = outputConfig.mirrorMode,
+            timestampBase = outputConfig.timestampBase,
+            dynamicRangeProfile = outputConfig.dynamicRangeProfile,
+            streamUseCase = outputConfig.streamUseCase,
             size = outputConfig.size,
             surfaceSharing = outputConfig.surfaceSharing,
             surfaceGroupId = outputConfig.groupNumber ?: SURFACE_GROUP_ID_NONE,
@@ -346,6 +380,10 @@ internal fun buildOutputConfigurations(
                 null
             }
         )
+        if (output == null) {
+            Log.warn { "Failed to create AndroidOutputConfiguration for $outputConfig" }
+            continue
+        }
         for (surface in outputSurfaces.drop(1)) {
             output.addSurface(surface)
         }
