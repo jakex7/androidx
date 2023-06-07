@@ -17,9 +17,9 @@
 package androidx.compose.foundation.text.selection
 
 import androidx.compose.foundation.AtomicLong
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.LayoutCoordinates
 
@@ -59,27 +59,32 @@ internal class SelectionRegistrarImpl : SelectionRegistrar {
     /**
      * The callback to be invoked when the position change was triggered.
      */
+    @Suppress("PrimitiveInLambda")
     internal var onPositionChangeCallback: ((Long) -> Unit)? = null
 
     /**
      * The callback to be invoked when the selection is initiated.
      */
+    @Suppress("PrimitiveInLambda")
     internal var onSelectionUpdateStartCallback:
-        ((LayoutCoordinates, Offset, SelectionAdjustment) -> Unit)? = null
+        ((Boolean, LayoutCoordinates, Offset, SelectionAdjustment) -> Unit)? = null
 
     /**
      * The callback to be invoked when the selection is initiated with selectAll [Selection].
      */
+    @Suppress("PrimitiveInLambda")
     internal var onSelectionUpdateSelectAll: (
-        (Long) -> Unit
+        (Boolean, Long) -> Unit
     )? = null
 
     /**
      * The callback to be invoked when the selection is updated.
      * If the first offset is null it means that the start of selection is unknown for the caller.
      */
+    @Suppress("PrimitiveInLambda")
     internal var onSelectionUpdateCallback:
-        ((LayoutCoordinates, Offset, Offset, Boolean, SelectionAdjustment) -> Boolean)? = null
+        ((Boolean, LayoutCoordinates, Offset, Offset, Boolean, SelectionAdjustment) -> Boolean)? =
+        null
 
     /**
      * The callback to be invoked when selection update finished.
@@ -89,11 +94,13 @@ internal class SelectionRegistrarImpl : SelectionRegistrar {
     /**
      * The callback to be invoked when one of the selectable has changed.
      */
+    @Suppress("PrimitiveInLambda")
     internal var onSelectableChangeCallback: ((Long) -> Unit)? = null
 
     /**
      * The callback to be invoked after a selectable is unsubscribed from this [SelectionRegistrar].
      */
+    @Suppress("PrimitiveInLambda")
     internal var afterSelectableUnsubscribe: ((Long) -> Unit)? = null
 
     override var subselections: Map<Long, Selection> by mutableStateOf(emptyMap())
@@ -170,13 +177,19 @@ internal class SelectionRegistrarImpl : SelectionRegistrar {
     override fun notifySelectionUpdateStart(
         layoutCoordinates: LayoutCoordinates,
         startPosition: Offset,
-        adjustment: SelectionAdjustment
+        adjustment: SelectionAdjustment,
+        isInTouchMode: Boolean
     ) {
-        onSelectionUpdateStartCallback?.invoke(layoutCoordinates, startPosition, adjustment)
+        onSelectionUpdateStartCallback?.invoke(
+            isInTouchMode,
+            layoutCoordinates,
+            startPosition,
+            adjustment
+        )
     }
 
-    override fun notifySelectionUpdateSelectAll(selectableId: Long) {
-        onSelectionUpdateSelectAll?.invoke(selectableId)
+    override fun notifySelectionUpdateSelectAll(selectableId: Long, isInTouchMode: Boolean) {
+        onSelectionUpdateSelectAll?.invoke(isInTouchMode, selectableId)
     }
 
     override fun notifySelectionUpdate(
@@ -184,9 +197,11 @@ internal class SelectionRegistrarImpl : SelectionRegistrar {
         newPosition: Offset,
         previousPosition: Offset,
         isStartHandle: Boolean,
-        adjustment: SelectionAdjustment
+        adjustment: SelectionAdjustment,
+        isInTouchMode: Boolean
     ): Boolean {
         return onSelectionUpdateCallback?.invoke(
+            isInTouchMode,
             layoutCoordinates,
             newPosition,
             previousPosition,

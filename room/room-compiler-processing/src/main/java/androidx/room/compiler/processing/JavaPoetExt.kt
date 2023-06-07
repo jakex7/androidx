@@ -40,9 +40,14 @@ import javax.lang.model.type.TypeMirror
 internal val JAVA_NONE_TYPE_NAME: JClassName =
     JClassName.get("androidx.room.compiler.processing.error", "NotAType")
 
-fun XAnnotation.toAnnotationSpec(): AnnotationSpec {
+@JvmOverloads
+fun XAnnotation.toAnnotationSpec(includeDefaultValues: Boolean = true): AnnotationSpec {
   val builder = AnnotationSpec.builder(className)
-  annotationValues.forEach { builder.addAnnotationValue(it) }
+  if (includeDefaultValues) {
+    annotationValues.forEach { builder.addAnnotationValue(it) }
+  } else {
+    declaredAnnotationValues.forEach { builder.addAnnotationValue(it) }
+  }
   return builder.build()
 }
 
@@ -191,7 +196,9 @@ object MethodSpecHelper {
                 addModifiers(Modifier.PROTECTED)
             }
             addAnnotation(Override::class.java)
-            varargs(executableElement.isVarArgs())
+            // In Java, only the last argument can be a vararg so for suspend functions, it is never
+            // a vararg function.
+            varargs(!executableElement.isSuspendFunction() && executableElement.isVarArgs())
             executableElement.thrownTypes.forEach {
                 addException(it.asTypeName().java)
             }

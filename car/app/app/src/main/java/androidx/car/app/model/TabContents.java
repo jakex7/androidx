@@ -18,15 +18,12 @@ package androidx.car.app.model;
 
 import static java.util.Objects.requireNonNull;
 
-import android.annotation.SuppressLint;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.car.app.annotations.CarProtocol;
-import androidx.car.app.annotations.ExperimentalCarApi;
+import androidx.car.app.annotations.KeepFields;
 import androidx.car.app.annotations.RequiresCarApi;
 import androidx.car.app.model.constraints.TabContentsConstraints;
-import androidx.car.app.annotations.KeepFields;
 
 import java.util.Objects;
 
@@ -34,7 +31,6 @@ import java.util.Objects;
  * Represents the contents to display for a selected tab in a {@link TabTemplate}.
  */
 @CarProtocol
-@ExperimentalCarApi
 @RequiresCarApi(6)
 @KeepFields
 public class TabContents implements Content {
@@ -125,7 +121,6 @@ public class TabContents implements Content {
          * @throws NullPointerException     if {@code template} is null
          * @throws IllegalArgumentException if {@code template} does not meet the requirements
          */
-        @SuppressLint("ExecutorRegistration")
         public Builder(@NonNull Template template) {
             TabContentsConstraints.DEFAULT.validateOrThrow(requireNonNull(template));
             mTemplate = template;

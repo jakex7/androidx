@@ -86,27 +86,93 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
             interface MyDao {
               @Query("SELECT * FROM MyEntity")
               fun getEntity(): MyEntity
+
+              @Insert
+              fun addEntity(item: MyEntity)
             }
             """.trimIndent()
         )
         val javaEntity = Source.java(
             "MyEntity",
             """
+            import androidx.annotation.Nullable;
             import androidx.room.*;
             
             @Entity
             public class MyEntity {
               @PrimaryKey
               private long mValue;
-              
+
+              @Nullable
+              private String mNullableValue;
+
               public long getValue() { return mValue; }
               public void setValue(long value) { mValue = value; }
+
+              @Nullable
+              public String getNullableValue() { return mNullableValue; }
+              public void setNullableValue(@Nullable String nullableValue) {
+                mNullableValue = nullableValue;
+              }
             }
             """.trimIndent()
         )
         runTest(
             sources = listOf(src, javaEntity, databaseSrc),
             expectedFilePath = getTestGoldenPath(testName)
+        )
+    }
+
+    // b/274760383
+    @Test
+    fun pojoRowAdapter_otherModule() {
+        val testName = object {}.javaClass.enclosingMethod!!.name
+        val lib = compileFiles(
+            sources = listOf(
+                Source.kotlin(
+                    "MyEntity.kt",
+                """
+                import androidx.room.*
+
+                @Entity
+                class MyEntity(
+                    @PrimaryKey
+                    val pk: Int,
+                    val primitive: Long = 0,
+                    val string: String = "",
+                    val nullableString: String? = null,
+                    @JvmField val fieldString: String = "",
+                    @JvmField val nullableFieldString: String? = null
+                ) {
+                    var variablePrimitive: Long = 0
+                    var variableString: String = ""
+                    var variableNullableString: String? = null
+                    @JvmField var variableFieldString: String = ""
+                    @JvmField var variableNullableFieldString: String? = null
+                }
+                """.trimIndent()
+                )
+            )
+        )
+        val src = Source.kotlin(
+            "MyDao.kt",
+            """
+            import androidx.room.*
+
+            @Dao
+            interface MyDao {
+              @Query("SELECT * FROM MyEntity")
+              fun getEntity(): MyEntity
+
+              @Insert
+              fun addEntity(item: MyEntity)
+            }
+            """.trimIndent()
+        )
+        runTest(
+            sources = listOf(src, databaseSrc),
+            expectedFilePath = getTestGoldenPath(testName),
+            compiledFiles = lib
         )
     }
 
@@ -1074,12 +1140,19 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
               }
 
               @Transaction
-              open fun concreteInternal() {
+              internal open fun concreteInternal() {
               }
 
               @Transaction
               open suspend fun suspendConcrete() {
+              }
 
+              @Transaction
+              open fun concreteWithVararg(vararg arr: Long) {
+              }
+
+              @Transaction
+              open suspend fun suspendConcreteWithVararg(vararg arr: Long) {
               }
             }
 
@@ -1160,6 +1233,12 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
 
               @Upsert
               fun upsertEntityListAndReturnRowIds(items: List<MyEntity>): List<Long>
+
+              @Upsert
+              fun upsertEntityListAndReturnRowIdsArray(items: List<MyEntity>): Array<Long>
+
+              @Upsert
+              fun upsertEntityListAndReturnRowIdsOutArray(items: List<MyEntity>): Array<out Long>
             }
 
             @Entity
@@ -1200,15 +1279,6 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
             interface MyDao {
               @Query("SELECT * FROM MyEntity")
               fun queryOfList(): List<MyEntity>
-
-              @Query("SELECT * FROM MyEntity")
-              fun queryOfNullableList(): List<MyEntity>?
-
-              @Query("SELECT * FROM MyEntity")
-              fun queryOfNullableEntityList(): List<MyNullableEntity?>
-
-              @Query("SELECT * FROM MyEntity")
-              fun queryOfNullableListWithNullableEntity(): List<MyNullableEntity>?
             }
 
             @Entity
@@ -1255,14 +1325,8 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
               @Query("SELECT * FROM MyEntity")
               fun queryOfArray(): Array<MyEntity>
 
-              @Query("SELECT * FROM MyEntity")
-              fun queryOfNullableEntityArray(): Array<MyEntity?>
-
               @Query("SELECT pk FROM MyEntity")
               fun queryOfArrayWithLong(): Array<Long>
-
-              @Query("SELECT pk FROM MyEntity")
-              fun queryOfArrayWithNullLong(): Array<Long?>
 
               @Query("SELECT * FROM MyEntity")
               fun queryOfLongArray(): LongArray
@@ -1312,6 +1376,7 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
             expectedFilePath = getTestGoldenPath(testName)
         )
     }
+
     @Test
     fun queryResultAdapter_optional() {
         val testName = object {}.javaClass.enclosingMethod!!.name
@@ -1381,9 +1446,6 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
             interface MyDao {
               @Query("SELECT * FROM MyEntity")
               fun queryOfList(): ImmutableList<MyEntity>
-
-              @Query("SELECT * FROM MyEntity")
-              fun queryOfNullableEntityList(): ImmutableList<MyEntity?>
             }
 
             @Entity
@@ -1417,9 +1479,6 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
             interface MyDao {
                 @Query("SELECT * FROM Song JOIN Artist ON Song.artistKey = Artist.artistId")
                 fun getSongsWithArtist(): Map<Song, Artist>
-
-                @Query("SELECT * FROM Song JOIN Artist ON Song.artistKey = Artist.artistId")
-                fun getSongsWithNullableArtist(): Map<Song, Artist?>
 
                 @Query("SELECT * FROM Artist JOIN Song ON Artist.artistId = Song.artistKey")
                 fun getArtistWithSongs(): Map<Artist, List<Song>>
@@ -1894,9 +1953,6 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
 
                 @Query("SELECT * FROM MyEntity WHERE pk IN (:arg)")
                 suspend fun getSuspendList(vararg arg: String?): List<MyEntity>
-
-                @Query("SELECT * FROM MyEntity WHERE pk IN (:arg)")
-                suspend fun getNullableSuspendList(vararg arg: String?): List<MyEntity?>
             }
 
             @Entity
@@ -2153,6 +2209,54 @@ class DaoKotlinCodeGenTest : BaseDaoKotlinCodeGenTest() {
                 databaseSrc,
                 COMMON.COROUTINES_ROOM
             ),
+            expectedFilePath = getTestGoldenPath(testName)
+        )
+    }
+
+    @Test
+    fun pojoRowAdapter_valueClassConverter() {
+        val testName = object {}.javaClass.enclosingMethod!!.name
+        val src = Source.kotlin(
+            "MyDao.kt",
+            """
+            import androidx.room.*
+            import java.util.UUID
+
+            @Dao
+            interface MyDao {
+              @Query("SELECT * FROM MyEntity")
+              fun getEntity(): MyEntity
+
+              @Insert
+              fun addEntity(item: MyEntity)
+            }
+
+            @JvmInline
+            value class LongValueClass(val data: Long)
+
+            @JvmInline
+            value class NullableLongValueClass(val data: Long?)
+
+            @JvmInline
+            value class UUIDValueClass(val data: UUID)
+
+            @JvmInline
+            value class GenericValueClass<T>(val password: T)
+
+            @Entity
+            data class MyEntity (
+                @PrimaryKey
+                val pk: LongValueClass,
+                val uuidData: UUIDValueClass,
+                val nullableUuidData: UUIDValueClass?,
+                val nullableLongData: NullableLongValueClass,
+                val doubleNullableLongData: NullableLongValueClass?,
+                val genericData: GenericValueClass<String>
+            )
+            """.trimIndent()
+        )
+        runTest(
+            sources = listOf(src, databaseSrc),
             expectedFilePath = getTestGoldenPath(testName)
         )
     }

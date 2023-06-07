@@ -24,6 +24,7 @@ import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraController
 import androidx.camera.camera2.pipe.CameraGraph
 import androidx.camera.camera2.pipe.CameraId
+import androidx.camera.camera2.pipe.CameraStatusMonitor
 import androidx.camera.camera2.pipe.CaptureSequence
 import androidx.camera.camera2.pipe.CaptureSequenceProcessor
 import androidx.camera.camera2.pipe.Metadata
@@ -46,10 +47,13 @@ class ExternalCameraController(
     private val requestProcessor: RequestProcessor
 ) : CameraController {
     private val sequenceProcessor = ExternalCaptureSequenceProcessor(graphConfig, requestProcessor)
-    private val graphProcessor: GraphRequestProcessor = GraphRequestProcessor.from(
-        sequenceProcessor
-    )
+    private val graphProcessor: GraphRequestProcessor =
+        GraphRequestProcessor.from(sequenceProcessor)
     private var started = atomic(false)
+
+    override val cameraId: CameraId
+        get() = graphConfig.camera
+    override var isForeground = false
 
     override fun start() {
         if (started.compareAndSet(expect = false, update = true)) {
@@ -61,6 +65,11 @@ class ExternalCameraController(
         if (started.compareAndSet(expect = true, update = false)) {
             graphListener.onGraphStopped(graphProcessor)
         }
+    }
+
+    override fun tryRestart(cameraStatus: CameraStatusMonitor.CameraStatus) {
+        // This is intentionally made a no-op for now as CameraPipe external doesn't support
+        // camera status monitoring and camera controller restart.
     }
 
     override fun close() {
@@ -103,18 +112,19 @@ internal class ExternalCaptureSequenceProcessor(
             Log.warn { "Cannot create an ExternalCaptureSequence until Surfaces are available!" }
             return null
         }
-        val metadata = requests.map { request ->
-            val parameters = defaultParameters + request.parameters + requiredParameters
+        val metadata =
+            requests.map { request ->
+                val parameters = defaultParameters + request.parameters + requiredParameters
 
-            ExternalRequestMetadata(
-                graphConfig.defaultTemplate,
-                streamToSurfaceMap,
-                parameters,
-                isRepeating,
-                request,
-                RequestNumber(internalRequestNumbers.incrementAndGet())
-            )
-        }
+                ExternalRequestMetadata(
+                    graphConfig.defaultTemplate,
+                    streamToSurfaceMap,
+                    parameters,
+                    isRepeating,
+                    request,
+                    RequestNumber(internalRequestNumbers.incrementAndGet())
+                )
+            }
 
         return ExternalCaptureSequence(
             graphConfig.camera,

@@ -117,9 +117,12 @@ class DarwinBenchmarkPlugin : Plugin<Project> {
         project.tasks.register(
             DARWIN_BENCHMARK_RESULTS_TASK, DarwinBenchmarkResultsTask::class.java
         ) {
+            it.group = "Verification"
+            it.description = "Run Kotlin Multiplatform Benchmarks for Darwin"
             it.xcResultPath.set(runDarwinBenchmarks.flatMap { task ->
                 task.xcResultPath
             })
+            it.referenceSha.set(extension.referenceSha)
             val resultFileName = "${extension.xcodeProjectName.get()}-benchmark-result.json"
             it.outputFile.set(
                 project.layout.buildDirectory.file(
@@ -152,7 +155,10 @@ class DarwinBenchmarkPlugin : Plugin<Project> {
         // We want to write metrics to library metrics specific location
         // Context: b/257326666
         return providers.environmentVariable(DIST_DIR).map { value ->
-            File(value, LIBRARY_METRICS)
+            val parent = value.ifBlank {
+                project.buildDir.absolutePath
+            }
+            File(parent, LIBRARY_METRICS)
         }
     }
 

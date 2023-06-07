@@ -17,6 +17,7 @@
 package androidx.compose.compiler.plugins.kotlin
 
 import androidx.compose.compiler.plugins.kotlin.analysis.stabilityOf
+import androidx.compose.compiler.plugins.kotlin.facade.SourceFile
 import org.intellij.lang.annotations.Language
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
@@ -26,10 +27,13 @@ import org.jetbrains.kotlin.ir.expressions.IrReturn
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.statements
+import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.JUnit4
 
-class ClassStabilityTransformTests : AbstractIrTransformTest() {
-
+@RunWith(JUnit4::class)
+class ClassStabilityTransformTests : AbstractIrTransformTest(useFir = false) {
     @Test
     fun testEmptyClassIsStable() = assertStability(
         "class Foo",
@@ -944,10 +948,10 @@ class ClassStabilityTransformTests : AbstractIrTransformTest() {
             class StableDelegateProp {
               var p1: StableDelegate = StableDelegate()
                 get() {
-                  return <this>.p1%delegate.getValue()
+                  return <this>.p1%delegate.getValue(<this>, ::p1)
                 }
                 set(value) {
-                  return <this>.p1%delegate.setValue()
+                  return <this>.p1%delegate.setValue(<this>, ::p1, <set-?>)
                 }
               static val %stable: Int = 0
             }
@@ -955,10 +959,10 @@ class ClassStabilityTransformTests : AbstractIrTransformTest() {
             class UnstableDelegateProp {
               var p1: UnstableDelegate = UnstableDelegate()
                 get() {
-                  return <this>.p1%delegate.getValue()
+                  return <this>.p1%delegate.getValue(<this>, ::p1)
                 }
                 set(value) {
-                  return <this>.p1%delegate.setValue()
+                  return <this>.p1%delegate.setValue(<this>, ::p1, <set-?>)
                 }
               static val %stable: Int = 8
             }
@@ -1165,10 +1169,10 @@ class ClassStabilityTransformTests : AbstractIrTransformTest() {
             class StableDelegateProp {
               var p1: StableDelegate = StableDelegate()
                 get() {
-                  return <this>.p1%delegate.getValue()
+                  return <this>.p1%delegate.getValue(<this>, ::p1)
                 }
                 set(value) {
-                  return <this>.p1%delegate.setValue()
+                  return <this>.p1%delegate.setValue(<this>, ::p1, <set-?>)
                 }
               static val %stable: Int = 0
             }
@@ -1176,10 +1180,10 @@ class ClassStabilityTransformTests : AbstractIrTransformTest() {
             class UnstableDelegateProp {
               var p1: UnstableDelegate = UnstableDelegate()
                 get() {
-                  return <this>.p1%delegate.getValue()
+                  return <this>.p1%delegate.getValue(<this>, ::p1)
                 }
                 set(value) {
-                  return <this>.p1%delegate.setValue()
+                  return <this>.p1%delegate.setValue(<this>, ::p1, <set-?>)
                 }
               static val %stable: Int = UnstableDelegate.%stable
             }
@@ -1495,9 +1499,7 @@ class ClassStabilityTransformTests : AbstractIrTransformTest() {
             class Unstable { var value: Int = 0 }
         """.trimIndent()
 
-        val files = listOf(
-            sourceFile("Test.kt", source.replace('%', '$'))
-        )
+        val files = listOf(SourceFile("Test.kt", source))
         val irModule = compileToIr(files)
         val irClass = irModule.files.last().declarations.first() as IrClass
         val classStability = stabilityOf(irClass.defaultType as IrType)
@@ -1570,11 +1572,6 @@ class ClassStabilityTransformTests : AbstractIrTransformTest() {
         localSrc: String,
         dumpClasses: Boolean = false
     ): IrModuleFragment {
-        // Setup for compile
-        this.classFileFactory = null
-        this.myEnvironment = null
-        setUp()
-
         val dependencyFileName = "Test_REPLACEME_${uniqueNumber++}"
         val dependencySrc = """
             package dependency
@@ -1591,19 +1588,13 @@ class ClassStabilityTransformTests : AbstractIrTransformTest() {
             $externalSrc
         """.trimIndent()
 
-        val classesDirectory = tmpDir("kotlin-classes")
         classLoader(dependencySrc, dependencyFileName, dumpClasses)
             .allGeneratedFiles
             .also {
                 // Write the files to the class directory so they can be used by the next module
                 // and the application
-                it.writeToDir(classesDirectory)
+                it.writeToDir(classesDirectory.root)
             }
-
-        // Setup for compile
-        this.classFileFactory = null
-        this.myEnvironment = null
-        setUp()
 
         val source = """
             import dependency.*
@@ -1618,10 +1609,8 @@ class ClassStabilityTransformTests : AbstractIrTransformTest() {
             $localSrc
         """.trimIndent()
 
-        val files = listOf(
-            sourceFile("Test.kt", source.replace('%', '$'))
-        )
-        return compileToIr(files, additionalPaths = listOf(classesDirectory))
+        val files = listOf(SourceFile("Test.kt", source))
+        return compileToIr(files, listOf(classesDirectory.root))
     }
 
     private fun assertTransform(

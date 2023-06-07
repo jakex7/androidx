@@ -71,6 +71,7 @@ fun Project.configureErrorProneForAndroid(
     var annotationArgs: MapProperty<String, String>? = null
     val extension = extensions.findByType(AndroidComponentsExtension::class.java)
     extension?.onVariants { variant ->
+        @Suppress("UnstableApiUsage")
         annotationArgs = variant.javaCompilation.annotationProcessor.arguments
     }
     val errorProneConfiguration = createErrorProneConfiguration()
@@ -140,8 +141,10 @@ private fun JavaCompile.configureWithErrorProne() {
         listOf(
             "-Xplugin:ErrorProne",
 
+            // Ignore intermediate build output, generated files, and external sources. Also sources
+            // imported from Android Studio and IntelliJ which are used in the lint-checks project.
             "-XepExcludedPaths:.*/(build/generated|build/errorProne|external|" +
-                "compileTransaction/compile-output)/.*",
+                "compileTransaction/compile-output|lint-checks/src/main/java/androidx/com)/.*",
 
             // Consider re-enabling the following checks. Disabled as part of
             // error-prone upgrade

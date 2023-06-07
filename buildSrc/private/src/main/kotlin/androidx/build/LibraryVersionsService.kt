@@ -29,18 +29,22 @@ import org.tomlj.TomlTable
  */
 abstract class LibraryVersionsService : BuildService<LibraryVersionsService.Parameters> {
     interface Parameters : BuildServiceParameters {
-        var tomlFile: Provider<String>
+        var tomlFileName: String
+        var tomlFileContents: Provider<String>
         var composeCustomVersion: Provider<String>
         var composeCustomGroup: Provider<String>
-        var useMultiplatformGroupVersions: Provider<Boolean>
     }
 
     private val parsedTomlFile: TomlParseResult by lazy {
-        Toml.parse(parameters.tomlFile.get())
+        val result = Toml.parse(parameters.tomlFileContents.get())
+        if (result.hasErrors()) {
+            val issues = result.errors().joinToString(separator = "\n") {
+                "${parameters.tomlFileName}:${it.position()}: ${it.message}"
+            }
+            throw Exception("${parameters.tomlFileName} file has issues.\n$issues")
+        }
+        result
     }
-
-    val useMultiplatformGroupVersions
-        get() = parameters.useMultiplatformGroupVersions.get()
 
     private fun getTable(key: String): TomlTable {
         return parsedTomlFile.getTable(key)
@@ -70,7 +74,7 @@ abstract class LibraryVersionsService : BuildService<LibraryVersionsService.Para
     val libraryGroups: Map<String, LibraryGroup> by lazy {
         val result = mutableMapOf<String, LibraryGroup>()
         for (association in libraryGroupAssociations) {
-          result.put(association.declarationName, association.libraryGroup)
+            result[association.declarationName] = association.libraryGroup
         }
         result
     }
@@ -79,7 +83,20 @@ abstract class LibraryVersionsService : BuildService<LibraryVersionsService.Para
     val libraryGroupsByGroupId: Map<String, LibraryGroup> by lazy {
         val result = mutableMapOf<String, LibraryGroup>()
         for (association in libraryGroupAssociations) {
-          result.put(association.libraryGroup.group, association.libraryGroup)
+            // Check for duplicate groups
+            val groupId = association.libraryGroup.group
+            val existingAssociation = result[groupId]
+            if (existingAssociation != null) {
+                if (association.overrideIncludeInProjectPaths.isEmpty()) {
+                    throw GradleException(
+                        "Duplicate library group $groupId defined in " +
+                        "${association.declarationName} does not set overrideInclude. " +
+                        "Declarations beyond the first can only have an effect if they set " +
+                        "overrideInclude")
+                }
+            } else {
+                result[groupId] = association.libraryGroup
+            }
         }
         result
     }
@@ -89,7 +106,7 @@ abstract class LibraryVersionsService : BuildService<LibraryVersionsService.Para
        val result = mutableMapOf<String, LibraryGroup>()
        for (association in libraryGroupAssociations) {
            for (overridePath in association.overrideIncludeInProjectPaths) {
-               result.put(overridePath, association.libraryGroup)
+               result[overridePath] = association.libraryGroup
            }
        }
        result
@@ -97,8 +114,6 @@ abstract class LibraryVersionsService : BuildService<LibraryVersionsService.Para
 
     private val libraryGroupAssociations: List<LibraryGroupAssociation> by lazy {
         val groups = getTable("groups")
-        val useMultiplatformGroupVersion =
-            parameters.useMultiplatformGroupVersions.orElse(false).get()
 
         fun readGroupVersion(groupDefinition: TomlTable, groupName: String, key: String): Version? {
             val versionRef = groupDefinition.getString(key) ?: return null
@@ -133,27 +148,11 @@ abstract class LibraryVersionsService : BuildService<LibraryVersionsService.Para
                 groupName = groupName,
                 key = AtomicGroupVersion
             )
-            val multiplatformGroupVersion = readGroupVersion(
-                groupDefinition = groupDefinition,
-                groupName = groupName,
-                key = MultiplatformGroupVersion
-            )
-            check(
-                multiplatformGroupVersion == null || atomicGroupVersion != null
-            ) {
-                "Cannot specify $MultiplatformGroupVersion for $name without specifying an " +
-                    AtomicGroupVersion
-            }
-            val groupVersion = when {
-                useMultiplatformGroupVersion -> multiplatformGroupVersion ?: atomicGroupVersion
-                else -> atomicGroupVersion
-            }
-
             val overrideApplyToProjects = (
                 groupDefinition.getArray("overrideInclude")?.toList() ?: listOf()
-            ).map({ it -> it as String })
+            ).map { it as String }
 
-            val group = LibraryGroup(finalGroupName, groupVersion)
+            val group = LibraryGroup(finalGroupName, atomicGroupVersion)
             val association = LibraryGroupAssociation(name, group, overrideApplyToProjects)
             result.add(association)
         }
@@ -173,4 +172,3 @@ data class LibraryGroupAssociation(
 
 private const val VersionReferencePrefix = "versions."
 private const val AtomicGroupVersion = "atomicGroupVersion"
-private const val MultiplatformGroupVersion = "multiplatformGroupVersion"

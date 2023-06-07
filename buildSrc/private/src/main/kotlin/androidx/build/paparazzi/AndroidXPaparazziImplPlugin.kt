@@ -35,8 +35,8 @@ import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.get
-import org.gradle.kotlin.dsl.the
 import org.gradle.kotlin.dsl.register
+import org.gradle.kotlin.dsl.the
 import org.gradle.kotlin.dsl.withType
 import org.gradle.process.JavaForkOptions
 
@@ -50,7 +50,11 @@ class AndroidXPaparazziImplPlugin @Inject constructor(
         val paparazziNative = project.createUnzippedPaparazziNativeDependency()
         project.afterEvaluate { it.addTestUtilsDependency() }
         project.tasks.register("updateGolden")
-        project.tasks.withType<Test>().configureEach { it.configureTestTask(paparazziNative) }
+        project.afterEvaluate {
+            // need to be inside of afterEvaluate because we read android.namespace
+            // ideally, we refactor to use a lazy API
+            project.tasks.withType<Test>().configureEach { it.configureTestTask(paparazziNative) }
+        }
         project.tasks.withType<Test>().whenTaskAdded { project.registerUpdateGoldenTask(it) }
     }
 

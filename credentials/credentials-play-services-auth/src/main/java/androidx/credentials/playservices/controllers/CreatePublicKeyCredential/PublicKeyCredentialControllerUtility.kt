@@ -20,9 +20,14 @@ import android.util.Base64
 import android.util.Log
 import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.GetPublicKeyCredentialOption
+import androidx.credentials.exceptions.CreateCredentialCancellationException
+import androidx.credentials.exceptions.CreateCredentialException
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.domerrors.AbortError
 import androidx.credentials.exceptions.domerrors.ConstraintError
 import androidx.credentials.exceptions.domerrors.DataError
+import androidx.credentials.exceptions.domerrors.EncodingError
 import androidx.credentials.exceptions.domerrors.InvalidStateError
 import androidx.credentials.exceptions.domerrors.NetworkError
 import androidx.credentials.exceptions.domerrors.NotAllowedError
@@ -32,7 +37,7 @@ import androidx.credentials.exceptions.domerrors.SecurityError
 import androidx.credentials.exceptions.domerrors.TimeoutError
 import androidx.credentials.exceptions.domerrors.UnknownError
 import androidx.credentials.exceptions.publickeycredential.CreatePublicKeyCredentialDomException
-import androidx.credentials.exceptions.publickeycredential.CreatePublicKeyCredentialException
+import androidx.credentials.exceptions.publickeycredential.GetPublicKeyCredentialDomException
 import com.google.android.gms.auth.api.identity.BeginSignInRequest
 import com.google.android.gms.auth.api.identity.SignInCredential
 import com.google.android.gms.fido.common.Transport
@@ -62,14 +67,12 @@ import org.json.JSONObject
 
 /**
  * A utility class to handle logic for the begin sign in controller.
- *
- * @hide
  */
-class PublicKeyCredentialControllerUtility {
+internal class PublicKeyCredentialControllerUtility {
 
     companion object {
 
-        // TODO("Make string constants for keys to the json")
+        // TODO(b/262924507) : Make string constants for keys to the json
 
         /**
          * This function converts a request json to a PublicKeyCredentialCreationOptions, where
@@ -105,7 +108,7 @@ class PublicKeyCredentialControllerUtility {
         fun toCreatePasskeyResponseJson(cred: PublicKeyCredential): String {
             val json = JSONObject()
             val authenticatorResponse = cred.response
-            // TODO("Ask why it is missing conditional mediation available")
+            // TODO(b/262924507) : Look for FIDO changes in conditional mediation available
             if (authenticatorResponse is AuthenticatorAttestationResponse) {
                 val responseJson = JSONObject()
                 responseJson.put(
@@ -114,7 +117,9 @@ class PublicKeyCredentialControllerUtility {
                 responseJson.put(
                     "attestationObject",
                     b64Encode(authenticatorResponse.attestationObject))
-                val transports = JSONArray(listOf(authenticatorResponse.transports))
+                val transportArray = convertToProperNamingScheme(authenticatorResponse)
+                val transports = JSONArray(transportArray)
+
                 responseJson.put("transports", transports)
                 json.put("response", responseJson)
             } else {
@@ -128,6 +133,20 @@ class PublicKeyCredentialControllerUtility {
             json.put("rawId", b64Encode(cred.rawId))
             json.put("type", cred.type)
             return json.toString()
+        }
+
+        private fun convertToProperNamingScheme(
+            authenticatorResponse: AuthenticatorAttestationResponse
+        ): Array<out String> {
+            val transportArray = authenticatorResponse.transports
+            var ix = 0
+            for (transport in transportArray) {
+                if (transport == "cable") {
+                    transportArray[ix] = "hybrid"
+                }
+                ix += 1
+            }
+            return transportArray
         }
 
         private fun addOptionalAuthenticatorAttachmentAndExtensions(
@@ -144,7 +163,7 @@ class PublicKeyCredentialControllerUtility {
             if (clientExtensionResults != null) {
                 try {
                     val uvmEntries = clientExtensionResults.uvmEntries
-                    val uvmEntriesList = uvmEntries.uvmEntryList
+                    val uvmEntriesList = uvmEntries?.uvmEntryList
                     if (uvmEntriesList != null) {
                         val uvmEntriesJSON = JSONArray()
                         for (entry in uvmEntriesList) {
@@ -167,53 +186,80 @@ class PublicKeyCredentialControllerUtility {
         fun toAssertPasskeyResponse(cred: SignInCredential): String {
             val json = JSONObject()
             val publicKeyCred = cred.publicKeyCredential
-            val authenticatorResponse = publicKeyCred?.response!!
 
-            if (authenticatorResponse is AuthenticatorAssertionResponse) {
-                val responseJson = JSONObject()
-                responseJson.put(
-                    "clientDataJSON",
-                    b64Encode(authenticatorResponse.clientDataJSON)
-                )
-                responseJson.put(
-                    "authenticatorData",
-                    b64Encode(authenticatorResponse.authenticatorData)
-                )
-                responseJson.put(
-                    "signature",
-                    b64Encode(authenticatorResponse.signature)
-                )
-                authenticatorResponse.userHandle?.let {
-                    responseJson.put(
-                        "userHandle", b64Encode(authenticatorResponse.userHandle!!)
-                    )
+            when (val authenticatorResponse = publicKeyCred?.response!!) {
+                is AuthenticatorErrorResponse -> {
+                    throw beginSignInPublicKeyCredentialResponseContainsError(
+                        authenticatorResponse)
                 }
-                // TODO("attestation object is missing in fido impl")
-                json.put("response", responseJson)
-            } else {
+                is AuthenticatorAssertionResponse -> {
+                    beginSignInAssertionResponse(authenticatorResponse, json, publicKeyCred)
+                }
+                else -> {
                 Log.e(
                     TAG,
                     "AuthenticatorResponse expected assertion response but " +
                         "got: ${authenticatorResponse.javaClass.name}")
+                }
             }
+            return json.toString()
+        }
+
+        private fun beginSignInAssertionResponse(
+            authenticatorResponse: AuthenticatorAssertionResponse,
+            json: JSONObject,
+            publicKeyCred: PublicKeyCredential
+        ) {
+            val responseJson = JSONObject()
+            responseJson.put(
+                "clientDataJSON",
+                b64Encode(authenticatorResponse.clientDataJSON)
+            )
+            responseJson.put(
+                "authenticatorData",
+                b64Encode(authenticatorResponse.authenticatorData)
+            )
+            responseJson.put(
+                "signature",
+                b64Encode(authenticatorResponse.signature)
+            )
+            authenticatorResponse.userHandle?.let {
+                responseJson.put(
+                    "userHandle", b64Encode(authenticatorResponse.userHandle!!)
+                )
+            }
+            // TODO(b/262924507) : attestation object missing in fido impl
+            json.put("response", responseJson)
             json.put("id", publicKeyCred.id)
             json.put("rawId", b64Encode(publicKeyCred.rawId))
             json.put("type", publicKeyCred.type)
-            return json.toString()
         }
 
         /**
          * Converts from the Credential Manager public key credential option to the Play Auth
-         * Module passkey option.
+         * Module passkey json option.
          *
-         * @throws JSONException If rpId or challenge either do not
-         * exist or are empty in the initial request json
+         * @return the current auth module passkey request
          */
-        fun convertToPlayAuthPasskeyRequest(request: GetPublicKeyCredentialOption):
+        fun convertToPlayAuthPasskeyJsonRequest(option: GetPublicKeyCredentialOption):
+            BeginSignInRequest.PasskeyJsonRequestOptions {
+            return BeginSignInRequest.PasskeyJsonRequestOptions.Builder()
+                .setSupported(true)
+                .setRequestJson(option.requestJson)
+                .build()
+        }
+
+        /**
+         * Converts from the Credential Manager public key credential option to the Play Auth
+         * Module passkey option, used in a backwards compatible flow for the auth dependency.
+         *
+         * @return the backwards compatible auth module passkey request
+         */
+        @Deprecated("Upgrade GMS version so 'convertToPlayAuthPasskeyJsoNRequest' is used")
+        @Suppress("deprecation")
+        fun convertToPlayAuthPasskeyRequest(option: GetPublicKeyCredentialOption):
             BeginSignInRequest.PasskeysRequestOptions {
-            // TODO : Make sure this is in compliance with w3
-            // TODO : Improve codebase readability as done here (readable error capture + docs/etc)
-            val json = JSONObject(request.requestJson)
+            val json = JSONObject(option.requestJson)
             val rpId = json.optString("rpId", "")
             if (rpId.isEmpty()) {
                 throw JSONException("GetPublicKeyCredentialOption - rpId not specified in the " +
@@ -244,21 +290,61 @@ class PublicKeyCredentialControllerUtility {
          */
         fun publicKeyCredentialResponseContainsError(
             cred: PublicKeyCredential
-        ): CreatePublicKeyCredentialException? {
+        ): CreateCredentialException? {
             val authenticatorResponse: AuthenticatorResponse = cred.response
             if (authenticatorResponse is AuthenticatorErrorResponse) {
                 val code = authenticatorResponse.errorCode
                 var exceptionError = orderedErrorCodeToExceptions[code]
                 var msg = authenticatorResponse.errorMessage
-                val exception: CreatePublicKeyCredentialDomException
+                val exception: CreateCredentialException
                 if (exceptionError == null) {
                     exception = CreatePublicKeyCredentialDomException(
                         UnknownError(), "unknown fido gms exception - $msg"
                     )
-                } else { exception = CreatePublicKeyCredentialDomException(exceptionError, msg) }
+                } else {
+                    // This fix is quite fragile because it relies on that the fido module
+                    // does not change its error message, but is the only viable solution
+                    // because there's no other differentiator.
+                    if (code == ErrorCode.CONSTRAINT_ERR &&
+                        msg?.contains("Unable to get sync account") == true
+                    ) {
+                        exception = CreateCredentialCancellationException(
+                            "Passkey registration was cancelled by the user.")
+                    } else {
+                        exception = CreatePublicKeyCredentialDomException(exceptionError, msg)
+                    }
+                }
                 return exception
             }
             return null
+        }
+
+        // Helper method for the begin sign in flow to identify an authenticator error response
+        private fun beginSignInPublicKeyCredentialResponseContainsError(
+            authenticatorResponse: AuthenticatorErrorResponse
+        ): GetCredentialException {
+            val code = authenticatorResponse.errorCode
+            var exceptionError = orderedErrorCodeToExceptions[code]
+            var msg = authenticatorResponse.errorMessage
+            val exception: GetCredentialException
+            if (exceptionError == null) {
+                exception = GetPublicKeyCredentialDomException(
+                    UnknownError(), "unknown fido gms exception - $msg"
+                )
+            } else {
+                // This fix is quite fragile because it relies on that the fido module
+                // does not change its error message, but is the only viable solution
+                // because there's no other differentiator.
+                if (code == ErrorCode.CONSTRAINT_ERR &&
+                    msg?.contains("Unable to get sync account") == true
+                ) {
+                    exception = GetCredentialCancellationException(
+                        "Passkey retrieval was cancelled by the user.")
+                } else {
+                    exception = GetPublicKeyCredentialDomException(exceptionError, msg)
+                }
+            }
+            return exception
         }
 
         internal fun parseOptionalExtensions(
@@ -318,7 +404,7 @@ class PublicKeyCredentialControllerUtility {
                         )
                     )
                 }
-                // TODO("Note userVerification is not settable in current impl")
+                // TODO(b/262924507) : Fido implementation lacks userVerification in current impl
                 builder.setAuthenticatorSelection(
                     authSelectionBuilder.build()
                 )
@@ -357,7 +443,13 @@ class PublicKeyCredentialControllerUtility {
                             "transports"
                         )
                         for (j in 0 until descriptorTransports.length()) {
-                            transports.add(Transport.fromString(descriptorTransports.getString(j)))
+                            try {
+                                transports.add(Transport.fromString(
+                                    descriptorTransports.getString(j)))
+                            } catch (e: Transport.UnsupportedTransportException) {
+                                throw CreatePublicKeyCredentialDomException(EncodingError(),
+                                    e.message)
+                            }
                         }
                     }
                     excludeCredentialsList.add(
@@ -365,7 +457,8 @@ class PublicKeyCredentialControllerUtility {
                             descriptorType,
                             descriptorId, transports
                         )
-                    ) // TODO("Confirm allowed mismatch with the spec such as the int algorithm")
+                    ) // TODO(b/262924507) : Ensure spec changes (i.e. int algorithm) in current
+                    // fido impl stays that way - edit if fido modifies
                 }
             }
             builder.setExcludeList(excludeCredentialsList)
@@ -386,8 +479,7 @@ class PublicKeyCredentialControllerUtility {
             val rp = json.getJSONObject("rp")
             val rpId = rp.getString("id")
             val rpName = rp.optString("name", "")
-            // TODO("Decided things not in the spec but in fido impl are used")
-            // TODO("Come back to this if that is ever updated")
+            // TODO(b/262924507) : Fido and spec differ; always keep re-checking if aligns
             var rpIcon: String? = rp.optString("icon", "")
             if (rpIcon!!.isEmpty()) {
                 rpIcon = null
@@ -484,14 +576,15 @@ class PublicKeyCredentialControllerUtility {
         }
 
         private const val FLAGS = Base64.NO_WRAP or Base64.URL_SAFE or Base64.NO_PADDING
-        private val TAG = PublicKeyCredentialControllerUtility::class.java.name
+        private const val TAG = "PublicKeyUtility"
         internal val orderedErrorCodeToExceptions = linkedMapOf(ErrorCode.UNKNOWN_ERR to
             UnknownError(),
             ErrorCode.ABORT_ERR to AbortError(),
             ErrorCode.ATTESTATION_NOT_PRIVATE_ERR to NotReadableError(),
             ErrorCode.CONSTRAINT_ERR to ConstraintError(),
             ErrorCode.DATA_ERR to DataError(),
-            ErrorCode.ENCODING_ERR to InvalidStateError(),
+            ErrorCode.INVALID_STATE_ERR to InvalidStateError(),
+            ErrorCode.ENCODING_ERR to EncodingError(),
             ErrorCode.NETWORK_ERR to NetworkError(),
             ErrorCode.NOT_ALLOWED_ERR to NotAllowedError(),
             ErrorCode.NOT_SUPPORTED_ERR to NotSupportedError(),

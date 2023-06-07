@@ -21,10 +21,12 @@ package androidx.appcompat.app
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.LocaleList
 import androidx.appcompat.testutils.LocalesActivityTestRule
 import androidx.appcompat.testutils.LocalesUtils.CUSTOM_LOCALE_LIST
 import androidx.appcompat.testutils.LocalesUtils.assertConfigurationLocalesEquals
+import androidx.core.app.AppLocalesStorageHelper
 import androidx.core.os.LocaleListCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
@@ -71,12 +73,16 @@ class LocalesSyncToFrameworkTestCase {
 
         appLocalesComponent = ComponentName(
             instrumentation.context,
-            AppLocalesStorageHelper.APP_LOCALES_META_DATA_HOLDER_SERVICE_NAME
+            AppCompatDelegate.APP_LOCALES_META_DATA_HOLDER_SERVICE_NAME
         )
     }
 
     @Test
     fun testAutoSync_preTToPostT_syncsSuccessfully() {
+        if (Build.VERSION.SDK_INT == 33 && Build.VERSION.CODENAME != "REL") {
+            return // b/262909049: Do not run this test on pre-release Android U.
+        }
+
         val firstActivity = rule.activity
 
         // activity is following the system and the requested locales are null.

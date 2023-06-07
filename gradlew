@@ -26,7 +26,6 @@ ORG_GRADLE_JVMARGS="$(cd $SCRIPT_PATH && grep org.gradle.jvmargs gradle.properti
 if [ -n "$DIST_DIR" ]; then
     mkdir -p "$DIST_DIR"
     DIST_DIR="$(cd $DIST_DIR && pwd -P)"
-    export LINT_PRINT_STACKTRACE=true
 
     #Set the initial heap size to match the max heap size,
     #by replacing a string like "-Xmx1g" with one like "-Xms1g -Xmx1g"
@@ -42,6 +41,9 @@ if [ -n "$DIST_DIR" ]; then
     # We don't set a default DIST_DIR in an else clause here because Studio doesn't use gradlew
     # and doesn't set DIST_DIR and we want gradlew and Studio to match
 fi
+
+# Loading the AIDL lexer requires disabling Lint's bytecode verification
+export ANDROID_LINT_SKIP_BYTECODE_VERIFIER=true
 
 # unset ANDROID_BUILD_TOP so that Lint doesn't think we're building the platform itself
 unset ANDROID_BUILD_TOP
@@ -396,7 +398,13 @@ function runGradle() {
 
   RETURN_VALUE=0
   PROJECT_CACHE_DIR_ARGUMENT="--project-cache-dir $OUT_DIR/gradle-project-cache"
-  if $wrapper "$JAVACMD" "${JVM_OPTS[@]}" $TMPDIR_ARG -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain $HOME_SYSTEM_PROPERTY_ARGUMENT $TMPDIR_ARG $PROJECT_CACHE_DIR_ARGUMENT "$ORG_GRADLE_JVMARGS" "$@"; then
+  # Disabled in Studio until these errors become shown (b/268380971) or computed more quickly (https://github.com/gradle/gradle/issues/23272)
+  if [[ " ${@} " =~ " --dependency-verification=" ]]; then
+    VERIFICATION_ARGUMENT="" # already specified by caller
+  else
+    VERIFICATION_ARGUMENT=--dependency-verification=strict
+  fi
+  if $wrapper "$JAVACMD" "${JVM_OPTS[@]}" $TMPDIR_ARG -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain $HOME_SYSTEM_PROPERTY_ARGUMENT $TMPDIR_ARG $PROJECT_CACHE_DIR_ARGUMENT $VERIFICATION_ARGUMENT "$ORG_GRADLE_JVMARGS" "$@"; then
     RETURN_VALUE=0
   else
     # Print AndroidX-specific help message if build fails

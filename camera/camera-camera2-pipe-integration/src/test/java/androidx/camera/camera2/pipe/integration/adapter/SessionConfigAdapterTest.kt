@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:RequiresApi(21)
+
 package androidx.camera.camera2.pipe.integration.adapter
 
 import android.graphics.SurfaceTexture
@@ -21,6 +23,7 @@ import android.hardware.camera2.CameraDevice
 import android.media.MediaCodec
 import android.os.Build
 import android.view.Surface
+import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.integration.impl.STREAM_USE_CASE_OPTION
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -28,6 +31,7 @@ import androidx.camera.core.Preview
 import androidx.camera.core.impl.DeferrableSurface
 import androidx.camera.core.impl.SessionConfig
 import androidx.camera.core.impl.utils.futures.Futures
+import androidx.camera.core.streamsharing.StreamSharing
 import androidx.camera.testing.fakes.FakeUseCase
 import androidx.camera.testing.fakes.FakeUseCaseConfig
 import androidx.testutils.MainDispatcherRule
@@ -130,7 +134,13 @@ class SessionConfigAdapterTest {
 
     @Test
     fun populateSurfaceToStreamUseCaseMappingEmptyUseCase() {
-        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(listOf())
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(listOf(), true)
+        TestCase.assertTrue(mapping.isEmpty())
+    }
+
+    @Test
+    fun populateSurfaceToStreamUseHintMappingEmptyUseCase() {
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseHintMapping(listOf())
         TestCase.assertTrue(mapping.isEmpty())
     }
 
@@ -141,7 +151,7 @@ class SessionConfigAdapterTest {
         Mockito.`when`(mockSessionConfig.implementationOptions).thenReturn(mockImplementationOption)
         val sessionConfigs: MutableCollection<SessionConfig> = ArrayList()
         sessionConfigs.add(mockSessionConfig)
-        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs)
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs, true)
         TestCase.assertTrue(mapping[mockSurface] == 0L)
     }
 
@@ -152,7 +162,7 @@ class SessionConfigAdapterTest {
         Mockito.`when`(mockSessionConfig.implementationOptions).thenReturn(mockImplementationOption)
         val sessionConfigs: MutableCollection<SessionConfig> = ArrayList()
         sessionConfigs.add(mockSessionConfig)
-        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs)
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs, true)
         TestCase.assertTrue(mapping.isNotEmpty())
         TestCase.assertTrue(mapping[mockSurface] == 1L)
     }
@@ -167,7 +177,7 @@ class SessionConfigAdapterTest {
             .thenReturn(CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG)
         val sessionConfigs: MutableCollection<SessionConfig> = ArrayList()
         sessionConfigs.add(mockSessionConfig)
-        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs)
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs, true)
         TestCase.assertTrue(mapping.isEmpty())
     }
 
@@ -179,7 +189,7 @@ class SessionConfigAdapterTest {
             .thenReturn(mockImplementationOption)
         val sessionConfigs: MutableCollection<SessionConfig> = ArrayList()
         sessionConfigs.add(mockSessionConfig)
-        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs)
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs, true)
         TestCase.assertTrue(mapping.isNotEmpty())
         TestCase.assertTrue(mapping[mockSurface] == 1L)
     }
@@ -191,7 +201,7 @@ class SessionConfigAdapterTest {
         Mockito.`when`(mockSessionConfig.implementationOptions).thenReturn(mockImplementationOption)
         val sessionConfigs: MutableCollection<SessionConfig> = ArrayList()
         sessionConfigs.add(mockSessionConfig)
-        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs)
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs, true)
         TestCase.assertTrue(mapping.isNotEmpty())
         TestCase.assertTrue(mapping[mockSurface] == 2L)
     }
@@ -203,7 +213,19 @@ class SessionConfigAdapterTest {
         Mockito.`when`(mockSessionConfig.implementationOptions).thenReturn(mockImplementationOption)
         val sessionConfigs: MutableCollection<SessionConfig> = ArrayList()
         sessionConfigs.add(mockSessionConfig)
-        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs)
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs, true)
+        TestCase.assertTrue(mapping.isNotEmpty())
+        TestCase.assertTrue(mapping[mockSurface] == 3L)
+    }
+
+    @Test
+    fun populateSurfaceToStreamUseCaseMappingStreamSharing() {
+        Mockito.`when`(mockSurface.containerClass).thenReturn(StreamSharing::class.java)
+        Mockito.`when`(mockSessionConfig.surfaces).thenReturn(listOf(mockSurface))
+        Mockito.`when`(mockSessionConfig.implementationOptions).thenReturn(mockImplementationOption)
+        val sessionConfigs: MutableCollection<SessionConfig> = ArrayList()
+        sessionConfigs.add(mockSessionConfig)
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs, true)
         TestCase.assertTrue(mapping.isNotEmpty())
         TestCase.assertTrue(mapping[mockSurface] == 3L)
     }
@@ -220,7 +242,7 @@ class SessionConfigAdapterTest {
             .thenReturn(0L)
         val sessionConfigs: MutableCollection<SessionConfig> = ArrayList()
         sessionConfigs.add(mockSessionConfig)
-        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs)
+        val mapping = sessionConfigAdapter.getSurfaceToStreamUseCaseMapping(sessionConfigs, true)
         TestCase.assertTrue(mapping.isNotEmpty())
         TestCase.assertTrue(mapping[mockSurface] == 0L)
     }

@@ -33,6 +33,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
+import androidx.work.Clock;
 import androidx.work.Configuration;
 import androidx.work.Data;
 import androidx.work.InputMerger;
@@ -68,8 +69,6 @@ import java.util.concurrent.ExecutionException;
 /**
  * A runnable that looks up the {@link WorkSpec} from the database for a given id, instantiates
  * its Worker, and then calls it.
- *
- * @hide
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class WorkerWrapper implements Runnable {
@@ -91,6 +90,7 @@ public class WorkerWrapper implements Runnable {
     ListenableWorker.Result mResult = ListenableWorker.Result.failure();
 
     private Configuration mConfiguration;
+    private Clock mClock;
     private ForegroundProcessor mForegroundProcessor;
     private WorkDatabase mWorkDatabase;
     private WorkSpecDao mWorkSpecDao;
@@ -105,8 +105,7 @@ public class WorkerWrapper implements Runnable {
 
     // Package-private for synthetic accessor.
     @NonNull
-    final SettableFuture<ListenableWorker.Result> mWorkerResultFuture =
-            SettableFuture.create();
+    final SettableFuture<ListenableWorker.Result> mWorkerResultFuture = SettableFuture.create();
 
     private volatile boolean mInterrupted;
 
@@ -121,6 +120,7 @@ public class WorkerWrapper implements Runnable {
         mWorker = builder.mWorker;
 
         mConfiguration = builder.mConfiguration;
+        mClock = builder.mConfiguration.getClock();
         mWorkDatabase = builder.mWorkDatabase;
         mWorkSpecDao = mWorkDatabase.workSpecDao();
         mDependencyDao = mWorkDatabase.dependencyDao();
@@ -132,7 +132,8 @@ public class WorkerWrapper implements Runnable {
         return generationalId(mWorkSpec);
     }
 
-    public @NonNull ListenableFuture<Boolean> getFuture() {
+    @NonNull
+    public ListenableFuture<Boolean> getFuture() {
         return mFuture;
     }
 
@@ -178,7 +179,7 @@ public class WorkerWrapper implements Runnable {
             // Also potential bugs in the platform may cause a Job to run more than once.
 
             if (mWorkSpec.isPeriodic() || mWorkSpec.isBackedOff()) {
-                long now = System.currentTimeMillis();
+                long now = mClock.currentTimeMillis();
                 if (now < mWorkSpec.calculateNextRunTime()) {
                     Logger.get().debug(TAG,
                             String.format(
@@ -212,7 +213,8 @@ public class WorkerWrapper implements Runnable {
             InputMerger inputMerger =
                     inputMergerFactory.createInputMergerWithDefaultFallback(inputMergerClassName);
             if (inputMerger == null) {
-                Logger.get().error(TAG, "Could not create Input Merger " + mWorkSpec.inputMergerClassName);
+                Logger.get().error(TAG,
+                        "Could not create Input Merger " + mWorkSpec.inputMergerClassName);
                 setFailedAndResolve();
                 return;
             }
@@ -296,7 +298,7 @@ public class WorkerWrapper implements Runnable {
                         runExpedited.get();
                         Logger.get().debug(TAG,
                                 "Starting work for " + mWorkSpec.workerClassName);
-                         // Call mWorker.startWork() on the main thread.
+                        // Call mWorker.startWork() on the main thread.
                         mWorkerResultFuture.setFuture(mWorker.startWork());
                     } catch (Throwable e) {
                         mWorkerResultFuture.setException(e);
@@ -366,10 +368,10 @@ public class WorkerWrapper implements Runnable {
     }
 
     /**
-     * @hide
+     *
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public void interrupt() {
+    public void interrupt(int stopReason) {
         mInterrupted = true;
         // Resolve WorkerWrapper's future so we do the right thing and setup a reschedule
         // if necessary. mInterrupted is always true here, we don't really care about the return
@@ -380,7 +382,7 @@ public class WorkerWrapper implements Runnable {
         // Worker can be null if run() hasn't been called yet
         // only call stop if it wasn't completed normally.
         if (mWorker != null && mWorkerResultFuture.isCancelled()) {
-            mWorker.stop();
+            mWorker.stop(stopReason);
         } else {
             String message = "WorkSpec " + mWorkSpec + " is already done. Not interrupting.";
             Logger.get().debug(TAG, message);
@@ -437,9 +439,9 @@ public class WorkerWrapper implements Runnable {
             }
             if (needsReschedule) {
                 // Set state to ENQUEUED again.
-                // Reset scheduled state so its picked up by background schedulers again.
+                // Reset scheduled state so it's picked up by background schedulers again.
                 // We want to preserve time when work was enqueued so just explicitly set enqueued
-                // instead using markEnqueuedState
+                // instead using markEnqueuedState. Similarly, don't change any override time.
                 mWorkSpecDao.setState(ENQUEUED, mWorkSpecId);
                 mWorkSpecDao.markWorkSpecScheduled(mWorkSpecId, SCHEDULE_NOT_REQUESTED_YET);
             }
@@ -509,6 +511,8 @@ public class WorkerWrapper implements Runnable {
             ListenableWorker.Result.Failure failure = (ListenableWorker.Result.Failure) mResult;
             // Update Data as necessary.
             Data output = failure.getOutputData();
+            mWorkSpecDao.resetWorkSpecNextScheduleTimeOverride(mWorkSpecId,
+                    mWorkSpec.getNextScheduleTimeOverrideGeneration());
             mWorkSpecDao.setOutput(mWorkSpecId, output);
             mWorkDatabase.setTransactionSuccessful();
         } finally {
@@ -535,7 +539,9 @@ public class WorkerWrapper implements Runnable {
         mWorkDatabase.beginTransaction();
         try {
             mWorkSpecDao.setState(ENQUEUED, mWorkSpecId);
-            mWorkSpecDao.setLastEnqueuedTime(mWorkSpecId, System.currentTimeMillis());
+            mWorkSpecDao.setLastEnqueueTime(mWorkSpecId, mClock.currentTimeMillis());
+            mWorkSpecDao.resetWorkSpecNextScheduleTimeOverride(mWorkSpecId,
+                    mWorkSpec.getNextScheduleTimeOverrideGeneration());
             mWorkSpecDao.markWorkSpecScheduled(mWorkSpecId, SCHEDULE_NOT_REQUESTED_YET);
             mWorkDatabase.setTransactionSuccessful();
         } finally {
@@ -547,13 +553,15 @@ public class WorkerWrapper implements Runnable {
     private void resetPeriodicAndResolve() {
         mWorkDatabase.beginTransaction();
         try {
-            // The system clock may have been changed such that the periodStartTime was in the past.
+            // The system clock may have been changed such that the lastEnqueueTime was in the past.
             // Therefore we always use the current time to determine the next run time of a Worker.
             // This way, the Schedulers will correctly schedule the next instance of the
             // PeriodicWork in the future. This happens in calculateNextRunTime() in WorkSpec.
-            mWorkSpecDao.setLastEnqueuedTime(mWorkSpecId, System.currentTimeMillis());
+            mWorkSpecDao.setLastEnqueueTime(mWorkSpecId, mClock.currentTimeMillis());
             mWorkSpecDao.setState(ENQUEUED, mWorkSpecId);
             mWorkSpecDao.resetWorkSpecRunAttemptCount(mWorkSpecId);
+            mWorkSpecDao.resetWorkSpecNextScheduleTimeOverride(mWorkSpecId,
+                    mWorkSpec.getNextScheduleTimeOverrideGeneration());
             mWorkSpecDao.incrementPeriodCount(mWorkSpecId);
             mWorkSpecDao.markWorkSpecScheduled(mWorkSpecId, SCHEDULE_NOT_REQUESTED_YET);
             mWorkDatabase.setTransactionSuccessful();
@@ -573,7 +581,7 @@ public class WorkerWrapper implements Runnable {
             mWorkSpecDao.setOutput(mWorkSpecId, output);
 
             // Unblock Dependencies and set Period Start Time
-            long currentTimeMillis = System.currentTimeMillis();
+            long currentTimeMillis = mClock.currentTimeMillis();
             List<String> dependentWorkIds = mDependencyDao.getDependentWorkIds(mWorkSpecId);
             for (String dependentWorkId : dependentWorkIds) {
                 if (mWorkSpecDao.getState(dependentWorkId) == BLOCKED
@@ -581,7 +589,7 @@ public class WorkerWrapper implements Runnable {
                     Logger.get().info(TAG,
                             "Setting status to enqueued for " + dependentWorkId);
                     mWorkSpecDao.setState(ENQUEUED, dependentWorkId);
-                    mWorkSpecDao.setLastEnqueuedTime(dependentWorkId, currentTimeMillis);
+                    mWorkSpecDao.setLastEnqueueTime(dependentWorkId, currentTimeMillis);
                 }
             }
 
@@ -613,14 +621,12 @@ public class WorkerWrapper implements Runnable {
 
     /**
      * Builder class for {@link WorkerWrapper}
-     * @hide
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public static class Builder {
 
         @NonNull Context mAppContext;
-        @Nullable
-        ListenableWorker mWorker;
+        @Nullable ListenableWorker mWorker;
         @NonNull ForegroundProcessor mForegroundProcessor;
         @NonNull TaskExecutor mWorkTaskExecutor;
         @NonNull Configuration mConfiguration;
@@ -663,7 +669,7 @@ public class WorkerWrapper implements Runnable {
 
         /**
          * @param worker The instance of {@link ListenableWorker} to be executed by
-         * {@link WorkerWrapper}. Useful in the context of testing.
+         *               {@link WorkerWrapper}. Useful in the context of testing.
          * @return The instance of {@link Builder} for chaining.
          */
         @NonNull

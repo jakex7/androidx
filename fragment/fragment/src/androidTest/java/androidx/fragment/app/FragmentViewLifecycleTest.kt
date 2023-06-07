@@ -29,21 +29,21 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Observer
 import androidx.lifecycle.findViewTreeLifecycleOwner
-import androidx.lifecycle.ViewTreeViewModelStoreOwner
+import androidx.lifecycle.findViewTreeViewModelStoreOwner
 import androidx.savedstate.findViewTreeSavedStateRegistryOwner
 import androidx.test.annotation.UiThreadTest
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import org.junit.Assert.fail
-import org.junit.Rule
-import org.junit.Test
-import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import leakcanary.DetectLeaksAfterTestSuccess
+import org.junit.Assert.fail
+import org.junit.Rule
+import org.junit.Test
 import org.junit.rules.RuleChain
+import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 @LargeTest
@@ -83,8 +83,8 @@ class FragmentViewLifecycleTest {
         } catch (expected: IllegalStateException) {
             assertThat(expected)
                 .hasMessageThat().contains(
-                    "Can't access the Fragment View's LifecycleOwner when" +
-                        " getView() is null i.e., before onCreateView() or after onDestroyView()"
+                    "Can't access the Fragment View's LifecycleOwner for $fragment when " +
+                        "getView() is null i.e., before onCreateView() or after onDestroyView()"
                 )
         }
     }
@@ -228,8 +228,8 @@ class FragmentViewLifecycleTest {
         } catch (expected: IllegalStateException) {
             assertThat(expected)
                 .hasMessageThat().contains(
-                    "Can't access the Fragment View's LifecycleOwner when" +
-                        " getView() is null i.e., before onCreateView() or after onDestroyView()"
+                    "Can't access the Fragment View's LifecycleOwner for $fragment when " +
+                        "getView() is null i.e., before onCreateView() or after onDestroyView()"
                 )
         }
     }
@@ -287,7 +287,7 @@ class FragmentViewLifecycleTest {
                 observedLifecycleOwner = owner
                 observedTreeLifecycleOwner = fragment.view?.let { it.findViewTreeLifecycleOwner() }
                 observedTreeViewModelStoreOwner = fragment.view?.let {
-                    ViewTreeViewModelStoreOwner.get(it)
+                    it.findViewTreeViewModelStoreOwner()
                 }
                 observedTreeViewSavedStateRegistryOwner = fragment.view?.let {
                     it.findViewTreeSavedStateRegistryOwner()
@@ -308,10 +308,9 @@ class FragmentViewLifecycleTest {
                 " after commitNow"
         )
             .that(
-                ViewTreeViewModelStoreOwner.get(
-                    fragment.view
-                        ?: error("no fragment view created")
-                )
+                checkNotNull(fragment.view) {
+                    "no fragment view created"
+                }.findViewTreeViewModelStoreOwner()
             )
             .isSameInstanceAs(fragment.viewLifecycleOwner)
         assertWithMessage(
@@ -415,7 +414,7 @@ class FragmentViewLifecycleTest {
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
             onViewCreatedLifecycleOwner = view.findViewTreeLifecycleOwner()
-            onViewCreatedViewModelStoreOwner = ViewTreeViewModelStoreOwner.get(view)
+            onViewCreatedViewModelStoreOwner = view.findViewTreeViewModelStoreOwner()
             onViewCreatedSavedStateRegistryOwner = view.findViewTreeSavedStateRegistryOwner()
         }
     }

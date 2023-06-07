@@ -50,6 +50,7 @@ val FoundationDemos = DemoCategory(
     "Foundation",
     listOf(
         ComposableDemo("Draggable, Scrollable, Zoomable, Focusable") { HighLevelGesturesDemo() },
+        ComposableDemo("Overscroll") { OverscrollDemo() },
         ComposableDemo("Can scroll forward / backward") { CanScrollSample() },
         ComposableDemo("Vertical scroll") { VerticalScrollExample() },
         ComposableDemo("Controlled Scrollable Row") { ControlledScrollableRowSample() },
@@ -60,7 +61,8 @@ val FoundationDemos = DemoCategory(
         ComposableDemo("Simple InteractionSource") { SimpleInteractionSourceSample() },
         ComposableDemo("Flow InteractionSource") { InteractionSourceFlowSample() },
         DemoCategory("Suspending Gesture Detectors", CoroutineGestureDemos),
-        ComposableDemo("NestedScroll") { NestedScrollDemo() },
+        ComposableDemo("Nested Scroll") { NestedScrollDemo() },
+        ComposableDemo("Nested Scroll Connection") { NestedScrollConnectionSample() },
         DemoCategory("Relocation Demos", RelocationDemos),
         DemoCategory("Focus Demos", FocusDemos),
         DemoCategory("Magnifier Demos", MagnifierDemos),
@@ -69,5 +71,6 @@ val FoundationDemos = DemoCategory(
         ComposableDemo("Scrollable with focused child") { ScrollableFocusedChildDemo() },
         ComposableDemo("Window insets") { WindowInsetsDemo() },
         ComposableDemo("Marquee") { BasicMarqueeDemo() },
+        DemoCategory("Pointer Icon", PointerIconDemos)
     )
 )

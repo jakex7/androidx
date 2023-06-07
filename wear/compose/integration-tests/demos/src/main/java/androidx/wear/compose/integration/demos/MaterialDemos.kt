@@ -27,16 +27,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.integration.demos.common.Centralize
+import androidx.wear.compose.integration.demos.common.ComposableDemo
+import androidx.wear.compose.integration.demos.common.DemoCategory
 import androidx.wear.compose.material.samples.AlertDialogSample
 import androidx.wear.compose.material.samples.AlertWithButtons
 import androidx.wear.compose.material.samples.AlertWithChips
+import androidx.wear.compose.material.samples.AnimateOptionChangePicker
 import androidx.wear.compose.material.samples.AppCardWithIcon
+import androidx.wear.compose.material.samples.AutoCenteringPickerGroup
 import androidx.wear.compose.material.samples.ButtonWithIcon
 import androidx.wear.compose.material.samples.ButtonWithText
 import androidx.wear.compose.material.samples.ChipWithIconAndLabel
-import androidx.wear.compose.material.samples.ChipWithIconAndLabelsAndOverlaidPlaceholder
 import androidx.wear.compose.material.samples.ChipWithIconAndLabelAndPlaceholders
 import androidx.wear.compose.material.samples.ChipWithIconAndLabels
+import androidx.wear.compose.material.samples.ChipWithIconAndLabelsAndOverlaidPlaceholder
 import androidx.wear.compose.material.samples.CircularProgressIndicatorFullscreenWithGap
 import androidx.wear.compose.material.samples.CircularProgressIndicatorWithAnimation
 import androidx.wear.compose.material.samples.CompactButtonWithIcon
@@ -59,6 +64,7 @@ import androidx.wear.compose.material.samples.OutlinedButtonWithIcon
 import androidx.wear.compose.material.samples.OutlinedChipWithIconAndLabel
 import androidx.wear.compose.material.samples.OutlinedCompactButtonWithIcon
 import androidx.wear.compose.material.samples.OutlinedCompactChipWithIconAndLabel
+import androidx.wear.compose.material.samples.PickerGroup24Hours
 import androidx.wear.compose.material.samples.ScalingLazyColumnEdgeAnchoredAndAnimatedScrollTo
 import androidx.wear.compose.material.samples.SimplePicker
 import androidx.wear.compose.material.samples.SimpleScaffoldWithScrollIndicator
@@ -69,7 +75,9 @@ import androidx.wear.compose.material.samples.SimpleSwipeToDismissBox
 import androidx.wear.compose.material.samples.SplitToggleChipWithCheckbox
 import androidx.wear.compose.material.samples.StatefulSwipeToDismissBox
 import androidx.wear.compose.material.samples.StepperSample
+import androidx.wear.compose.material.samples.StepperWithCustomSemanticsSample
 import androidx.wear.compose.material.samples.StepperWithIntegerSample
+import androidx.wear.compose.material.samples.StepperWithoutRangeSemanticsSample
 import androidx.wear.compose.material.samples.TextPlaceholder
 import androidx.wear.compose.material.samples.TimeTextAnimation
 import androidx.wear.compose.material.samples.TimeTextWithFullDateAndTimeFormat
@@ -113,6 +121,9 @@ internal val SwipeToDismissDemos =
                     ComposableDemo("EdgeSwipeToDismiss modifier") { params ->
                         EdgeSwipeDemo(params.swipeToDismissBoxState)
                     },
+                    ComposableDemo("Nested SwipeToDismissBox") {
+                        NestedSwipeToDismissDemo()
+                    }
                 )
             )
         )
@@ -208,6 +219,9 @@ val WearMaterialDemos = DemoCategory(
                     },
                     ComposableDemo("Simple Picker") { SimplePicker() },
                     ComposableDemo("No gradient") { PickerWithoutGradient() },
+                    ComposableDemo("Animate picker change") { AnimateOptionChangePicker() },
+                    ComposableDemo("Sample Picker Group") { PickerGroup24Hours() },
+                    ComposableDemo("Autocentering Picker Group") { AutoCenteringPickerGroup() }
                 )
             } else {
                 listOf(
@@ -262,6 +276,12 @@ val WearMaterialDemos = DemoCategory(
                         ComposableDemo("Integer Stepper") {
                             Centralize { StepperWithIntegerSample() }
                         },
+                        ComposableDemo("Stepper without RangeSemantics") {
+                            Centralize { StepperWithoutRangeSemanticsSample() }
+                        },
+                        ComposableDemo("Stepper with customSemantics") {
+                            Centralize { StepperWithCustomSemanticsSample() }
+                        }
                     )
                 ),
                 DemoCategory(

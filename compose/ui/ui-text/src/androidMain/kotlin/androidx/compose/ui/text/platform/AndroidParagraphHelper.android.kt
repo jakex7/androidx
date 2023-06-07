@@ -23,7 +23,6 @@ import android.text.TextPaint
 import android.text.style.CharacterStyle
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.DefaultIncludeFontPadding
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -44,7 +43,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.isUnspecified
 import androidx.emoji2.text.EmojiCompat
 
-@OptIn(InternalPlatformTextApi::class, ExperimentalTextApi::class)
+@OptIn(InternalPlatformTextApi::class)
 internal fun createCharSequence(
     text: String,
     contextFontSize: Float,
@@ -52,6 +51,7 @@ internal fun createCharSequence(
     spanStyles: List<AnnotatedString.Range<SpanStyle>>,
     placeholders: List<AnnotatedString.Range<Placeholder>>,
     density: Density,
+    @Suppress("PrimitiveInLambda")
     resolveTypeface: (FontFamily?, FontWeight, FontStyle, FontSynthesis) -> Typeface,
     useEmojiCompat: Boolean,
 ): CharSequence {
@@ -118,8 +118,6 @@ internal fun createCharSequence(
     return spannableString
 }
 
-@OptIn(ExperimentalTextApi::class)
-@Suppress("DEPRECATION")
 internal fun TextStyle.isIncludeFontPaddingEnabled(): Boolean {
     return platformStyle?.paragraphStyle?.includeFontPadding ?: DefaultIncludeFontPadding
 }

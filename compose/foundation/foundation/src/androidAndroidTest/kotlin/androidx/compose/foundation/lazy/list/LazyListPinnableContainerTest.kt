@@ -18,9 +18,9 @@ package androidx.compose.foundation.lazy.list
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -241,7 +241,7 @@ class LazyListPinnableContainerTest {
         }
 
         rule.runOnIdle {
-            handle.unpin()
+            handle.release()
         }
 
         rule.waitUntil {
@@ -532,7 +532,7 @@ class LazyListPinnableContainerTest {
         while (handles.isNotEmpty()) {
             rule.runOnIdle {
                 assertThat(composed).contains(1)
-                handles.removeFirst().unpin()
+                handles.removeFirst().release()
             }
         }
 
@@ -569,7 +569,7 @@ class LazyListPinnableContainerTest {
 
         rule.runOnIdle {
             assertThat(parentPinned).isTrue()
-            handle.unpin()
+            handle.release()
         }
 
         rule.runOnIdle {

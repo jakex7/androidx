@@ -19,14 +19,17 @@ package androidx.wear.protolayout;
 import static androidx.wear.protolayout.expression.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
+
+import android.content.ComponentName;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
 import androidx.wear.protolayout.StateBuilders.State;
+import androidx.wear.protolayout.expression.AppDataKey;
+import androidx.wear.protolayout.expression.DynamicDataBuilders;
 import androidx.wear.protolayout.expression.Fingerprint;
-import androidx.wear.protolayout.expression.StateEntryBuilders;
-import androidx.wear.protolayout.expression.StateEntryBuilders.StateEntryValue;
+import androidx.wear.protolayout.expression.DynamicDataBuilders.DynamicDataValue;
 import androidx.wear.protolayout.proto.ActionProto;
 import java.util.Collections;
 import java.util.HashMap;
@@ -67,6 +70,36 @@ public final class ActionBuilders {
     return new AndroidBooleanExtra.Builder().setValue(value).build();
   }
 
+  /** Shortcut for building a {@link LaunchAction}. */
+  @NonNull
+  public static LaunchAction launchAction(@NonNull ComponentName activityComponentName) {
+    return new LaunchAction.Builder()
+        .setAndroidActivity(
+            new AndroidActivity.Builder()
+                .setClassName(activityComponentName.getClassName())
+                .setPackageName(activityComponentName.getPackageName())
+                .build())
+        .build();
+  }
+
+  /** Shortcut for building a {@link LaunchAction} with extras in the launch intent. */
+  @NonNull
+  public static LaunchAction launchAction(
+          @NonNull ComponentName activityComponentName,
+          @NonNull Map<String, AndroidExtra> intentExtras) {
+    AndroidActivity.Builder builder = new AndroidActivity.Builder();
+    for (Map.Entry<String, AndroidExtra> intentExtra : intentExtras.entrySet()) {
+      builder.addKeyToExtraMapping(intentExtra.getKey(), intentExtra.getValue());
+    }
+    return new LaunchAction.Builder()
+            .setAndroidActivity(
+                    builder
+                            .setClassName(activityComponentName.getClassName())
+                            .setPackageName(activityComponentName.getPackageName())
+                            .build())
+            .build();
+  }
+
   /**
    * A string value that can be added to an Android intent's extras.
    *
@@ -91,7 +124,6 @@ public final class ActionBuilders {
       return mImpl.getValue();
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
@@ -99,22 +131,37 @@ public final class ActionBuilders {
       return mFingerprint;
     }
 
+    /** Creates a new wrapper instance from the proto. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
-    static AndroidStringExtra fromProto(@NonNull ActionProto.AndroidStringExtra proto) {
-      return new AndroidStringExtra(proto, null);
+    public static AndroidStringExtra fromProto(
+        @NonNull ActionProto.AndroidStringExtra proto, @Nullable Fingerprint fingerprint) {
+      return new AndroidStringExtra(proto, fingerprint);
     }
 
+    @NonNull
+    static AndroidStringExtra fromProto(@NonNull ActionProto.AndroidStringExtra proto) {
+      return fromProto(proto, null);
+    }
+
+    /** Returns the internal proto instance. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     ActionProto.AndroidStringExtra toProto() {
       return mImpl;
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     public ActionProto.AndroidExtra toAndroidExtraProto() {
       return ActionProto.AndroidExtra.newBuilder().setStringVal(mImpl).build();
+    }
+
+    @Override
+    @NonNull
+    public String toString() {
+      return "AndroidStringExtra{" + "value=" + getValue() + "}";
     }
 
     /** Builder for {@link AndroidStringExtra}. */
@@ -168,7 +215,6 @@ public final class ActionBuilders {
       return mImpl.getValue();
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
@@ -176,22 +222,37 @@ public final class ActionBuilders {
       return mFingerprint;
     }
 
+    /** Creates a new wrapper instance from the proto. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
-    static AndroidIntExtra fromProto(@NonNull ActionProto.AndroidIntExtra proto) {
-      return new AndroidIntExtra(proto, null);
+    public static AndroidIntExtra fromProto(
+        @NonNull ActionProto.AndroidIntExtra proto, @Nullable Fingerprint fingerprint) {
+      return new AndroidIntExtra(proto, fingerprint);
     }
 
+    @NonNull
+    static AndroidIntExtra fromProto(@NonNull ActionProto.AndroidIntExtra proto) {
+      return fromProto(proto, null);
+    }
+
+    /** Returns the internal proto instance. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     ActionProto.AndroidIntExtra toProto() {
       return mImpl;
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     public ActionProto.AndroidExtra toAndroidExtraProto() {
       return ActionProto.AndroidExtra.newBuilder().setIntVal(mImpl).build();
+    }
+
+    @Override
+    @NonNull
+    public String toString() {
+      return "AndroidIntExtra{" + "value=" + getValue() + "}";
     }
 
     /** Builder for {@link AndroidIntExtra}. */
@@ -245,7 +306,6 @@ public final class ActionBuilders {
       return mImpl.getValue();
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
@@ -253,22 +313,37 @@ public final class ActionBuilders {
       return mFingerprint;
     }
 
+    /** Creates a new wrapper instance from the proto. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
-    static AndroidLongExtra fromProto(@NonNull ActionProto.AndroidLongExtra proto) {
-      return new AndroidLongExtra(proto, null);
+    public static AndroidLongExtra fromProto(
+            @NonNull ActionProto.AndroidLongExtra proto, @Nullable Fingerprint fingerprint) {
+      return new AndroidLongExtra(proto, fingerprint);
     }
 
+    @NonNull
+    static AndroidLongExtra fromProto(@NonNull ActionProto.AndroidLongExtra proto) {
+      return fromProto(proto, null);
+    }
+
+    /** Returns the internal proto instance. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     ActionProto.AndroidLongExtra toProto() {
       return mImpl;
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     public ActionProto.AndroidExtra toAndroidExtraProto() {
       return ActionProto.AndroidExtra.newBuilder().setLongVal(mImpl).build();
+    }
+
+    @Override
+    @NonNull
+    public String toString() {
+      return "AndroidLongExtra{" + "value=" + getValue() + "}";
     }
 
     /** Builder for {@link AndroidLongExtra}. */
@@ -322,7 +397,6 @@ public final class ActionBuilders {
       return mImpl.getValue();
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
@@ -330,22 +404,37 @@ public final class ActionBuilders {
       return mFingerprint;
     }
 
+    /** Creates a new wrapper instance from the proto. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
-    static AndroidDoubleExtra fromProto(@NonNull ActionProto.AndroidDoubleExtra proto) {
-      return new AndroidDoubleExtra(proto, null);
+    public static AndroidDoubleExtra fromProto(
+            @NonNull ActionProto.AndroidDoubleExtra proto, @Nullable Fingerprint fingerprint) {
+      return new AndroidDoubleExtra(proto, fingerprint);
     }
 
+    @NonNull
+    static AndroidDoubleExtra fromProto(@NonNull ActionProto.AndroidDoubleExtra proto) {
+      return fromProto(proto, null);
+    }
+
+    /** Returns the internal proto instance. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     ActionProto.AndroidDoubleExtra toProto() {
       return mImpl;
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     public ActionProto.AndroidExtra toAndroidExtraProto() {
       return ActionProto.AndroidExtra.newBuilder().setDoubleVal(mImpl).build();
+    }
+
+    @Override
+    @NonNull
+    public String toString() {
+      return "AndroidDoubleExtra{" + "value=" + getValue() + "}";
     }
 
     /** Builder for {@link AndroidDoubleExtra}. */
@@ -399,7 +488,6 @@ public final class ActionBuilders {
       return mImpl.getValue();
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
@@ -407,22 +495,37 @@ public final class ActionBuilders {
       return mFingerprint;
     }
 
+    /** Creates a new wrapper instance from the proto. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
-    static AndroidBooleanExtra fromProto(@NonNull ActionProto.AndroidBooleanExtra proto) {
-      return new AndroidBooleanExtra(proto, null);
+    public static AndroidBooleanExtra fromProto(
+        @NonNull ActionProto.AndroidBooleanExtra proto, @Nullable Fingerprint fingerprint) {
+      return new AndroidBooleanExtra(proto, fingerprint);
     }
 
+    @NonNull
+    static AndroidBooleanExtra fromProto(@NonNull ActionProto.AndroidBooleanExtra proto) {
+      return fromProto(proto, null);
+    }
+
+    /** Returns the internal proto instance. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     ActionProto.AndroidBooleanExtra toProto() {
       return mImpl;
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     public ActionProto.AndroidExtra toAndroidExtraProto() {
       return ActionProto.AndroidExtra.newBuilder().setBooleanVal(mImpl).build();
+    }
+
+    @Override
+    @NonNull
+    public String toString() {
+      return "AndroidBooleanExtra{" + "value=" + getValue() + "}";
     }
 
     /** Builder for {@link AndroidBooleanExtra}. */
@@ -461,26 +564,18 @@ public final class ActionBuilders {
    * @since 1.0
    */
   public interface AndroidExtra {
-    /**
-     * Get the protocol buffer representation of this object.
-     *
-     * @hide
-     */
+    /** Get the protocol buffer representation of this object. */
     @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     ActionProto.AndroidExtra toAndroidExtraProto();
 
-    /**
-     * Get the fingerprint for this object or null if unknown.
-     *
-     * @hide
-     */
+    /** Get the fingerprint for this object or null if unknown. */
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
     Fingerprint getFingerprint();
 
     /** Builder to create {@link AndroidExtra} objects. */
-    @SuppressLint("StaticFinalBuilder")
+    @RestrictTo(Scope.LIBRARY_GROUP)
     interface Builder {
 
       /** Builds an instance with values accumulated in this Builder. */
@@ -489,24 +584,32 @@ public final class ActionBuilders {
     }
   }
 
+  /** Creates a new wrapper instance from the proto. */
+  @RestrictTo(Scope.LIBRARY_GROUP)
   @NonNull
-  static AndroidExtra androidExtraFromProto(@NonNull ActionProto.AndroidExtra proto) {
+  public static AndroidExtra androidExtraFromProto(
+      @NonNull ActionProto.AndroidExtra proto, @Nullable Fingerprint fingerprint) {
     if (proto.hasStringVal()) {
-      return AndroidStringExtra.fromProto(proto.getStringVal());
+      return AndroidStringExtra.fromProto(proto.getStringVal(), fingerprint);
     }
     if (proto.hasIntVal()) {
-      return AndroidIntExtra.fromProto(proto.getIntVal());
+      return AndroidIntExtra.fromProto(proto.getIntVal(), fingerprint);
     }
     if (proto.hasLongVal()) {
-      return AndroidLongExtra.fromProto(proto.getLongVal());
+      return AndroidLongExtra.fromProto(proto.getLongVal(), fingerprint);
     }
     if (proto.hasDoubleVal()) {
-      return AndroidDoubleExtra.fromProto(proto.getDoubleVal());
+      return AndroidDoubleExtra.fromProto(proto.getDoubleVal(), fingerprint);
     }
     if (proto.hasBooleanVal()) {
-      return AndroidBooleanExtra.fromProto(proto.getBooleanVal());
+      return AndroidBooleanExtra.fromProto(proto.getBooleanVal(), fingerprint);
     }
     throw new IllegalStateException("Proto was not a recognised instance of AndroidExtra");
+  }
+
+  @NonNull
+  static AndroidExtra androidExtraFromProto(@NonNull ActionProto.AndroidExtra proto) {
+    return androidExtraFromProto(proto, null);
   }
 
   /**
@@ -558,25 +661,44 @@ public final class ActionBuilders {
       return Collections.unmodifiableMap(map);
     }
 
-    /**
-     * Get the fingerprint for this object, or null if unknown.
-     *
-     * @hide
-     */
+    /** Get the fingerprint for this object, or null if unknown. */
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
     public Fingerprint getFingerprint() {
       return mFingerprint;
     }
 
+    /** Creates a new wrapper instance from the proto. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
-    static AndroidActivity fromProto(@NonNull ActionProto.AndroidActivity proto) {
-      return new AndroidActivity(proto, null);
+    public static AndroidActivity fromProto(
+        @NonNull ActionProto.AndroidActivity proto, @Nullable Fingerprint fingerprint) {
+      return new AndroidActivity(proto, fingerprint);
     }
 
     @NonNull
-    ActionProto.AndroidActivity toProto() {
+    static AndroidActivity fromProto(@NonNull ActionProto.AndroidActivity proto) {
+      return fromProto(proto, null);
+    }
+
+    /** Returns the internal proto instance. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
+    @NonNull
+    public ActionProto.AndroidActivity toProto() {
       return mImpl;
+    }
+
+    @Override
+    @NonNull
+    public String toString() {
+      return "AndroidActivity{"
+          + "packageName="
+          + getPackageName()
+          + ", className="
+          + getClassName()
+          + ", keyToExtraMapping="
+          + getKeyToExtraMapping()
+          + "}";
     }
 
     /** Builder for {@link AndroidActivity} */
@@ -664,7 +786,6 @@ public final class ActionBuilders {
       }
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
@@ -672,22 +793,37 @@ public final class ActionBuilders {
       return mFingerprint;
     }
 
+    /** Creates a new wrapper instance from the proto. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
-    static LaunchAction fromProto(@NonNull ActionProto.LaunchAction proto) {
-      return new LaunchAction(proto, null);
+    public static LaunchAction fromProto(
+        @NonNull ActionProto.LaunchAction proto, @Nullable Fingerprint fingerprint) {
+      return new LaunchAction(proto, fingerprint);
     }
 
+    @NonNull
+    static LaunchAction fromProto(@NonNull ActionProto.LaunchAction proto) {
+      return fromProto(proto, null);
+    }
+
+    /** Returns the internal proto instance. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     ActionProto.LaunchAction toProto() {
       return mImpl;
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     public ActionProto.Action toActionProto() {
       return ActionProto.Action.newBuilder().setLaunchAction(mImpl).build();
+    }
+
+    @Override
+    @NonNull
+    public String toString() {
+      return "LaunchAction{" + "androidActivity=" + getAndroidActivity() + "}";
     }
 
     /** Builder for {@link LaunchAction}. */
@@ -748,7 +884,6 @@ public final class ActionBuilders {
       }
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
@@ -756,22 +891,37 @@ public final class ActionBuilders {
       return mFingerprint;
     }
 
+    /** Creates a new wrapper instance from the proto. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
-    static LoadAction fromProto(@NonNull ActionProto.LoadAction proto) {
-      return new LoadAction(proto, null);
+    public static LoadAction fromProto(
+        @NonNull ActionProto.LoadAction proto, @Nullable Fingerprint fingerprint) {
+      return new LoadAction(proto, fingerprint);
     }
 
+    @NonNull
+    static LoadAction fromProto(@NonNull ActionProto.LoadAction proto) {
+      return fromProto(proto, null);
+    }
+
+    /** Returns the internal proto instance. */
+    @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     ActionProto.LoadAction toProto() {
       return mImpl;
     }
 
-    /** @hide */
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     public ActionProto.Action toActionProto() {
       return ActionProto.Action.newBuilder().setLoadAction(mImpl).build();
+    }
+
+    @Override
+    @NonNull
+    public String toString() {
+      return "LoadAction{" + "requestState=" + getRequestState() + "}";
     }
 
     /** Builder for {@link LoadAction}. */
@@ -810,26 +960,18 @@ public final class ActionBuilders {
    * @since 1.0
    */
   public interface Action {
-    /**
-     * Get the protocol buffer representation of this object.
-     *
-     * @hide
-     */
+    /** Get the protocol buffer representation of this object. */
     @RestrictTo(Scope.LIBRARY_GROUP)
     @NonNull
     ActionProto.Action toActionProto();
 
-    /**
-     * Get the fingerprint for this object or null if unknown.
-     *
-     * @hide
-     */
+    /** Get the fingerprint for this object or null if unknown. */
     @RestrictTo(Scope.LIBRARY_GROUP)
     @Nullable
     Fingerprint getFingerprint();
 
     /** Builder to create {@link Action} objects. */
-    @SuppressLint("StaticFinalBuilder")
+    @RestrictTo(Scope.LIBRARY_GROUP)
     interface Builder {
 
       /** Builds an instance with values accumulated in this Builder. */
@@ -838,162 +980,22 @@ public final class ActionBuilders {
     }
   }
 
+  /** Creates a new wrapper instance from the proto. */
+  @RestrictTo(Scope.LIBRARY_GROUP)
   @NonNull
-  static Action actionFromProto(@NonNull ActionProto.Action proto) {
+  public static Action actionFromProto(
+      @NonNull ActionProto.Action proto, @Nullable Fingerprint fingerprint) {
     if (proto.hasLaunchAction()) {
-      return LaunchAction.fromProto(proto.getLaunchAction());
+      return LaunchAction.fromProto(proto.getLaunchAction(), fingerprint);
     }
     if (proto.hasLoadAction()) {
-      return LoadAction.fromProto(proto.getLoadAction());
+      return LoadAction.fromProto(proto.getLoadAction(), fingerprint);
     }
     throw new IllegalStateException("Proto was not a recognised instance of Action");
   }
 
-  /**
-   * Interface defining an action that is handled internal to the current layout and won't cause a
-   * layout refresh.
-   *
-   * @since 1.2
-   */
-  public interface LocalAction {
-    /**
-     * Get the protocol buffer representation of this object.
-     *
-     * @hide
-     */
-    @RestrictTo(Scope.LIBRARY_GROUP)
-    @NonNull
-    ActionProto.LocalAction toLocalActionProto();
-
-    /**
-     * Get the fingerprint for this object or null if unknown.
-     *
-     * @hide
-     */
-    @RestrictTo(Scope.LIBRARY_GROUP)
-    @Nullable
-    Fingerprint getFingerprint();
-
-    /** Builder to create {@link LocalAction} objects. */
-    @SuppressLint("StaticFinalBuilder")
-    interface Builder {
-
-      /** Builds an instance with values accumulated in this Builder. */
-      @NonNull
-      LocalAction build();
-    }
-  }
-
   @NonNull
-  static LocalAction localActionFromProto(@NonNull ActionProto.LocalAction proto) {
-    if (proto.hasSetState()) {
-      return SetStateAction.fromProto(proto.getSetState());
-    }
-    throw new IllegalStateException("Proto was not a recognised instance of LocalAction");
-  }
-
-  /**
-   * An action that sets a new value for a {@link androidx.wear.protolayout.StateBuilders.State}.
-   *
-   * @since 1.2
-   */
-  public static final class SetStateAction implements LocalAction {
-    private final ActionProto.SetStateAction mImpl;
-    @Nullable private final Fingerprint mFingerprint;
-
-    SetStateAction(ActionProto.SetStateAction impl, @Nullable Fingerprint fingerprint) {
-      this.mImpl = impl;
-      this.mFingerprint = fingerprint;
-    }
-
-    /**
-     * Gets the target key of the state item for this action.
-     *
-     * @since 1.2
-     */
-    @NonNull
-    public String getTargetKey() {
-      return mImpl.getTargetKey();
-    }
-
-    /**
-     * Gets the value to set the state item to, when this action is executed.
-     *
-     * @since 1.2
-     */
-    @Nullable
-    public StateEntryValue getValue() {
-      if (mImpl.hasValue()) {
-        return StateEntryBuilders.stateEntryValueFromProto(mImpl.getValue());
-      } else {
-        return null;
-      }
-    }
-
-    /** @hide */
-    @Override
-    @RestrictTo(Scope.LIBRARY_GROUP)
-    @Nullable
-    public Fingerprint getFingerprint() {
-      return mFingerprint;
-    }
-
-    @NonNull
-    static SetStateAction fromProto(@NonNull ActionProto.SetStateAction proto) {
-      return new SetStateAction(proto, null);
-    }
-
-    @NonNull
-    ActionProto.SetStateAction toProto() {
-      return mImpl;
-    }
-
-    /** @hide */
-    @Override
-    @RestrictTo(Scope.LIBRARY_GROUP)
-    @NonNull
-    public ActionProto.LocalAction toLocalActionProto() {
-      return ActionProto.LocalAction.newBuilder().setSetState(mImpl).build();
-    }
-
-    /** Builder for {@link SetStateAction}. */
-    public static final class Builder implements LocalAction.Builder {
-      private final ActionProto.SetStateAction.Builder mImpl =
-          ActionProto.SetStateAction.newBuilder();
-      private final Fingerprint mFingerprint = new Fingerprint(2126563467);
-
-      public Builder() {}
-
-      /**
-       * Sets the target key of the state item for this action.
-       *
-       * @since 1.2
-       */
-      @NonNull
-      public Builder setTargetKey(@NonNull String targetKey) {
-        mImpl.setTargetKey(targetKey);
-        mFingerprint.recordPropertyUpdate(1, targetKey.hashCode());
-        return this;
-      }
-
-      /**
-       * Sets the value to set the state item to, when this action is executed.
-       *
-       * @since 1.2
-       */
-      @NonNull
-      public Builder setValue(@NonNull StateEntryValue value) {
-        mImpl.setValue(value.toStateEntryValueProto());
-        mFingerprint.recordPropertyUpdate(
-            2, checkNotNull(value.getFingerprint()).aggregateValueAsInt());
-        return this;
-      }
-
-      @Override
-      @NonNull
-      public SetStateAction build() {
-        return new SetStateAction(mImpl.build(), mFingerprint);
-      }
-    }
+  static Action actionFromProto(@NonNull ActionProto.Action proto) {
+    return actionFromProto(proto, null);
   }
 }

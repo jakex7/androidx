@@ -17,8 +17,8 @@
 package androidx.room
 
 import android.database.sqlite.SQLiteConstraintException
-import androidx.annotation.RestrictTo
 import android.os.Build
+import androidx.annotation.RestrictTo
 
 /**
  * The ErrorCode defined by SQLite Library for SQLITE_CONSTRAINT_PRIMARYKEY error
@@ -208,7 +208,11 @@ class EntityUpsertionAdapter<T>(
     private fun checkUniquenessException(ex: SQLiteConstraintException) {
         val message = ex.message ?: throw ex
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT) {
-            if (!message.contains(ErrorMsg, ignoreCase = true)) {
+            if (!message.contains(ErrorMsg, ignoreCase = true) && !message.contains(
+                    ErrorCode,
+                    ignoreCase = true
+                )
+            ) {
                 throw ex
             }
         } else {

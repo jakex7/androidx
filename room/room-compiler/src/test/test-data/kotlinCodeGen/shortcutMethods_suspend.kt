@@ -7,7 +7,6 @@ import androidx.sqlite.db.SupportSQLiteStatement
 import java.lang.Class
 import java.util.concurrent.Callable
 import javax.`annotation`.processing.Generated
-import kotlin.Array
 import kotlin.Int
 import kotlin.Long
 import kotlin.String
@@ -17,7 +16,7 @@ import kotlin.collections.List
 import kotlin.jvm.JvmStatic
 
 @Generated(value = ["androidx.room.RoomProcessor"])
-@Suppress(names = ["UNCHECKED_CAST", "DEPRECATION"])
+@Suppress(names = ["UNCHECKED_CAST", "DEPRECATION", "REDUNDANT_PROJECTION"])
 public class MyDao_Impl(
     __db: RoomDatabase,
 ) : MyDao {
@@ -79,7 +78,7 @@ public class MyDao_Impl(
         })
     }
 
-    public override suspend fun insert(entities: Array<out MyEntity>): List<Long> =
+    public override suspend fun insert(vararg entities: MyEntity): List<Long> =
         CoroutinesRoom.execute(__db, true, object : Callable<List<Long>> {
             public override fun call(): List<Long> {
                 __db.beginTransaction()
@@ -123,7 +122,7 @@ public class MyDao_Impl(
             }
         })
 
-    public override suspend fun upsert(entities: Array<out MyEntity>): List<Long> =
+    public override suspend fun upsert(vararg entities: MyEntity): List<Long> =
         CoroutinesRoom.execute(__db, true, object : Callable<List<Long>> {
             public override fun call(): List<Long> {
                 __db.beginTransaction()

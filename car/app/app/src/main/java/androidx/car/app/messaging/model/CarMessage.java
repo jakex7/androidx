@@ -16,6 +16,8 @@
 
 package androidx.car.app.messaging.model;
 
+import static androidx.car.app.messaging.model.ConversationItem.validateSender;
+
 import static java.util.Objects.requireNonNull;
 
 import android.os.Bundle;
@@ -24,26 +26,55 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.car.app.annotations.CarProtocol;
 import androidx.car.app.annotations.ExperimentalCarApi;
+import androidx.car.app.annotations.KeepFields;
 import androidx.car.app.annotations.RequiresCarApi;
 import androidx.car.app.model.CarText;
-import androidx.car.app.annotations.KeepFields;
 import androidx.core.app.Person;
+
+import java.util.Objects;
 
 /** Represents a single message in a {@link ConversationItem} */
 @ExperimentalCarApi
 @CarProtocol
-@RequiresCarApi(6)
+@RequiresCarApi(7)
 @KeepFields
 public class CarMessage {
-    @NonNull
+    @Nullable
     private final Bundle mSender;
     @NonNull
     private final CarText mBody;
     private final long mReceivedTimeEpochMillis;
     private final boolean mIsRead;
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                PersonsEqualityHelper.getPersonHashCode(getSender()),
+                mBody,
+                mReceivedTimeEpochMillis,
+                mIsRead
+        );
+    }
+
+    @Override
+    public boolean equals(@Nullable Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof CarMessage)) {
+            return false;
+        }
+        CarMessage otherCarMessage = (CarMessage) other;
+
+        return
+                PersonsEqualityHelper.arePersonsEqual(getSender(), otherCarMessage.getSender())
+                        && Objects.equals(mBody, otherCarMessage.mBody)
+                        && mReceivedTimeEpochMillis == otherCarMessage.mReceivedTimeEpochMillis
+                        && mIsRead == otherCarMessage.mIsRead;
+    }
+
     CarMessage(@NonNull Builder builder) {
-        this.mSender = requireNonNull(builder.mSender).toBundle();
+        this.mSender = builder.mSender == null ? null : validateSender(builder.mSender).toBundle();
         this.mBody = requireNonNull(builder.mBody);
         this.mReceivedTimeEpochMillis = builder.mReceivedTimeEpochMillis;
         this.mIsRead = builder.mIsRead;
@@ -51,17 +82,22 @@ public class CarMessage {
 
     /** Default constructor for serialization. */
     private CarMessage() {
-        this.mSender = new Person.Builder().setName("").build().toBundle();
+        this.mSender = null;
         this.mBody = new CarText.Builder("").build();
         this.mReceivedTimeEpochMillis = 0;
         this.mIsRead = false;
     }
 
 
-    /** Returns a {@link Person} representing the message sender */
-    @NonNull
+    /**
+     * Returns a {@link Person} representing the message sender.
+     *
+     * <p> For self-sent messages, this method will return {@code null} or
+     * {@link ConversationItem#getSelf()}.
+     */
+    @Nullable
     public Person getSender() {
-        return Person.fromBundle(mSender);
+        return mSender == null ? null : Person.fromBundle(mSender);
     }
 
     /** Returns a {@link CarText} representing the message body */
@@ -75,7 +111,7 @@ public class CarMessage {
         return mReceivedTimeEpochMillis;
     }
 
-    /** Returns a {@link boolean}, indicating whether the message has been read */
+    /** Returns a {@code boolean}, indicating whether the message has been read */
     public boolean isRead() {
         return mIsRead;
     }
@@ -89,8 +125,14 @@ public class CarMessage {
         long mReceivedTimeEpochMillis;
         boolean mIsRead;
 
-        /** Sets a {@link Person} representing the message sender */
-        public @NonNull Builder setSender(@NonNull Person sender) {
+        /**
+         * Sets a {@link Person} representing the message sender
+         *
+         * <p> The {@link Person} must specify a non-null
+         * {@link Person.Builder#setName(CharSequence)} and
+         * {@link Person.Builder#setKey(String)}.
+         */
+        public @NonNull Builder setSender(@Nullable Person sender) {
             mSender = sender;
             return this;
         }
@@ -107,7 +149,7 @@ public class CarMessage {
             return this;
         }
 
-        /** Sets a {@link boolean}, indicating whether the message has been read */
+        /** Sets a {@code boolean}, indicating whether the message has been read */
         public @NonNull Builder setRead(boolean isRead) {
             mIsRead = isRead;
             return this;

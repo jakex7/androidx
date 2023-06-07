@@ -27,8 +27,8 @@ import androidx.compose.material3.DismissValue.Default
 import androidx.compose.material3.DismissValue.DismissedToEnd
 import androidx.compose.material3.DismissValue.DismissedToStart
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -90,6 +90,7 @@ enum class DismissValue {
 class DismissState(
     initialValue: DismissValue,
     confirmValueChange: (DismissValue) -> Boolean = { true },
+    @Suppress("PrimitiveInLambda")
     positionalThreshold: Density.(totalDistance: Float) -> Float =
         SwipeToDismissDefaults.FixedPositionalThreshold,
 ) {
@@ -179,6 +180,7 @@ class DismissState(
          */
         fun Saver(
             confirmValueChange: (DismissValue) -> Boolean,
+            @Suppress("PrimitiveInLambda")
             positionalThreshold: Density.(totalDistance: Float) -> Float,
         ) =
             Saver<DismissState, DismissValue>(
@@ -206,6 +208,7 @@ class DismissState(
 fun rememberDismissState(
     initialValue: DismissValue = Default,
     confirmValueChange: (DismissValue) -> Boolean = { true },
+    @Suppress("PrimitiveInLambda")
     positionalThreshold: Density.(totalDistance: Float) -> Float =
         SwipeToDismissDefaults.FixedPositionalThreshold,
 ): DismissState {
@@ -273,6 +276,7 @@ fun SwipeToDismiss(
 @ExperimentalMaterial3Api
 object SwipeToDismissDefaults {
     /** Default positional threshold of 56.dp for [DismissState]. */
+    @Suppress("PrimitiveInLambda")
     val FixedPositionalThreshold: Density.(totalDistance: Float) -> Float = { _ -> 56.dp.toPx() }
 }
 

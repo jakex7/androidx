@@ -156,6 +156,7 @@ internal class TextFieldVisualTransformationSelectionBoundsTest {
         assertValidMessage(error, sourceIndex = null, toTransformed = false)
     }
 
+    @Ignore // b/268254956
     @Test
     fun selectionStart_throws_onStart_whenInvalidOriginalToTransformed() {
         rule.runOnIdle {
@@ -184,7 +185,7 @@ internal class TextFieldVisualTransformationSelectionBoundsTest {
         assertValidMessage(error, sourceIndex = 0, toTransformed = false)
     }
 
-    @FlakyTest(bugId = 241572024)
+    @Ignore // b/241572024
     @Test
     fun selectionEnd_throws_onStart_whenInvalidOriginalToTransformed() {
         rule.runOnIdle {
@@ -213,6 +214,7 @@ internal class TextFieldVisualTransformationSelectionBoundsTest {
         assertValidMessage(error, sourceIndex = 0, toTransformed = false)
     }
 
+    @Ignore // b/241572024
     @Test
     fun selectionStart_throws_onDrag_whenInvalidOriginalToTransformed() {
         rule.onNodeWithTag(testTag).performTouchInput { longClick() }
@@ -228,6 +230,7 @@ internal class TextFieldVisualTransformationSelectionBoundsTest {
         assertValidMessage(error, sourceIndex = 0, toTransformed = true)
     }
 
+    @Ignore // b/241572024
     @Test
     fun selectionStart_throws_onDrag_whenInvalidTransformedToOriginal() {
         rule.onNodeWithTag(testTag).performTouchInput { longClick() }

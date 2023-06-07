@@ -124,13 +124,11 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
     private final Rect mTempRect = new Rect();
     private OverScroller mScroller;
 
-    /** @hide */
     @RestrictTo(LIBRARY)
     @VisibleForTesting
     @NonNull
     public EdgeEffect mEdgeGlowTop;
 
-    /** @hide */
     @RestrictTo(LIBRARY)
     @VisibleForTesting
     @NonNull
@@ -706,21 +704,33 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             switch (event.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_UP:
-                    if (!event.isAltPressed()) {
-                        handled = arrowScroll(View.FOCUS_UP);
-                    } else {
+                    if (event.isAltPressed()) {
                         handled = fullScroll(View.FOCUS_UP);
+                    } else {
+                        handled = arrowScroll(View.FOCUS_UP);
                     }
                     break;
                 case KeyEvent.KEYCODE_DPAD_DOWN:
-                    if (!event.isAltPressed()) {
-                        handled = arrowScroll(View.FOCUS_DOWN);
-                    } else {
+                    if (event.isAltPressed()) {
                         handled = fullScroll(View.FOCUS_DOWN);
+                    } else {
+                        handled = arrowScroll(View.FOCUS_DOWN);
                     }
+                    break;
+                case KeyEvent.KEYCODE_PAGE_UP:
+                    handled = fullScroll(View.FOCUS_UP);
+                    break;
+                case KeyEvent.KEYCODE_PAGE_DOWN:
+                    handled = fullScroll(View.FOCUS_DOWN);
                     break;
                 case KeyEvent.KEYCODE_SPACE:
                     pageScroll(event.isShiftPressed() ? View.FOCUS_UP : View.FOCUS_DOWN);
+                    break;
+                case KeyEvent.KEYCODE_MOVE_HOME:
+                    pageScroll(View.FOCUS_UP);
+                    break;
+                case KeyEvent.KEYCODE_MOVE_END:
+                    pageScroll(View.FOCUS_DOWN);
                     break;
             }
         }
@@ -1034,17 +1044,19 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
 
     /*
      * Handles scroll events for both touch and non-touch events (mouse scroll wheel,
-     * rotary button, etc.).
+     * rotary button, keyboard, etc.).
      *
-     * Note: This returns the total scroll offset for touch event which is required for calculating
-     * the scroll between move events. This returned value is NOT needed for non-touch events since
-     * a scroll is a one time event.
+     * Note: This function returns the total scroll offset for this scroll event which is required
+     * for calculating the total scroll between multiple move events (touch). This returned value
+     * is NOT needed for non-touch events since a scroll is a one time event (vs. touch where a
+     * drag may be triggered multiple times with the movement of the finger).
      */
+    // TODO: You should rename this to nestedScrollBy() so it is different from View.scrollBy
     private int scrollBy(
             int verticalScrollDistance,
             int x,
             int touchType,
-            boolean isSourceMouse
+            boolean isSourceMouseOrKeyboard
     ) {
         int totalScrollOffset = 0;
 
@@ -1081,7 +1093,7 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
 
         // Overscroll is for adding animations at the top/bottom of a view when the user scrolls
         // beyond the beginning/end of the view. Overscroll is not used with a mouse.
-        boolean canOverscroll = canOverScroll() && !isSourceMouse;
+        boolean canOverscroll = canOverScroll() && !isSourceMouseOrKeyboard;
 
         // Scrolls content in the current View, but clamps it if it goes too far.
         boolean hitScrollBarrier =
@@ -1585,7 +1597,6 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
                 mTempRect.top = mTempRect.bottom - height;
             }
         }
-
         return scrollAndFocus(direction, mTempRect.top, mTempRect.bottom);
     }
 
@@ -1618,7 +1629,7 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
             handled = false;
         } else {
             int delta = up ? (top - containerTop) : (bottom - containerBottom);
-            doScrollY(delta);
+            scrollBy(delta, 0, ViewCompat.TYPE_NON_TOUCH, true);
         }
 
         if (newFocused != findFocus()) newFocused.requestFocus(direction);
@@ -1645,8 +1656,10 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
             nextFocused.getDrawingRect(mTempRect);
             offsetDescendantRectToMyCoords(nextFocused, mTempRect);
             int scrollDelta = computeScrollDeltaToGetChildRectOnScreen(mTempRect);
-            doScrollY(scrollDelta);
+
+            scrollBy(scrollDelta, 0, ViewCompat.TYPE_NON_TOUCH, true);
             nextFocused.requestFocus(direction);
+
         } else {
             // no new focus
             int scrollDelta = maxJump;
@@ -1665,7 +1678,9 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
             if (scrollDelta == 0) {
                 return false;
             }
-            doScrollY(direction == View.FOCUS_DOWN ? scrollDelta : -scrollDelta);
+
+            int finalScrollDelta = direction == View.FOCUS_DOWN ? scrollDelta : -scrollDelta;
+            scrollBy(finalScrollDelta, 0, ViewCompat.TYPE_NON_TOUCH, true);
         }
 
         if (currentFocused != null && currentFocused.isFocused()
@@ -1822,7 +1837,6 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
     /**
      * <p>The scroll range of a scroll view is the overall height of all of its
      * children.</p>
-     * @hide
      */
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     @Override
@@ -1847,35 +1861,30 @@ public class NestedScrollView extends FrameLayout implements NestedScrollingPare
         return scrollRange;
     }
 
-    /** @hide */
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     @Override
     public int computeVerticalScrollOffset() {
         return Math.max(0, super.computeVerticalScrollOffset());
     }
 
-    /** @hide */
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     @Override
     public int computeVerticalScrollExtent() {
         return super.computeVerticalScrollExtent();
     }
 
-    /** @hide */
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     @Override
     public int computeHorizontalScrollRange() {
         return super.computeHorizontalScrollRange();
     }
 
-    /** @hide */
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     @Override
     public int computeHorizontalScrollOffset() {
         return super.computeHorizontalScrollOffset();
     }
 
-    /** @hide */
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     @Override
     public int computeHorizontalScrollExtent() {

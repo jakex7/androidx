@@ -16,6 +16,7 @@
 
 package androidx.camera.camera2.pipe.core
 
+import androidx.test.filters.SdkSuppress
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,15 +28,14 @@ import org.junit.runners.JUnit4
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(JUnit4::class)
+@SdkSuppress(minSdkVersion = 21)
 internal class WakeLockTest {
 
     @Test
     fun testWakeLockInvokesCallbackAfterTokenIsReleased() = runTest {
         val result = CompletableDeferred<Boolean>()
 
-        val wakelock = WakeLock(this) {
-            result.complete(true)
-        }
+        val wakelock = WakeLock(this) { result.complete(true) }
 
         wakelock.acquire()!!.release()
         assertThat(result.await()).isTrue()
@@ -45,9 +45,7 @@ internal class WakeLockTest {
     fun testWakelockDoesNotCompleteUntilAllTokensAreReleased() = runTest {
         val result = CompletableDeferred<Boolean>()
 
-        val wakelock = WakeLock(this) {
-            result.complete(true)
-        }
+        val wakelock = WakeLock(this) { result.complete(true) }
 
         val token1 = wakelock.acquire()!!
         val token2 = wakelock.acquire()!!
@@ -64,9 +62,7 @@ internal class WakeLockTest {
     @Test
     fun testClosingWakelockInvokesCallback() = runTest {
         val result = CompletableDeferred<Boolean>()
-        val wakelock = WakeLock(this, 100) {
-            result.complete(true)
-        }
+        val wakelock = WakeLock(this, 100) { result.complete(true) }
         wakelock.release()
         assertThat(result.await()).isTrue()
     }
@@ -74,9 +70,7 @@ internal class WakeLockTest {
     @Test
     fun testWakeLockCompletesWhenStartTimeoutOnCreation() = runTest {
         val result = CompletableDeferred<Boolean>()
-        WakeLock(this, 100, startTimeoutOnCreation = true) {
-            result.complete(true)
-        }
+        WakeLock(this, 100, startTimeoutOnCreation = true) { result.complete(true) }
         assertThat(result.await()).isTrue()
     }
 }

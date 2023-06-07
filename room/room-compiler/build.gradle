@@ -101,7 +101,6 @@ dependencies {
     implementation(libs.kspApi)
     shadowed(libs.antlr4)
     implementation(libs.sqliteJdbc)
-    implementation(libs.kotlinMetadataJvm)
     implementation(libs.apacheCommonsCodec)
     implementation(libs.intellijAnnotations)
     testImplementation(libs.truth)
@@ -275,8 +274,10 @@ afterEvaluate {
 // make sure we validate published artifacts on the build server.
 BuildOnServerKt.addToBuildOnServer(project, checkArtifactContentsTask)
 
-tasks.findByName("compileKotlin").dependsOn(generateAntlrTask)
-tasks.findByName("sourceJar").dependsOn(generateAntlrTask)
+def tasksThatDependOnAntlr = ["compileKotlin", "sourceJar", "kotlinSourcesJar", "generateKmpDocs"]
+tasks.matching { tasksThatDependOnAntlr.contains(it.name) }.configureEach {
+    it.dependsOn(generateAntlrTask)
+}
 
 tasks.withType(KotlinCompile).configureEach {
     kotlinOptions {
@@ -290,7 +291,7 @@ tasks.withType(KotlinCompile).configureEach {
 
 tasks.withType(Test).configureEach {
     it.systemProperty("androidx.room.compiler.processing.strict", "true")
-    it.maxParallelForks(3)
+    it.maxParallelForks(5)
     if (project.providers.environmentVariable("GITHUB_ACTIONS").present) {
         // limit memory usage to avoid running out of memory in the docker container.
         it.maxHeapSize("512m")
@@ -298,7 +299,7 @@ tasks.withType(Test).configureEach {
 }
 
 androidx {
-    name = "Android Room Compiler"
+    name = "Room Compiler"
     type = LibraryType.ANNOTATION_PROCESSOR
     inceptionYear = "2017"
     description = "Android Room annotation processor"

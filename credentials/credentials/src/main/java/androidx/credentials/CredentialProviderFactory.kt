@@ -18,18 +18,14 @@ package androidx.credentials
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import android.util.Log
 
 /**
  * Factory that returns the credential provider to be used by Credential Manager.
- *
- * @hide
  */
-class CredentialProviderFactory {
+internal class CredentialProviderFactory {
     companion object {
         private const val TAG = "CredProviderFactory"
-        private const val MAX_CRED_MAN_PRE_FRAMEWORK_API_LEVEL = Build.VERSION_CODES.TIRAMISU
 
         /** The metadata key to be used when specifying the provider class name in the
          * android manifest file. */
@@ -42,12 +38,7 @@ class CredentialProviderFactory {
          * Post-U, providers will be registered with the framework, and enabled by the user.
          */
         fun getBestAvailableProvider(context: Context): CredentialProvider? {
-            if (Build.VERSION.SDK_INT <= MAX_CRED_MAN_PRE_FRAMEWORK_API_LEVEL) {
-                return tryCreatePreUOemProvider(context)
-            } else {
-                // TODO("Implement")
-                throw UnsupportedOperationException("Post-U not supported yet")
-            }
+            return tryCreatePreUOemProvider(context)
         }
 
         private fun tryCreatePreUOemProvider(context: Context): CredentialProvider? {
@@ -84,8 +75,10 @@ class CredentialProviderFactory {
         @Suppress("deprecation")
         private fun getAllowedProvidersFromManifest(context: Context): List<String> {
             val packageInfo = context.packageManager
-                .getPackageInfo(context.packageName, PackageManager.GET_META_DATA or
-                        PackageManager.GET_SERVICES)
+                .getPackageInfo(
+                    context.packageName, PackageManager.GET_META_DATA or
+                        PackageManager.GET_SERVICES
+                )
 
             val classNames = mutableListOf<String>()
             if (packageInfo.services != null) {

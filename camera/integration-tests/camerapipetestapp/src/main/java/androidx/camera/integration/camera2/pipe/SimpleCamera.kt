@@ -56,7 +56,7 @@ class SimpleCamera(
     private val cameraConfig: CameraGraph.Config,
     private val cameraGraph: CameraGraph,
     private val cameraMetadata: CameraMetadata,
-    private val imageReader: ImageReader
+    private val imageReader: ImageReader? = null
 ) {
     companion object {
         fun create(
@@ -72,6 +72,15 @@ class SimpleCamera(
             return createNormalCamera(cameraPipe, cameraId, viewfinder, listeners)
         }
 
+        fun create(
+            cameraPipe: CameraPipe,
+            cameraIds: List<CameraId>,
+            viewfinders: List<Viewfinder>,
+            sizes: List<Size>
+        ): List<SimpleCamera> {
+            return createConcurrentCameras(cameraPipe, cameraIds, viewfinders, sizes)
+        }
+
         private fun createHighSpeedCamera(
             cameraPipe: CameraPipe,
             cameraId: CameraId,
@@ -83,7 +92,8 @@ class SimpleCamera(
 
             Log.i("CXCP-App", "Selected $cameraId to open.")
 
-            val cameraMetadata = cameraPipe.cameras().awaitMetadata(cameraId)
+            val cameraMetadata = cameraPipe.cameras().awaitCameraMetadata(cameraId)
+            checkNotNull(cameraMetadata) { "Failed to load CameraMetadata for $cameraId" }
 
             var yuvSizes =
                 cameraMetadata[CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP]!!
@@ -213,7 +223,9 @@ class SimpleCamera(
 
             Log.i("CXCP-App", "Selected $cameraId to open.")
 
-            val cameraMetadata = cameraPipe.cameras().awaitMetadata(cameraId)
+            val cameraMetadata = cameraPipe.cameras().awaitCameraMetadata(cameraId)
+            checkNotNull(cameraMetadata) { "Failed to load CameraMetadata for $cameraId" }
+
             var yuvSizes =
                 cameraMetadata[CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP]!!
                     .getOutputSizes(ImageFormat.YUV_420_888).toList()
@@ -295,6 +307,76 @@ class SimpleCamera(
             )
         }
 
+        private fun createConcurrentCameras(
+            cameraPipe: CameraPipe,
+            cameraIds: List<CameraId>,
+            viewfinders: List<Viewfinder>,
+            sizes: List<Size>,
+        ): List<SimpleCamera> {
+            check(cameraIds.size <= 2)
+            check(cameraIds.size == viewfinders.size)
+            check(cameraIds.size == sizes.size)
+
+            Log.i("CXCP-App", "Selected $cameraIds to open.")
+            val cameraMetadatas = cameraIds.map { cameraId ->
+                val cameraMetadata = cameraPipe.cameras().awaitCameraMetadata(cameraId)
+                checkNotNull(cameraMetadata) { "Failed to load CameraMetadata for $cameraId" }
+                cameraMetadata
+            }
+
+            val viewfinderSteamConfigs = sizes.map { size ->
+                Config.create(
+                    size,
+                    StreamFormat.PRIVATE,
+                    outputType = OutputStream.OutputType.SURFACE_VIEW,
+                )
+            }
+
+            val configs =
+                cameraIds.zip(viewfinderSteamConfigs).map { (cameraId, viewfinderStreamConfig) ->
+                    CameraGraph.Config(
+                        camera = cameraId,
+                        streams = listOf(viewfinderStreamConfig),
+                        defaultTemplate = RequestTemplate(CameraDevice.TEMPLATE_PREVIEW),
+                    )
+                }
+            check(cameraIds.size == configs.size)
+
+            val cameraGraphs = cameraPipe.createCameraGraphs(configs)
+
+            val viewfinderStreams = cameraGraphs.zip(viewfinderSteamConfigs)
+                .map { (cameraGraph, viewfinderStreamConfig) ->
+                    cameraGraph.streams[viewfinderStreamConfig]!!
+                }
+            val viewfinderOutputs = viewfinderStreams.map { it.outputs.single() }
+
+            for ((i, viewfinder) in viewfinders.withIndex()) {
+                viewfinder.configure(
+                    viewfinderOutputs[i].size,
+                    object : Viewfinder.SurfaceListener {
+                        override fun onSurfaceChanged(surface: Surface?, size: Size?) {
+                            Log.i("CXCP-App", "Viewfinder$i surface changed to $surface at $size")
+                            cameraGraphs[i].setSurface(viewfinderStreams[i].id, surface)
+                        }
+                    }
+                )
+            }
+
+            cameraGraphs.zip(viewfinderStreams).map { (cameraGraph, viewfinderStream) ->
+                cameraGraph.acquireSessionOrNull()!!.use {
+                    it.startRepeating(
+                        Request(
+                            streams = listOf(viewfinderStream.id)
+                        )
+                    )
+                }
+            }
+
+            return configs.mapIndexed { i, config ->
+                SimpleCamera(config, cameraGraphs[i], cameraMetadatas[i])
+            }
+        }
+
         private fun Size.aspectRatio(): Double {
             return this.width.toDouble() / this.height.toDouble()
         }
@@ -315,7 +397,7 @@ class SimpleCamera(
     init {
         // This forces the image reader to cycle images (otherwise it might stall the camera)
         @Suppress("DEPRECATION") val handler = Handler()
-        imageReader.setOnImageAvailableListener(
+        imageReader?.setOnImageAvailableListener(
             {
                 val image = imageReader.acquireNextImage()
                 image?.close()
@@ -329,6 +411,14 @@ class SimpleCamera(
         cameraGraph.start()
     }
 
+    fun resume() {
+        cameraGraph.isForeground = true
+    }
+
+    fun pause() {
+        cameraGraph.isForeground = false
+    }
+
     fun stop() {
         Log.i("CXCP-App", "Stopping $cameraGraph")
         cameraGraph.stop()
@@ -337,7 +427,7 @@ class SimpleCamera(
     fun close() {
         Log.i("CXCP-App", "Closing $cameraGraph")
         cameraGraph.close()
-        imageReader.close()
+        imageReader?.close()
     }
 
     fun cameraInfoString(): String =

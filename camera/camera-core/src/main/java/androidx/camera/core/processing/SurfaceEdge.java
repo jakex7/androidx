@@ -18,6 +18,7 @@ package androidx.camera.core.processing;
 
 import static androidx.camera.core.impl.ImageOutputConfig.ROTATION_NOT_SPECIFIED;
 import static androidx.camera.core.impl.utils.Threads.checkMainThread;
+import static androidx.camera.core.impl.utils.Threads.runOnMain;
 import static androidx.camera.core.impl.utils.executor.CameraXExecutors.directExecutor;
 import static androidx.camera.core.impl.utils.executor.CameraXExecutors.mainThreadExecutor;
 import static androidx.camera.core.impl.utils.futures.Futures.immediateFailedFuture;
@@ -27,11 +28,10 @@ import static androidx.core.util.Preconditions.checkArgument;
 import static androidx.core.util.Preconditions.checkNotNull;
 import static androidx.core.util.Preconditions.checkState;
 
-import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
 import android.os.Build;
-import android.util.Range;
 import android.util.Size;
 import android.view.Surface;
 import android.view.SurfaceView;
@@ -41,6 +41,7 @@ import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.camera.core.CameraEffect;
 import androidx.camera.core.SurfaceOutput;
 import androidx.camera.core.SurfaceProcessor;
@@ -49,7 +50,9 @@ import androidx.camera.core.SurfaceRequest.TransformationInfo;
 import androidx.camera.core.UseCase;
 import androidx.camera.core.impl.CameraInternal;
 import androidx.camera.core.impl.DeferrableSurface;
+import androidx.camera.core.impl.ImageOutputConfig;
 import androidx.camera.core.impl.SessionConfig;
+import androidx.camera.core.impl.StreamSpec;
 import androidx.camera.core.impl.utils.futures.Futures;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 
@@ -95,13 +98,19 @@ import java.util.Set;
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class SurfaceEdge {
 
+    private final int mFormat;
     private final Matrix mSensorToBufferTransform;
     private final boolean mHasCameraTransform;
     private final Rect mCropRect;
     private final boolean mMirroring;
     @CameraEffect.Targets
     private final int mTargets;
-    private final Size mSize;
+    private final StreamSpec mStreamSpec;
+
+    // Guarded by main thread.
+    @ImageOutputConfig.OptionalRotationValue
+    private int mTargetRotation;
+
     // Guarded by main thread.
     private int mRotationDegrees;
 
@@ -123,25 +132,34 @@ public class SurfaceEdge {
     @NonNull
     private final Set<Runnable> mOnInvalidatedListeners = new HashSet<>();
 
+    // Guarded by main thread.
+    // Tombstone flag indicates whether the edge has been closed. Once closed, the edge should
+    // never be used again.
+    private boolean mIsClosed = false;
+
     /**
      * Please see the getters to understand the parameters.
      */
     public SurfaceEdge(
             @CameraEffect.Targets int targets,
-            @NonNull Size size,
+            @CameraEffect.Formats int format,
+            @NonNull StreamSpec streamSpec,
             @NonNull Matrix sensorToBufferTransform,
             boolean hasCameraTransform,
             @NonNull Rect cropRect,
             int rotationDegrees,
+            @ImageOutputConfig.OptionalRotationValue int targetRotation,
             boolean mirroring) {
         mTargets = targets;
-        mSize = size;
+        mFormat = format;
+        mStreamSpec = streamSpec;
         mSensorToBufferTransform = sensorToBufferTransform;
         mHasCameraTransform = hasCameraTransform;
         mCropRect = cropRect;
         mRotationDegrees = rotationDegrees;
+        mTargetRotation = targetRotation;
         mMirroring = mirroring;
-        mSettableSurface = new SettableSurface(size);
+        mSettableSurface = new SettableSurface(streamSpec.getResolution(), mFormat);
     }
 
     /**
@@ -155,6 +173,7 @@ public class SurfaceEdge {
     @MainThread
     public void addOnInvalidatedListener(@NonNull Runnable onInvalidated) {
         checkMainThread();
+        checkNotClosed();
         mOnInvalidatedListeners.add(onInvalidated);
     }
 
@@ -169,6 +188,7 @@ public class SurfaceEdge {
     @MainThread
     public DeferrableSurface getDeferrableSurface() {
         checkMainThread();
+        checkNotClosed();
         checkAndSetHasConsumer();
         return mSettableSurface;
     }
@@ -208,6 +228,7 @@ public class SurfaceEdge {
     public void setProvider(@NonNull DeferrableSurface provider)
             throws DeferrableSurface.SurfaceClosedException {
         checkMainThread();
+        checkNotClosed();
         mSettableSurface.setProvider(provider);
     }
 
@@ -225,31 +246,19 @@ public class SurfaceEdge {
     @MainThread
     @NonNull
     public SurfaceRequest createSurfaceRequest(@NonNull CameraInternal cameraInternal) {
-        return createSurfaceRequest(cameraInternal, null);
-    }
-
-    /**
-     * Creates a {@link SurfaceRequest} that is linked to this {@link SurfaceEdge}.
-     *
-     * <p>The {@link SurfaceRequest} is for requesting a {@link Surface} from an external source
-     * such as {@code PreviewView} or {@code VideoCapture}. {@link SurfaceEdge} uses the
-     * {@link Surface} provided by {@link SurfaceRequest#provideSurface} as its source. For how
-     * the ref-counting works, please see the Javadoc of {@link #setProvider}.
-     *
-     * <p>It throws {@link IllegalStateException} if the current {@link SurfaceEdge}
-     * already has a provider.
-     *
-     * <p>This overload optionally allows allows specifying the expected frame rate range in which
-     * the surface should operate.
-     */
-    @MainThread
-    @NonNull
-    public SurfaceRequest createSurfaceRequest(@NonNull CameraInternal cameraInternal,
-            @Nullable Range<Integer> expectedFpsRange) {
         checkMainThread();
+        checkNotClosed();
         // TODO(b/238230154) figure out how to support HDR.
-        SurfaceRequest surfaceRequest = new SurfaceRequest(getSize(), cameraInternal,
-                expectedFpsRange, () -> mainThreadExecutor().execute(this::invalidate));
+        SurfaceRequest surfaceRequest = new SurfaceRequest(
+                mStreamSpec.getResolution(),
+                cameraInternal,
+                mStreamSpec.getDynamicRange(),
+                mStreamSpec.getExpectedFrameRateRange(),
+                () -> mainThreadExecutor().execute(() -> {
+                    if (!mIsClosed) {
+                        invalidate();
+                    }
+                }));
         try {
             DeferrableSurface deferrableSurface = surfaceRequest.getDeferrableSurface();
             if (mSettableSurface.setProvider(deferrableSurface)) {
@@ -295,8 +304,10 @@ public class SurfaceEdge {
     @MainThread
     @NonNull
     public ListenableFuture<SurfaceOutput> createSurfaceOutputFuture(@NonNull Size inputSize,
-            @NonNull Rect cropRect, int rotationDegrees, boolean mirroring) {
+            @CameraEffect.Formats int format, @NonNull Rect cropRect, int rotationDegrees,
+            boolean mirroring, @Nullable CameraInternal cameraInternal) {
         checkMainThread();
+        checkNotClosed();
         checkAndSetHasConsumer();
         SettableSurface settableSurface = mSettableSurface;
         return transformAsync(mSettableSurface.getSurface(),
@@ -308,8 +319,8 @@ public class SurfaceEdge {
                         return immediateFailedFuture(e);
                     }
                     SurfaceOutputImpl surfaceOutputImpl = new SurfaceOutputImpl(surface,
-                            getTargets(), getSize(), inputSize, cropRect, rotationDegrees,
-                            mirroring);
+                            getTargets(), format, mStreamSpec.getResolution(), inputSize, cropRect,
+                            rotationDegrees, mirroring, cameraInternal);
                     surfaceOutputImpl.getCloseFuture().addListener(
                             settableSurface::decrementUseCount,
                             directExecutor());
@@ -319,7 +330,7 @@ public class SurfaceEdge {
     }
 
     /**
-     * Closes the current connection and notifies that a new connection is ready.
+     * Resets connection and notifies that a new connection is ready.
      *
      * <p>Call this method to notify that the {@link Surface} previously provided via
      * {@link #createSurfaceRequest} or {@link #setProvider} should no longer be used. The
@@ -335,29 +346,55 @@ public class SurfaceEdge {
     @MainThread
     public void invalidate() {
         checkMainThread();
-        close();
+        checkNotClosed();
+        if (mSettableSurface.canSetProvider()) {
+            // If the edge is still connectable, no-ops.
+            return;
+        }
+        disconnectWithoutCheckingClosed();
         mHasConsumer = false;
-        mSettableSurface = new SettableSurface(mSize);
+        mSettableSurface = new SettableSurface(mStreamSpec.getResolution(), mFormat);
         for (Runnable onInvalidated : mOnInvalidatedListeners) {
             onInvalidated.run();
         }
     }
 
     /**
-     * Closes the current connection.
+     * Closes the edge.
      *
-     * <p>This method uses the mechanism in {@link DeferrableSurface} and/or
-     * {@link SurfaceOutputImpl} to notify the upstream pipeline that the {@link Surface}
-     * previously provided via {@link #createSurfaceRequest} or {@link #setProvider} should no
-     * longer be used. The upstream pipeline will stops writing to the {@link Surface}, and the
-     * downstream pipeline can choose to release the {@link Surface} once the writing stops.
+     * <p> Disconnects the edge and sets a tombstone so it will never be used again. This method
+     * is idempotent.
+     *
+     * @see #disconnect()
+     */
+    @MainThread
+    public final void close() {
+        checkMainThread();
+        disconnectWithoutCheckingClosed();
+        mIsClosed = true;
+    }
+
+    /**
+     * Disconnects the edge.
+     *
+     * <p> Once disconnected, upstream should stop sending images to the edge, and downstream
+     * should stop expecting images from the edge.
+     *
+     * <p> This method notifies the upstream via {@link SettableSurface#close()}/
+     * {@link SurfaceOutputImpl}. By calling {@link SettableSurface#close()}, it also decrements the
+     * ref-count on downstream Surfaces so they can be released.
      *
      * @see DeferrableSurface#close().
      * @see #invalidate()
      */
     @MainThread
-    public final void close() {
+    public final void disconnect() {
         checkMainThread();
+        checkNotClosed();
+        disconnectWithoutCheckingClosed();
+    }
+
+    private void disconnectWithoutCheckingClosed() {
         mSettableSurface.close();
         if (mConsumerToNotify != null) {
             mConsumerToNotify.requestClose();
@@ -374,11 +411,11 @@ public class SurfaceEdge {
     }
 
     /**
-     * The allocated size of the {@link Surface}.
+     * Gets the buffer format of this edge.
      */
-    @NonNull
-    public Size getSize() {
-        return mSize;
+    @CameraEffect.Formats
+    public int getFormat() {
+        return mFormat;
     }
 
     /**
@@ -433,29 +470,54 @@ public class SurfaceEdge {
     }
 
     /**
-     * Sets the rotation degrees.
+     * @see #updateTransformation(int, int)
+     */
+    public void updateTransformation(int rotationDegrees) {
+        updateTransformation(rotationDegrees, ROTATION_NOT_SPECIFIED);
+    }
+
+    /**
+     * Updates the transformation info.
      *
      * <p>If the surface provider is created via {@link #createSurfaceRequest(CameraInternal)}, the
      * returned SurfaceRequest will receive the rotation update by
      * {@link SurfaceRequest.TransformationInfoListener}.
+     *
+     * @param rotationDegrees the suggested clockwise rotation degrees of the buffer.
+     * @param targetRotation  the UseCase target rotation configured by the app. This value is
+     *                        needed if the SurfaceProvider is a TextureView without GL processing.
+     *                        TextureView will combine this value and the value in
+     *                        {@link SurfaceTexture#getTransformMatrix} to correct the output.
+     * @ TODO(b/284336967): allow setting the crop rect and propagate it to the SurfaceProcessor.
      */
-    @MainThread
-    public void setRotationDegrees(int rotationDegrees) {
-        checkMainThread();
-        if (mRotationDegrees == rotationDegrees) {
-            return;
-        }
-        mRotationDegrees = rotationDegrees;
-        notifyTransformationInfoUpdate();
+    public void updateTransformation(
+            int rotationDegrees,
+            @ImageOutputConfig.OptionalRotationValue int targetRotation) {
+        // This method is not limited to the main thread because UseCase#setTargetRotation calls
+        // this method and can be called from a background thread.
+        runOnMain(() -> {
+            boolean isDirty = false;
+            if (mRotationDegrees != rotationDegrees) {
+                isDirty = true;
+                mRotationDegrees = rotationDegrees;
+            }
+            if (mTargetRotation != targetRotation) {
+                isDirty = true;
+                mTargetRotation = targetRotation;
+            }
+            if (isDirty) {
+                notifyTransformationInfoUpdate();
+            }
+        });
     }
 
     @MainThread
     private void notifyTransformationInfoUpdate() {
         checkMainThread();
         if (mProviderSurfaceRequest != null) {
-            mProviderSurfaceRequest.updateTransformationInfo(
-                    TransformationInfo.of(mCropRect, mRotationDegrees, ROTATION_NOT_SPECIFIED,
-                            hasCameraTransform()));
+            mProviderSurfaceRequest.updateTransformationInfo(TransformationInfo.of(
+                    mCropRect, mRotationDegrees, mTargetRotation, hasCameraTransform(),
+                    mSensorToBufferTransform));
         }
     }
 
@@ -472,6 +534,37 @@ public class SurfaceEdge {
      */
     public boolean getMirroring() {
         return mMirroring;
+    }
+
+    /**
+     * Returns {@link StreamSpec} associated with this edge.
+     */
+    @NonNull
+    public StreamSpec getStreamSpec() {
+        return mStreamSpec;
+    }
+
+    private void checkNotClosed() {
+        checkState(!mIsClosed, "Edge is already closed.");
+    }
+
+    @VisibleForTesting
+    @NonNull
+    public DeferrableSurface getDeferrableSurfaceForTesting() {
+        return mSettableSurface;
+    }
+
+    @VisibleForTesting
+    public boolean isClosed() {
+        return mIsClosed;
+    }
+
+    /**
+     * @return true if this edge is connected to a Surface provider.
+     */
+    @VisibleForTesting
+    public boolean hasProvider() {
+        return mSettableSurface.hasProvider();
     }
 
     /**
@@ -492,14 +585,25 @@ public class SurfaceEdge {
 
         private DeferrableSurface mProvider;
 
-        SettableSurface(@NonNull Size size) {
-            super(size, ImageFormat.PRIVATE);
+        SettableSurface(@NonNull Size size, @CameraEffect.Formats int format) {
+            super(size, format);
         }
 
         @NonNull
         @Override
         protected ListenableFuture<Surface> provideSurface() {
             return mSurfaceFuture;
+        }
+
+        @MainThread
+        boolean canSetProvider() {
+            checkMainThread();
+            return mProvider == null && !isClosed();
+        }
+
+        @VisibleForTesting
+        boolean hasProvider() {
+            return mProvider != null;
         }
 
         /**
@@ -528,6 +632,8 @@ public class SurfaceEdge {
                     + "SurfaceEdge#setProvider");
             checkArgument(getPrescribedSize().equals(provider.getPrescribedSize()),
                     "The provider's size must match the parent");
+            checkArgument(getPrescribedStreamFormat() == provider.getPrescribedStreamFormat(),
+                    "The provider's format must match the parent");
             checkState(!isClosed(), "The parent is closed. Call SurfaceEdge#invalidate() before "
                     + "setting a new provider.");
             mProvider = provider;

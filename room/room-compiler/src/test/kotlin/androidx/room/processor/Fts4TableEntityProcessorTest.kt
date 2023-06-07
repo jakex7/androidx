@@ -18,6 +18,7 @@ package androidx.room.processor
 
 import androidx.room.FtsOptions
 import androidx.room.compiler.codegen.CodeLanguage
+import androidx.room.compiler.codegen.XTypeName
 import androidx.room.compiler.processing.util.Source
 import androidx.room.compiler.processing.util.runProcessorTest
 import androidx.room.parser.FtsVersion
@@ -28,7 +29,6 @@ import androidx.room.vo.Field
 import androidx.room.vo.FieldGetter
 import androidx.room.vo.FieldSetter
 import androidx.room.vo.Fields
-import com.squareup.javapoet.TypeName
 import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.MatcherAssert.assertThat
 import org.junit.Test
@@ -55,7 +55,7 @@ class Fts4TableEntityProcessorTest : BaseFtsEntityParserTest() {
                 `is`("foo.bar.MyEntity"))
             assertThat(entity.fields.size, `is`(1))
             val field = entity.fields.first()
-            val intType = invocation.processingEnv.requireType(TypeName.INT)
+            val intType = invocation.processingEnv.requireType(XTypeName.PRIMITIVE_INT)
             assertThat(
                 field,
                 `is`(
@@ -71,7 +71,7 @@ class Fts4TableEntityProcessorTest : BaseFtsEntityParserTest() {
             assertThat(field.setter,
                 `is`(FieldSetter("rowId", "setRowId", intType, CallType.METHOD)))
             assertThat(field.getter,
-                `is`(FieldGetter("rowId", "getRowId", intType, CallType.METHOD, true)))
+                `is`(FieldGetter("rowId", "getRowId", intType, CallType.METHOD)))
             assertThat(entity.primaryKey.fields, `is`(Fields(field)))
             assertThat(entity.shadowTableName, `is`("MyEntity_content"))
             assertThat(entity.ftsVersion, `is`(FtsVersion.FTS4))

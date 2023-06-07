@@ -16,26 +16,32 @@
 
 package androidx.compose.material3
 
-import java.util.Locale
+import androidx.compose.runtime.Immutable
 
 /**
  * Creates a [CalendarModel] to be used by the date picker.
  */
 @ExperimentalMaterial3Api
-internal expect fun createCalendarModel(): CalendarModel
+internal expect fun CalendarModel(): CalendarModel
 
 /**
  * Formats a UTC timestamp into a string with a given date format skeleton.
  *
+ * A skeleton is similar to, and uses the same format characters as described in
+ * [Unicode Technical Standard #35](https://unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table)
+ *
+ * One difference is that order is irrelevant. For example, "MMMMd" will return "MMMM d" in the
+ * en_US locale, but "d. MMMM" in the de_CH locale.
+ *
  * @param utcTimeMillis a UTC timestamp to format (milliseconds from epoch)
  * @param skeleton a date format skeleton
- * @param locale the [Locale] to use when formatting the given timestamp
+ * @param locale the [CalendarLocale] to use when formatting the given timestamp
  */
 @ExperimentalMaterial3Api
-internal expect fun formatWithSkeleton(
+expect fun formatWithSkeleton(
     utcTimeMillis: Long,
     skeleton: String,
-    locale: Locale = Locale.getDefault()
+    locale: CalendarLocale
 ): String
 
 @ExperimentalMaterial3Api
@@ -65,7 +71,7 @@ internal interface CalendarModel {
     val weekdayNames: List<Pair<String, String>>
 
     /**
-     * Holds a [DateInputFormat] for the current [Locale].
+     * Returns a [DateInputFormat] for the given [CalendarLocale].
      *
      * The input format represents the date with two digits for the day and the month, and
      * four digits for the year.
@@ -80,7 +86,7 @@ internal interface CalendarModel {
      *  - dd.MM.yyyy
      *  - MM/dd/yyyy
      */
-    val dateInputFormat: DateInputFormat
+    fun getDateInputFormat(locale: CalendarLocale = defaultLocale()): DateInputFormat
 
     /**
      * Returns a [CalendarDate] from a given _UTC_ time in milliseconds.
@@ -147,26 +153,36 @@ internal interface CalendarModel {
      *
      * @param month a [CalendarMonth] to format
      * @param skeleton a date format skeleton
-     * @param locale the [Locale] to use when formatting the given month
+     * @param locale the [CalendarLocale] to use when formatting the given month
      */
     fun formatWithSkeleton(
         month: CalendarMonth,
         skeleton: String,
-        locale: Locale = Locale.getDefault()
-    ): String = formatWithSkeleton(month.startUtcTimeMillis, skeleton, locale)
+        locale: CalendarLocale = defaultLocale()
+    ): String =
+        formatWithSkeleton(month.startUtcTimeMillis, skeleton, locale)
 
     /**
      * Formats a [CalendarDate] into a string with a given date format skeleton.
      *
      * @param date a [CalendarDate] to format
      * @param skeleton a date format skeleton
-     * @param locale the [Locale] to use when formatting the given date
+     * @param locale the [CalendarLocale] to use when formatting the given date
      */
     fun formatWithSkeleton(
         date: CalendarDate,
         skeleton: String,
-        locale: Locale = Locale.getDefault()
+        locale: CalendarLocale = defaultLocale()
     ): String = formatWithSkeleton(date.utcTimeMillis, skeleton, locale)
+
+    /**
+     * Formats a UTC timestamp into a string with a given date format pattern.
+     *
+     * @param utcTimeMillis a UTC timestamp to format (milliseconds from epoch)
+     * @param pattern a date format pattern
+     * @param locale the [CalendarLocale] to use when formatting the given timestamp
+     */
+    fun formatWithPattern(utcTimeMillis: Long, pattern: String, locale: CalendarLocale): String
 
     /**
      * Parses a date string into a [CalendarDate].
@@ -176,6 +192,14 @@ internal interface CalendarModel {
      * @return a [CalendarDate], or a `null` in case the parsing failed
      */
     fun parse(date: String, pattern: String): CalendarDate?
+
+    companion object {
+
+        /**
+         * Returns a default [CalendarModel] for this environment.
+         */
+        val Default by lazy { CalendarModel() }
+    }
 }
 
 /**
@@ -197,12 +221,12 @@ internal data class CalendarDate(
         this.utcTimeMillis.compareTo(other.utcTimeMillis)
 
     /**
-     * Formats the date into a string with the given skeleton format and a [Locale].
+     * Formats the date into a string with the given skeleton format and a [CalendarLocale].
      */
     fun format(
         calendarModel: CalendarModel,
         skeleton: String,
-        locale: Locale = Locale.getDefault()
+        locale: CalendarLocale = defaultLocale()
     ): String =
         calendarModel.formatWithSkeleton(this, skeleton, locale)
 }
@@ -240,12 +264,12 @@ internal data class CalendarMonth(
     }
 
     /**
-     * Formats the month into a string with the given skeleton format and a [Locale].
+     * Formats the month into a string with the given skeleton format and a [CalendarLocale].
      */
     fun format(
         calendarModel: CalendarModel,
         skeleton: String,
-        locale: Locale = Locale.getDefault()
+        locale: CalendarLocale = defaultLocale()
     ): String =
         calendarModel.formatWithSkeleton(this, skeleton, locale)
 }
@@ -253,10 +277,11 @@ internal data class CalendarMonth(
 /**
  * Holds the date input format pattern information.
  *
- * This data class hold the delimiter that is used by the current [Locale] when representing dates
- * in a short format, as well as a date pattern with and without a delimiter.
+ * This data class hold the delimiter that is used by the current [CalendarLocale] when representing
+ * dates in a short format, as well as a date pattern with and without a delimiter.
  */
 @ExperimentalMaterial3Api
+@Immutable
 internal data class DateInputFormat(
     val patternWithDelimiters: String,
     val delimiter: Char

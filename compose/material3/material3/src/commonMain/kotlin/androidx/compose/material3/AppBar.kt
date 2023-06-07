@@ -56,7 +56,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
@@ -830,7 +830,7 @@ class TopAppBarState(
      *
      * Use this limit to coerce the [heightOffset] value when it's updated.
      */
-    var heightOffsetLimit by mutableStateOf(initialHeightOffsetLimit)
+    var heightOffsetLimit by mutableFloatStateOf(initialHeightOffsetLimit)
 
     /**
      * The top app bar's current height offset in pixels. This height offset is applied to the fixed
@@ -857,7 +857,7 @@ class TopAppBarState(
      * consumes scroll events. A common implementation would update the value to be the sum of all
      * [NestedScrollConnection.onPostScroll] `consumed.y` values.
      */
-    var contentOffset by mutableStateOf(initialContentOffset)
+    var contentOffset by mutableFloatStateOf(initialContentOffset)
 
     /**
      * A value that represents the collapsed height percentage of the app bar.
@@ -905,7 +905,7 @@ class TopAppBarState(
         )
     }
 
-    private var _heightOffset = mutableStateOf(initialHeightOffset)
+    private var _heightOffset = mutableFloatStateOf(initialHeightOffset)
 }
 
 /**
@@ -1225,7 +1225,11 @@ private fun TwoRowsTopAppBar(
                 actions = actionsRow,
             )
             TopAppBarLayout(
-                modifier = Modifier.clipToBounds(),
+                modifier = Modifier
+                    // only apply the horizontal sides of the window insets padding, since the top
+                    // padding will always be applied by the layout above
+                    .windowInsetsPadding(windowInsets.only(WindowInsetsSides.Horizontal))
+                    .clipToBounds(),
                 heightPx = maxHeightPx - pinnedHeightPx + (scrollBehavior?.state?.heightOffset
                     ?: 0f),
                 navigationIconContentColor =
@@ -1354,7 +1358,7 @@ private fun TopAppBarLayout(
                 0
             }
 
-        val layoutHeight = heightPx.roundToInt()
+        val layoutHeight = if (heightPx.isNaN()) 0 else heightPx.roundToInt()
 
         layout(constraints.maxWidth, layoutHeight) {
             // Navigation icon
@@ -1366,7 +1370,24 @@ private fun TopAppBarLayout(
             // Title
             titlePlaceable.placeRelative(
                 x = when (titleHorizontalArrangement) {
-                    Arrangement.Center -> (constraints.maxWidth - titlePlaceable.width) / 2
+                    Arrangement.Center -> {
+                        var baseX = (constraints.maxWidth - titlePlaceable.width) / 2
+                        if (baseX < navigationIconPlaceable.width) {
+                            // May happen if the navigation is wider than the actions and the
+                            // title is long. In this case, prioritize showing more of the title by
+                            // offsetting it to the right.
+                            baseX += (navigationIconPlaceable.width - baseX)
+                        } else if (baseX + titlePlaceable.width >
+                            constraints.maxWidth - actionIconsPlaceable.width
+                        ) {
+                            // May happen if the actions are wider than the navigation and the title
+                            // is long. In this case, offset to the left.
+                            baseX += ((constraints.maxWidth - actionIconsPlaceable.width) -
+                                (baseX + titlePlaceable.width))
+                        }
+                        baseX
+                    }
+
                     Arrangement.End ->
                         constraints.maxWidth - titlePlaceable.width - actionIconsPlaceable.width
                     // Arrangement.Start.

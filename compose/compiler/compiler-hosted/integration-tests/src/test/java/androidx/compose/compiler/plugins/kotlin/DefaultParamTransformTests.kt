@@ -18,8 +18,11 @@ package androidx.compose.compiler.plugins.kotlin
 
 import org.intellij.lang.annotations.Language
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.JUnit4
 
-class DefaultParamTransformTests : AbstractIrTransformTest() {
+@RunWith(JUnit4::class)
+class DefaultParamTransformTests : AbstractIrTransformTest(useFir = false) {
     private fun defaultParams(
         @Language("kotlin")
         unchecked: String,
@@ -197,14 +200,9 @@ class DefaultParamTransformTests : AbstractIrTransformTest() {
         """,
         """
             fun Bar(unused: Function2<Composer, Int, Unit> = { %composer: Composer?, %changed: Int ->
-              %composer.startReplaceableGroup(<>)
-              sourceInformation(%composer, "C:Test.kt")
-              if (%changed and 0b1011 !== 0b0010 || !%composer.skipping) {
-                Unit
-              } else {
-                %composer.skipToGroupEnd()
-              }
-              %composer.endReplaceableGroup()
+              sourceInformationMarkerStart(%composer, <>, "C:Test.kt")
+              Unit
+              sourceInformationMarkerEnd(%composer)
             }
             ) { }
             fun Foo() {

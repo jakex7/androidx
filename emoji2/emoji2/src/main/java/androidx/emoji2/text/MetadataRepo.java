@@ -15,6 +15,8 @@
  */
 package androidx.emoji2.text;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+
 import android.content.res.AssetManager;
 import android.graphics.Typeface;
 import android.util.SparseArray;
@@ -50,8 +52,9 @@ public final class MetadataRepo {
     private final @NonNull MetadataList mMetadataList;
 
     /**
-     * char presentation of all EmojiMetadata's in a single array. All emojis we have are mapped to
-     * Private Use Area A, in the range U+F0000..U+FFFFD. Therefore each emoji takes 2 chars.
+     * char presentation of all TypefaceEmojiRasterizer's in a single array. All emojis we have are
+     * mapped to Private Use Area A, in the range U+F0000..U+FFFFD. Therefore each emoji takes 2
+     * chars.
      */
     private final @NonNull char[] mEmojiCharArray;
 
@@ -84,10 +87,10 @@ public final class MetadataRepo {
      * Construct MetadataRepo with empty metadata.
      *
      * This should only be used from tests.
-     * @hide
      */
+    @RestrictTo(LIBRARY)
     @NonNull
-    @RestrictTo(RestrictTo.Scope.TESTS)
+    @VisibleForTesting
     public static MetadataRepo create(@NonNull final Typeface typeface) {
         try {
             TraceCompat.beginSection(S_TRACE_CREATE_REPO);
@@ -169,7 +172,6 @@ public final class MetadataRepo {
     }
 
     /**
-     * @hide
      */
     @NonNull
     @RestrictTo(RestrictTo.Scope.LIBRARY)
@@ -178,7 +180,6 @@ public final class MetadataRepo {
     }
 
     /**
-     * @hide
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY)
     int getMetadataVersion() {
@@ -186,7 +187,6 @@ public final class MetadataRepo {
     }
 
     /**
-     * @hide
      */
     @NonNull
     @RestrictTo(RestrictTo.Scope.LIBRARY)
@@ -195,7 +195,6 @@ public final class MetadataRepo {
     }
 
     /**
-     * @hide
      */
     @NonNull
     @RestrictTo(RestrictTo.Scope.LIBRARY)
@@ -204,7 +203,6 @@ public final class MetadataRepo {
     }
 
     /**
-     * @hide
      */
     @NonNull
     @RestrictTo(RestrictTo.Scope.LIBRARY)
@@ -213,9 +211,8 @@ public final class MetadataRepo {
     }
 
     /**
-     * Add an EmojiMetadata to the index.
+     * Add a TypefaceEmojiRasterizer to the index.
      *
-     * @hide
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY)
     @VisibleForTesting
@@ -228,10 +225,10 @@ public final class MetadataRepo {
     }
 
     /**
-     * Trie node that holds mapping from emoji codepoint(s) to EmojiMetadata. A single codepoint
-     * emoji is represented by a child of the root node.
+     * Trie node that holds mapping from emoji codepoint(s) to TypefaceEmojiRasterizer.
      *
-     * @hide
+     * A single codepoint emoji is represented by a child of the root node.
+     *
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY)
     static class Node {

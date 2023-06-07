@@ -18,12 +18,12 @@ package androidx.compose.foundation.gestures
 
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.MutatorMutex
+import androidx.compose.foundation.internal.JvmDefaultWithCompatibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.coroutineScope
-import androidx.compose.foundation.internal.JvmDefaultWithCompatibility
 
 /**
  * An object representing something that can be scrolled. This interface is implemented by states
@@ -122,7 +122,10 @@ interface ScrollableState {
  * callback receives the delta in pixels. Callers should update their state in this lambda and
  * return the amount of delta consumed
  */
-fun ScrollableState(consumeScrollDelta: (Float) -> Float): ScrollableState {
+fun ScrollableState(
+    @Suppress("PrimitiveInLambda")
+    consumeScrollDelta: (Float) -> Float
+): ScrollableState {
     return DefaultScrollableState(consumeScrollDelta)
 }
 
@@ -141,7 +144,10 @@ fun ScrollableState(consumeScrollDelta: (Float) -> Float): ScrollableState {
  * return the amount of delta consumed
  */
 @Composable
-fun rememberScrollableState(consumeScrollDelta: (Float) -> Float): ScrollableState {
+fun rememberScrollableState(
+    @Suppress("PrimitiveInLambda")
+    consumeScrollDelta: (Float) -> Float
+): ScrollableState {
     val lambdaState = rememberUpdatedState(consumeScrollDelta)
     return remember { ScrollableState { lambdaState.value.invoke(it) } }
 }
@@ -158,10 +164,16 @@ interface ScrollScope {
     fun scrollBy(pixels: Float): Float
 }
 
-private class DefaultScrollableState(val onDelta: (Float) -> Float) : ScrollableState {
+private class DefaultScrollableState(
+    @Suppress("PrimitiveInLambda")
+    val onDelta: (Float) -> Float
+) : ScrollableState {
 
     private val scrollScope: ScrollScope = object : ScrollScope {
-        override fun scrollBy(pixels: Float): Float = onDelta(pixels)
+        override fun scrollBy(pixels: Float): Float {
+            if (pixels.isNaN()) return 0f
+            return onDelta(pixels)
+        }
     }
 
     private val scrollMutex = MutatorMutex()

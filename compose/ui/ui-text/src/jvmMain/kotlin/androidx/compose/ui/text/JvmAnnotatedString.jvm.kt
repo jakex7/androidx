@@ -18,7 +18,6 @@ package androidx.compose.ui.text
 
 import androidx.compose.ui.text.AnnotatedString.Range
 import androidx.compose.ui.util.fastMap
-
 import java.util.SortedSet
 
 /**
@@ -28,6 +27,7 @@ import java.util.SortedSet
  * @return newly allocated transformed AnnotatedString
  */
 internal actual fun AnnotatedString.transform(
+    @Suppress("PrimitiveInLambda")
     transform: (String, Int, Int) -> String
 ): AnnotatedString {
     val transitions = sortedSetOf(0, text.length)

@@ -19,7 +19,7 @@ package androidx.room.compiler.processing
 import androidx.room.compiler.codegen.XClassName
 import androidx.room.compiler.codegen.XTypeName
 import androidx.room.compiler.codegen.asClassName
-import androidx.room.compiler.processing.ksp.jvmDescriptor
+import androidx.room.compiler.processing.javac.JavacType
 import androidx.room.compiler.processing.util.Source
 import androidx.room.compiler.processing.util.XTestInvocation
 import androidx.room.compiler.processing.util.asKClassName
@@ -255,6 +255,9 @@ class XTypeElementTest(
                     assertThat(superInterface.typeArguments[0].asTypeName().kotlin)
                         .isEqualTo(KClassName("kotlin", "String"))
                 }
+                if (! invocation.isKsp) {
+                    assertThat((superInterface as JavacType).kotlinType).isNotNull()
+                }
             }
         }
     }
@@ -336,7 +339,7 @@ class XTypeElementTest(
                 val result = mutableSetOf<String>()
                 if (element.isAbstract()) result.add("abstract")
                 if (element.isFinal()) result.add("final")
-                if (element.isPrivate()) result.add("private")
+                if (element.isPrivate() || element.isKtPrivate()) result.add("private")
                 if (element.isProtected()) result.add("protected")
                 if (element.isPublic()) result.add("public")
                 if (element.isKotlinObject()) result.add("object")
@@ -368,14 +371,7 @@ class XTypeElementTest(
             assertThat(getModifiers("Final"))
                 .containsExactly("final", "public", "class")
             assertThat(getModifiers("PrivateClass"))
-                .containsExactlyElementsIn(
-                    if (invocation.isKsp) {
-                        listOf("private", "final", "class")
-                    } else {
-                        // java does not support top level private classes.
-                        listOf("final", "class")
-                    }
-                )
+                .containsExactly("private", "final", "class")
             assertThat(getModifiers("OuterKotlinClass.InnerKotlinClass"))
                 .containsExactly("final", "public", "class")
             assertThat(getModifiers("OuterKotlinClass.NestedKotlinClass"))
@@ -405,11 +401,7 @@ class XTypeElementTest(
             assertThat(getModifiers("DataClass"))
                 .containsExactly("public", "final", "class", "data")
             assertThat(getModifiers("InlineClass")).apply {
-                if (isPreCompiled && invocation.isKsp) {
-                    containsExactly("public", "final", "class")
-                } else {
-                    containsExactly("public", "final", "class", "value")
-                }
+                containsExactly("public", "final", "class", "value")
             }
             assertThat(getModifiers("FunInterface"))
                 .containsExactly("public", "abstract", "interface", "fun")
@@ -418,19 +410,51 @@ class XTypeElementTest(
 
     @Test
     fun kindName() {
-        val src = Source.kotlin(
+        val kotlinSrc = Source.kotlin(
             "Foo.kt",
             """
-            class MyClass
-            interface MyInterface
+            class KotlinClass
+            interface KotlinInterface
+            annotation class KotlinAnnotation
             """.trimIndent()
         )
-        runTest(sources = listOf(src)) { invocation ->
-            invocation.processingEnv.requireTypeElement("MyClass").let {
+        val javaSrc = Source.java(
+            "Bar",
+            """
+            class JavaClass {}
+            interface JavaInterface {}
+            @interface JavaAnnotation {}
+            """.trimIndent()
+        )
+        runTest(sources = listOf(kotlinSrc, javaSrc)) { invocation ->
+            invocation.processingEnv.requireTypeElement("KotlinClass").let {
                 assertThat(it.kindName()).isEqualTo("class")
             }
-            invocation.processingEnv.requireTypeElement("MyInterface").let {
+            invocation.processingEnv.requireTypeElement("KotlinInterface").let {
                 assertThat(it.kindName()).isEqualTo("interface")
+            }
+            invocation.processingEnv.requireTypeElement("KotlinAnnotation").let {
+                // TODO(b/270557392): make the result consistent between KSP and JavaAP
+                if (invocation.isKsp) {
+                    assertThat(it.kindName()).isEqualTo("annotation_class")
+                } else {
+                    assertThat(it.kindName()).isEqualTo("annotation_type")
+                }
+            }
+
+            invocation.processingEnv.requireTypeElement("JavaClass").let {
+                assertThat(it.kindName()).isEqualTo("class")
+            }
+            invocation.processingEnv.requireTypeElement("JavaInterface").let {
+                assertThat(it.kindName()).isEqualTo("interface")
+            }
+            invocation.processingEnv.requireTypeElement("JavaAnnotation").let {
+                // TODO(b/270557392): make the result consistent between KSP and JavaAP
+                if (invocation.isKsp) {
+                    assertThat(it.kindName()).isEqualTo("annotation_class")
+                } else {
+                    assertThat(it.kindName()).isEqualTo("annotation_type")
+                }
             }
         }
     }
@@ -697,7 +721,7 @@ class XTypeElementTest(
         runTest(
             listOf(
                 Source.java(
-                    "JavaSubject.java",
+                    "JavaSubject",
                     """
                     class JavaSubject {
                         int myField;
@@ -721,7 +745,7 @@ class XTypeElementTest(
                 )
             ),
         ) { invocation ->
-            listOf("JavaSubject", "KotlinSubject",).map {
+            listOf("JavaSubject", "KotlinSubject").map {
                 invocation.processingEnv.requireTypeElement(it)
             }.forEach { subject ->
                 val methods = subject.getDeclaredMethods()
@@ -756,12 +780,15 @@ class XTypeElementTest(
             open class Base(x:Int) {
                 open fun baseFun(): Int = TODO()
                 suspend fun suspendFun(): Int = TODO()
-                private fun privateBaseFun(): Int = TODO()
                 companion object {
                     @JvmStatic
                     fun staticBaseFun(): Int = TODO()
                     fun companionMethod(): Int = TODO()
+                    @JvmStatic val name: String get() = "hello"
+                    @JvmStatic suspend fun suspendFun2():Int = TODO()
+                    @JvmStatic fun String.extFun(): Int = TODO()
                 }
+                private fun privateBaseFun(): Int = TODO()
             }
             open class SubClass : Base {
                 constructor(y:Int): super(y) {
@@ -780,10 +807,28 @@ class XTypeElementTest(
         )
         runTest(sources = listOf(src)) { invocation ->
             val base = invocation.processingEnv.requireTypeElement("Base")
+            val baseCompanion = invocation.processingEnv.requireTypeElement("Base.Companion")
             val objectMethodNames = invocation.objectMethodNames()
-            assertThat(base.getDeclaredMethods().jvmNames()).containsExactly(
-                "baseFun", "suspendFun", "privateBaseFun", "staticBaseFun"
-            )
+            val declaredMethods = base.getDeclaredMethods()
+            assertThat(declaredMethods.jvmNames()).containsExactly(
+                "baseFun",
+                "suspendFun",
+                "privateBaseFun",
+                "staticBaseFun",
+                "getName",
+                "suspendFun2",
+                "extFun"
+            ).inOrder()
+            declaredMethods.forEach { method ->
+              assertWithMessage("Enclosing element of method ${method.jvmName}")
+                .that(method.enclosingElement.name)
+                .isEqualTo("Base")
+            }
+            baseCompanion.getDeclaredMethods().forEach { method ->
+              assertWithMessage("Enclosing element of method ${method.jvmName}")
+                .that(method.enclosingElement.name)
+                .isEqualTo("Companion")
+            }
 
             val sub = invocation.processingEnv.requireTypeElement("SubClass")
             assertThat(sub.getDeclaredMethods().jvmNames()).containsExactly(
@@ -860,6 +905,8 @@ class XTypeElementTest(
             interface Base<T> {
                 suspend fun get(): T
                 suspend fun getAll(): List<T>
+                @JvmSuppressWildcards
+                suspend fun getAllSuppressWildcards(): List<T>
                 suspend fun putAll(input: List<T>)
                 suspend fun getAllWithDefault(): List<T>
             }
@@ -867,6 +914,8 @@ class XTypeElementTest(
             interface DerivedInterface : Base<String> {
                 override suspend fun get(): String
                 override suspend fun getAll(): List<String>
+                @JvmSuppressWildcards
+                override suspend fun getAllSuppressWildcards(): List<String>
                 override suspend fun putAll(input: List<String>)
                 override suspend fun getAllWithDefault(): List<String> {
                     return emptyList()
@@ -878,7 +927,7 @@ class XTypeElementTest(
             val base = invocation.processingEnv.requireTypeElement("DerivedInterface")
             val methodNames = base.getAllMethods().toList().jvmNames()
             assertThat(methodNames).containsExactly(
-                "get", "getAll", "putAll", "getAllWithDefault"
+                "get", "getAll", "getAllSuppressWildcards", "putAll", "getAllWithDefault"
             )
         }
     }
@@ -909,6 +958,31 @@ class XTypeElementTest(
             assertThat(methodNamesCount["get"]).isEqualTo(1)
             assertThat(methodNamesCount["getAll"]).isEqualTo(1)
             assertThat(methodNamesCount["putAll"]).isEqualTo(1)
+        }
+    }
+
+    // b/274328611
+    @Test
+    fun suspendOverride_distinct() {
+        val src = Source.kotlin(
+            "Foo.kt",
+            """
+            data class Foo(val txt: String)
+
+            interface Base {
+                suspend fun getAll(): List<Foo>
+            }
+
+            abstract class DerivedClass : Base {
+                abstract suspend fun getAll(param: String): List<Foo>
+            }
+            """.trimIndent()
+        )
+        runTest(sources = listOf(src)) { invocation ->
+            val base = invocation.processingEnv.requireTypeElement("DerivedClass")
+            val methodNamesCount =
+                base.getAllMethods().toList().jvmNames().groupingBy { it }.eachCount()
+            assertThat(methodNamesCount["getAll"]).isEqualTo(2)
         }
     }
 
@@ -1507,9 +1581,15 @@ class XTypeElementTest(
                         contains("x")
                         containsNoneOf("VAL1", "VAL2")
                     }
-                assertWithMessage("$qName  does not report enum constants in declared fields")
+                assertWithMessage("$qName does not report enum constants in declared fields")
                     .that(typeElement.getDeclaredFields().map { it.name })
                     .containsExactly("x")
+                assertWithMessage("$qName enum entries are XEnumEntry")
+                    .that(typeElement.getEnclosedElements().filter { it.isEnumEntry() })
+                    .hasSize(2)
+                assertWithMessage("$qName  enum entries are not type elements")
+                    .that(typeElement.getEnclosedElements().filter { it.isTypeElement() })
+                    .isEmpty()
             }
         }
     }
@@ -1947,7 +2027,7 @@ class XTypeElementTest(
             )
         ) { invocation ->
             val foo = invocation.processingEnv.requireTypeElement("test.Foo")
-            assertThat(foo.getDeclaredMethods().map { it.jvmDescriptor() }.toList())
+            assertThat(foo.getDeclaredMethods().map { it.jvmDescriptor }.toList())
                 .containsExactly(
                     "method()Ljava/lang/String;",
                     "method(Ljava/lang/String;)Ljava/lang/String;",
@@ -1957,6 +2037,55 @@ class XTypeElementTest(
                     "method(Ltest/Baz;Ljava/lang/Object;)V",
                     "method(Ltest/Baz;Ltest/Baz;)Ltest/Bar;"
                 ).inOrder()
+        }
+    }
+
+    @Test
+    fun jvmDescriptors() {
+        runTest(
+            sources = listOf(
+                Source.kotlin(
+                    "test.Foo.kt",
+                    """
+                    package test
+                    class Foo<T1: Bar, T2: Baz> {
+                        val field1: String = TODO()
+                        var field2: String? = TODO()
+                        val field3: T1 = TODO()
+                        fun method(): String = TODO()
+                        fun method(param: String): String = TODO()
+                        fun method(param: Any): String = TODO()
+                        fun method(param: T1): T2 = TODO()
+                    }
+                    interface Bar
+                    interface Baz
+                    """.trimIndent()
+                )
+            )
+        ) { invocation ->
+            val foo = invocation.processingEnv.requireTypeElement("test.Foo")
+            assertThat(foo.getEnclosedElements().map {
+                when {
+                    it.isField() -> it.jvmDescriptor
+                    it.isMethod() -> it.jvmDescriptor
+                    it.isConstructor() -> it.jvmDescriptor
+                    else -> error("Unsupported element to describe.")
+                }
+            }.toList())
+                .containsExactly(
+                    "<init>()V",
+                    "field1:Ljava/lang/String;",
+                    "field2:Ljava/lang/String;",
+                    "field3:Ltest/Bar;",
+                    "getField1()Ljava/lang/String;",
+                    "getField2()Ljava/lang/String;",
+                    "setField2(Ljava/lang/String;)V",
+                    "getField3()Ltest/Bar;",
+                    "method()Ljava/lang/String;",
+                    "method(Ljava/lang/String;)Ljava/lang/String;",
+                    "method(Ljava/lang/Object;)Ljava/lang/String;",
+                    "method(Ltest/Bar;)Ltest/Baz;",
+                )
         }
     }
 

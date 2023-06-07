@@ -141,6 +141,17 @@ abstract class AndroidFont constructor(
         typefaceLoader: TypefaceLoader,
     ) : this(loadingStrategy, typefaceLoader, FontVariation.Settings())
 
+    /**
+     * The settings that will be applied to this font, if supported by the font.
+     *
+     * If the font does not support a [FontVariation.Setting], it has no effect.
+     *
+     * Subclasses are required to apply these variation settings during font loading path on
+     * appropriate API levels, for example by using [Typeface.Builder.setFontVariationSettings].
+     *
+     * Subclasses may safely apply all variation settings without querying the font file. Android
+     * will ignore any unsupported axis.
+     */
     val variationSettings: FontVariation.Settings = variationSettings
 
     /**
@@ -167,10 +178,6 @@ abstract class AndroidFont constructor(
      * that instance, though it is advised to create one loader for all instances of the same
      * subclass and share them between [AndroidFont] instances to avoid allocations or allow
      * caching.
-     *
-     * Implementers of custom font resources should try to ensure that their implementations are
-     * usable in the context of Compose Previews, which don't provide access to the full Android
-     * runtime. If not possible, it is advised to document the behavior in Compose Preview.
      */
     interface TypefaceLoader {
         /**

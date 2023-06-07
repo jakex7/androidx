@@ -28,6 +28,9 @@ import androidx.compose.ui.text.platform.createSynchronizedObject
 import androidx.compose.ui.text.platform.synchronized
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastMap
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -42,9 +45,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.coroutines.coroutineContext
 
 internal class FontListFontFamilyTypefaceAdapter(
     private val asyncTypefaceCache: AsyncTypefaceCache = AsyncTypefaceCache(),
@@ -102,7 +102,7 @@ internal class FontListFontFamilyTypefaceAdapter(
                     async {
                         asyncTypefaceCache.runCached(font, resourceLoader, true) {
                             try {
-                                withTimeout(Font.MaximumAsyncTimeout) {
+                                withTimeout(Font.MaximumAsyncTimeoutMillis) {
                                     resourceLoader.awaitLoad(font)
                                 }
                             } catch (cause: Exception) {
@@ -297,7 +297,7 @@ internal class AsyncFontListLoader constructor(
         return try {
             // case 0: load completes - success (non-null)
             // case 1: we timeout - permanent failure (null)
-            withTimeoutOrNull(Font.MaximumAsyncTimeout) {
+            withTimeoutOrNull(Font.MaximumAsyncTimeoutMillis) {
                 platformFontLoader.awaitLoad(this@loadWithTimeoutOrNull)
             }
         } catch (cancel: CancellationException) {
