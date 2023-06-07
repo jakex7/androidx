@@ -51,6 +51,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import java.lang.IllegalArgumentException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CancellableContinuation
 
 private typealias WireComplicationProviderInfo =
     android.support.wearable.complications.ComplicationProviderInfo
@@ -209,31 +210,52 @@ public class ComplicationDataSourceInfoRetriever : AutoCloseable {
         }
 
         return suspendCancellableCoroutine { continuation ->
-            val deathObserver = IBinder.DeathRecipient {
-                continuation.resumeWithException(ServiceDisconnectedException())
-            }
-            service.asBinder().linkToDeath(deathObserver, 0)
-
-            // Not a huge deal but we might as well unlink the deathObserver.
-            continuation.invokeOnCancellation {
-                service.asBinder().unlinkToDeath(deathObserver, 0)
-            }
-
+            val callback = PreviewComplicationDataCallback(service, continuation)
             if (!service.requestPreviewComplicationData(
                     complicationDataSourceComponent,
                     complicationType.toWireComplicationType(),
-                    object : IPreviewComplicationDataCallback.Stub() {
-                        override fun updateComplicationData(
-                            data: android.support.wearable.complications.ComplicationData?
-                        ) {
-                            service.asBinder().unlinkToDeath(deathObserver, 0)
-                            continuation.resume(data?.toApiComplicationData())
-                        }
-                    }
+                    callback
                 )
             ) {
-                service.asBinder().unlinkToDeath(deathObserver, 0)
+                callback.safeUnlinkToDeath()
                 continuation.resume(null)
+            }
+        }
+    }
+
+    private class PreviewComplicationDataCallback(
+        val service: IProviderInfoService,
+        var continuation: CancellableContinuation<ComplicationData?>?
+    ) : IPreviewComplicationDataCallback.Stub() {
+        val deathObserver: IBinder.DeathRecipient = IBinder.DeathRecipient {
+            continuation?.resumeWithException(ServiceDisconnectedException())
+        }
+
+        init {
+            service.asBinder().linkToDeath(deathObserver, 0)
+
+            // Not a huge deal but we might as well unlink the deathObserver.
+            continuation?.invokeOnCancellation {
+                safeUnlinkToDeath()
+            }
+        }
+
+        override fun updateComplicationData(
+            data: android.support.wearable.complications.ComplicationData?
+        ) {
+            safeUnlinkToDeath()
+            continuation!!.resume(data?.toApiComplicationData())
+
+            // Re http://b/249121838 this is important, it prevents a memory leak.
+            continuation = null
+        }
+
+        internal fun safeUnlinkToDeath() {
+            try {
+                service.asBinder().unlinkToDeath(deathObserver, 0)
+            } catch (e: NoSuchElementException) {
+                // This really shouldn't happen.
+                Log.w(TAG, "retrievePreviewComplicationData encountered", e)
             }
         }
     }
@@ -375,6 +397,34 @@ public class ComplicationDataSourceInfo(
                 "ComponentName is required on Android R and above"
             }
         }
+    }
+
+    override fun toString(): String =
+        "ComplicationDataSourceInfo(appName=$appName, name=$name, type=$type" +
+            ", icon=$icon, componentName=$componentName)"
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as ComplicationDataSourceInfo
+
+        if (appName != other.appName) return false
+        if (name != other.name) return false
+        if (type != other.type) return false
+        if (icon != other.icon) return false
+        if (componentName != other.componentName) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = appName.hashCode()
+        result = 31 * result + name.hashCode()
+        result = 31 * result + type.hashCode()
+        result = 31 * result + icon.hashCode()
+        result = 31 * result + componentName.hashCode()
+        return result
     }
 
     /**

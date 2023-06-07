@@ -19,9 +19,9 @@ package androidx.camera.camera2.pipe.graph
 import android.hardware.camera2.CaptureResult
 import android.os.Build
 import androidx.camera.camera2.pipe.compat.CorrectedFrameMetadata
-import androidx.camera.camera2.pipe.testing.RobolectricCameraPipeTestRunner
 import androidx.camera.camera2.pipe.testing.FakeFrameMetadata
 import androidx.camera.camera2.pipe.testing.FakeMetadata
+import androidx.camera.camera2.pipe.testing.RobolectricCameraPipeTestRunner
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,7 +30,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricCameraPipeTestRunner::class)
 @Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
 internal class CorrectedFrameMetadataTest {
-
     @Test
     fun canOverrideFrameMetadata() {
         val metadata = FakeFrameMetadata(

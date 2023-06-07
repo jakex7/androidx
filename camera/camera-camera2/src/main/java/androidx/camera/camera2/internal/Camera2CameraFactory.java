@@ -20,6 +20,7 @@ import static android.hardware.camera2.CameraMetadata.REQUEST_AVAILABLE_CAPABILI
 
 import android.content.Context;
 import android.hardware.camera2.CameraCharacteristics;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -53,6 +54,7 @@ public final class Camera2CameraFactory implements CameraFactory {
     private final CameraStateRegistry mCameraStateRegistry;
     private final CameraManagerCompat mCameraManager;
     private final List<String> mAvailableCameraIds;
+    private final DisplayInfoManager mDisplayInfoManager;
     private final Map<String, Camera2CameraInfoImpl> mCameraInfos = new HashMap<>();
 
     /** Creates a Camera2 implementation of CameraFactory */
@@ -62,6 +64,7 @@ public final class Camera2CameraFactory implements CameraFactory {
         mThreadConfig = threadConfig;
         mCameraStateRegistry = new CameraStateRegistry(DEFAULT_ALLOWED_CONCURRENT_OPEN_CAMERAS);
         mCameraManager = CameraManagerCompat.from(context, mThreadConfig.getSchedulerHandler());
+        mDisplayInfoManager = DisplayInfoManager.getInstance(context);
 
         List<String> optimizedCameraIds = CameraSelectionOptimizer.getSelectedAvailableCameraIds(
                 this, availableCamerasSelector);
@@ -80,7 +83,8 @@ public final class Camera2CameraFactory implements CameraFactory {
                 getCameraInfo(cameraId),
                 mCameraStateRegistry,
                 mThreadConfig.getCameraExecutor(),
-                mThreadConfig.getSchedulerHandler());
+                mThreadConfig.getSchedulerHandler(),
+                mDisplayInfoManager);
     }
 
     Camera2CameraInfoImpl getCameraInfo(@NonNull String cameraId)
@@ -132,6 +136,13 @@ public final class Camera2CameraFactory implements CameraFactory {
     }
 
     private boolean isBackwardCompatible(@NonNull String cameraId) throws InitializationException {
+        // Always returns true to not break robolectric tests because the cameras setup in
+        // robolectric don't have REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE capability
+        // by default.
+        if ("robolectric".equals(Build.FINGERPRINT)) {
+            return true;
+        }
+
         int[] availableCapabilities;
 
         try {

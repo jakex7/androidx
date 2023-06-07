@@ -160,12 +160,10 @@ public class DeviceProfileWriter {
         if (mDesiredVersion == null) {
             return this;
         }
-        try (AssetFileDescriptor fd = mAssetManager.openFd(mProfileSourceLocation)) {
-            try (InputStream is = fd.createInputStream()) {
+        try (InputStream is = mAssetManager.open(mProfileSourceLocation)) {
                 byte[] baselineVersion = ProfileTranscoder.readHeader(is, MAGIC_PROF);
                 mProfile = ProfileTranscoder.readProfile(is, baselineVersion, mApkName);
-            }
-        }  catch (FileNotFoundException e) {
+        } catch (FileNotFoundException e) {
             mDiagnostics.onResultReceived(ProfileInstaller.RESULT_BASELINE_PROFILE_NOT_FOUND, e);
         } catch (IOException e) {
             mDiagnostics.onResultReceived(ProfileInstaller.RESULT_IO_EXCEPTION, e);
@@ -180,6 +178,7 @@ public class DeviceProfileWriter {
                     mProfile = ProfileTranscoder.readMeta(
                             is,
                             metaVersion,
+                            mDesiredVersion,
                             profile
                     );
                     return this;
@@ -192,6 +191,7 @@ public class DeviceProfileWriter {
             } catch (IOException e) {
                 mDiagnostics.onResultReceived(ProfileInstaller.RESULT_IO_EXCEPTION, e);
             } catch (IllegalStateException e) {
+                mProfile = null;
                 mDiagnostics.onResultReceived(ProfileInstaller.RESULT_PARSE_EXCEPTION, e);
             }
         }
@@ -284,8 +284,9 @@ public class DeviceProfileWriter {
     }
 
     private static @Nullable byte[] desiredVersion() {
-        // If SDK is pre-N, we don't want to do anything, so return null.
-        if (Build.VERSION.SDK_INT < ProfileVersion.MIN_SUPPORTED_SDK) {
+        // If SDK is pre or post supported version, we don't want to do anything, so return null.
+        if (Build.VERSION.SDK_INT < ProfileVersion.MIN_SUPPORTED_SDK
+                || Build.VERSION.SDK_INT > ProfileVersion.MAX_SUPPORTED_SDK) {
             return null;
         }
 
@@ -304,6 +305,11 @@ public class DeviceProfileWriter {
             case Build.VERSION_CODES.R:
                 return ProfileVersion.V010_P;
 
+            case Build.VERSION_CODES.S:
+            case Build.VERSION_CODES.S_V2:
+            case Build.VERSION_CODES.TIRAMISU:
+                return ProfileVersion.V015_S;
+
             default:
                 return null;
         }
@@ -311,7 +317,8 @@ public class DeviceProfileWriter {
 
     private static boolean requiresMetadata() {
         // If SDK is pre-N, we don't want to do anything, so return null.
-        if (Build.VERSION.SDK_INT < ProfileVersion.MIN_SUPPORTED_SDK) {
+        if (Build.VERSION.SDK_INT < ProfileVersion.MIN_SUPPORTED_SDK
+                || Build.VERSION.SDK_INT > ProfileVersion.MAX_SUPPORTED_SDK) {
             return false;
         }
 
@@ -330,6 +337,14 @@ public class DeviceProfileWriter {
             case Build.VERSION_CODES.P:
             case Build.VERSION_CODES.Q:
             case Build.VERSION_CODES.R:
+                return false;
+
+            // The profiles for S require a typeIdCount. Therefore metadata is required.
+            case Build.VERSION_CODES.S:
+            case Build.VERSION_CODES.S_V2:
+            case Build.VERSION_CODES.TIRAMISU:
+                return true;
+
             default:
                 return false;
         }

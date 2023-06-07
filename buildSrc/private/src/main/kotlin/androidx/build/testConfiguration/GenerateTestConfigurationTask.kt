@@ -17,18 +17,20 @@
 package androidx.build.testConfiguration
 
 import androidx.build.dependencyTracker.ProjectSubset
-import androidx.build.isPresubmitBuild
 import androidx.build.renameApkForTesting
 import com.android.build.api.variant.BuiltArtifactsLoader
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import java.io.File
 
@@ -38,10 +40,12 @@ import java.io.File
  * format that gets zipped alongside the APKs to be tested.
  * This config gets ingested by Tradefed.
  */
+@CacheableTask
 abstract class GenerateTestConfigurationTask : DefaultTask() {
 
     @get:InputFiles
     @get:Optional
+    @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val appFolder: DirectoryProperty
 
     @get:Internal
@@ -52,6 +56,7 @@ abstract class GenerateTestConfigurationTask : DefaultTask() {
     abstract val appProjectPath: Property<String>
 
     @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val testFolder: DirectoryProperty
 
     @get:Internal
@@ -76,20 +81,47 @@ abstract class GenerateTestConfigurationTask : DefaultTask() {
     @get:Input
     abstract val affectedModuleDetectorSubset: Property<ProjectSubset>
 
+    @get:Input
+    abstract val presubmit: Property<Boolean>
+
     @get:OutputFile
     abstract val outputXml: RegularFileProperty
+
+    /**
+     * Output file where we write the sha256 for each APK file we reference
+     */
+    @get:OutputFile
+    abstract val shaReportOutput: RegularFileProperty
 
     @get:OutputFile
     abstract val constrainedOutputXml: RegularFileProperty
 
+    /**
+     * Output file where we write the sha256 for each APK file we reference in constrained setup
+     */
+    @get:OutputFile
+    abstract val constrainedShaReportOutput: RegularFileProperty
+
     @TaskAction
     fun generateAndroidTestZip() {
-        writeConfigFileContent(constrainedOutputXml, true)
-        writeConfigFileContent(outputXml)
+        val testApkSha256Report = TestApkSha256Report()
+        writeConfigFileContent(
+            outputFile = constrainedOutputXml,
+            testApkSha256Report = testApkSha256Report,
+            isConstrained = true,
+        )
+        writeConfigFileContent(
+            outputFile = outputXml,
+            testApkSha256Report = testApkSha256Report,
+            isConstrained = false,
+        )
+        testApkSha256Report.writeToFile(shaReportOutput.get().asFile)
+        testApkSha256Report.writeToFile(constrainedShaReportOutput.get().asFile)
     }
 
     private fun writeConfigFileContent(
         outputFile: RegularFileProperty,
+        testApkSha256Report: TestApkSha256Report,
         isConstrained: Boolean = false
     ) {
         /*
@@ -103,17 +135,25 @@ abstract class GenerateTestConfigurationTask : DefaultTask() {
             val appApk = appLoader.get().load(appFolder.get())
                 ?: throw RuntimeException("Cannot load required APK for task: $name")
             // We don't need to check hasBenchmarkPlugin because benchmarks shouldn't have test apps
-            val appName = appApk.elements.single().outputFile.substringAfterLast("/")
+            val appApkBuiltArtifact = appApk.elements.single()
+            var appName = appApkBuiltArtifact.outputFile.substringAfterLast("/")
                 .renameApkForTesting(appProjectPath.get(), hasBenchmarkPlugin = false)
             // TODO(b/178776319): Clean up this hardcoded hack
             if (appProjectPath.get().contains("macrobenchmark-target")) {
-                configBuilder.appApkName(appName.replace("debug-androidTest", "release"))
-            } else {
-                configBuilder.appApkName(appName)
+                appName = appName.replace("debug-androidTest", "release")
             }
+            configBuilder.appApkName(appName)
+            testApkSha256Report.addFile(appName, appApkBuiltArtifact)
         }
-        val isPresubmit = isPresubmitBuild()
+        val isPresubmit = presubmit.get()
         configBuilder.isPostsubmit(!isPresubmit)
+        // Will be using the constrained configs for all devices api 26 and below.
+        // Don't attempt to remove APKs after testing. We can't remove the apk on API < 27 due to a
+        // platform crash that occurs when handling a PACKAGE_CHANGED broadcast after the package has
+        // been removed. See b/37264334.
+        if (isConstrained) {
+            configBuilder.cleanupApks(false)
+        }
         when (affectedModuleDetectorSubset.get()) {
             ProjectSubset.DEPENDENT_PROJECTS -> {
                 // Don't ever run full tests of RV if it is dependent, since they take > 45 minutes
@@ -161,13 +201,15 @@ abstract class GenerateTestConfigurationTask : DefaultTask() {
         }
         val testApk = testLoader.get().load(testFolder.get())
             ?: throw RuntimeException("Cannot load required APK for task: $name")
-        val testName = testApk.elements.single().outputFile
+        val testApkBuiltArtifact = testApk.elements.single()
+        val testName = testApkBuiltArtifact.outputFile
             .substringAfterLast("/")
             .renameApkForTesting(testProjectPath.get(), hasBenchmarkPlugin.get())
         configBuilder.testApkName(testName)
             .applicationId(testApk.applicationId)
             .minSdk(minSdk.get().toString())
             .testRunner(testRunner.get())
+        testApkSha256Report.addFile(testName, testApkBuiltArtifact)
 
         val resolvedOutputFile: File = outputFile.asFile.get()
         if (!resolvedOutputFile.exists()) {

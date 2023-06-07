@@ -19,32 +19,38 @@
 
 package androidx.camera.camera2.pipe.compat
 
+import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import androidx.annotation.GuardedBy
 import androidx.annotation.RequiresApi
+import androidx.camera.camera2.pipe.CameraError
 import androidx.camera.camera2.pipe.CameraId
 import androidx.camera.camera2.pipe.CameraMetadata
 import androidx.camera.camera2.pipe.core.Debug
 import androidx.camera.camera2.pipe.core.DurationNs
 import androidx.camera.camera2.pipe.core.Log
+import androidx.camera.camera2.pipe.core.SystemTimeSource
+import androidx.camera.camera2.pipe.core.TimeSource
 import androidx.camera.camera2.pipe.core.TimestampNs
 import androidx.camera.camera2.pipe.core.Timestamps
 import androidx.camera.camera2.pipe.core.Timestamps.formatMs
 import androidx.camera.camera2.pipe.core.Token
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 internal sealed class CameraState
 internal object CameraStateUnopened : CameraState()
 internal data class CameraStateOpen(val cameraDevice: CameraDeviceWrapper) : CameraState()
-internal object CameraStateClosing : CameraState()
+internal data class CameraStateClosing(val cameraErrorCode: CameraError? = null) : CameraState()
 internal data class CameraStateClosed(
     val cameraId: CameraId,
 
@@ -70,8 +76,8 @@ internal data class CameraStateClosed(
     // Record the duration the camera device took to invoke close() on the CameraDevice object.
     val cameraClosingDurationNs: DurationNs? = null,
 
-    // Record the Camera2 ErrorCode, if the camera closed due to an error.
-    val cameraErrorCode: Int? = null
+    // Record the camera ErrorCode, if the camera closed due to an error.
+    val cameraErrorCode: CameraError? = null
 ) : CameraState()
 
 internal enum class ClosedReason {
@@ -98,7 +104,8 @@ internal enum class ClosedReason {
  */
 internal interface VirtualCamera {
     val state: Flow<CameraState>
-    fun disconnect()
+    val value: CameraState
+    fun disconnect(lastCameraError: CameraError? = null)
 }
 
 internal val virtualCameraDebugIds = atomic(0)
@@ -112,12 +119,26 @@ internal class VirtualCameraState(
     @GuardedBy("lock")
     private var closed = false
 
-    private val _state = MutableStateFlow<CameraState>(CameraStateUnopened)
-    override val state: StateFlow<CameraState>
-        get() = _state
+    // This is intended so that it will only ever replay the most recent event to new subscribers,
+    // but to never drop events for existing subscribers.
+    private val _stateFlow = MutableSharedFlow<CameraState>(replay = 1, extraBufferCapacity = 3)
+    private val _states = _stateFlow.distinctUntilChanged()
+
+    @GuardedBy("lock")
+    private var _lastState: CameraState = CameraStateUnopened
+    override val state: Flow<CameraState>
+        get() = _states
+
+    override val value: CameraState
+        get() = synchronized(lock) { _lastState }
 
     private var job: Job? = null
-    private var token: Token? = null
+    private var wakelockToken: Token? = null
+
+    init {
+        // Emit the initial unopened state.
+        check(_stateFlow.tryEmit(_lastState))
+    }
 
     internal suspend fun connect(state: Flow<CameraState>, wakelockToken: Token?) = coroutineScope {
         synchronized(lock) {
@@ -126,14 +147,20 @@ internal class VirtualCameraState(
                 return@coroutineScope
             }
 
-            job = launch {
-                state.collect { _state.value = it }
+            job = launch(EmptyCoroutineContext) {
+                state.collect {
+                    synchronized(lock) {
+                        if (!closed) {
+                            emitState(it)
+                        }
+                    }
+                }
             }
-            token = wakelockToken
+            this@VirtualCameraState.wakelockToken = wakelockToken
         }
     }
 
-    override fun disconnect() {
+    override fun disconnect(lastCameraError: CameraError?) {
         synchronized(lock) {
             if (closed) {
                 return
@@ -143,19 +170,29 @@ internal class VirtualCameraState(
             Log.info { "Disconnecting $this" }
 
             job?.cancel()
-            token?.release()
+            wakelockToken?.release()
 
             // Emulate a CameraClosing -> CameraClosed sequence.
-            if (_state.value !is CameraStateClosed) {
-                if (_state.value !is CameraStateClosing) {
-                    _state.value = CameraStateClosing
+            if (value !is CameraStateClosed) {
+                if (_lastState !is CameraStateClosing) {
+                    emitState(CameraStateClosing())
                 }
-                @SuppressWarnings("SyntheticAccessor")
-                _state.value = CameraStateClosed(
-                    cameraId,
-                    cameraClosedReason = ClosedReason.APP_DISCONNECTED
+                emitState(
+                    CameraStateClosed(
+                        cameraId,
+                        cameraClosedReason = ClosedReason.APP_DISCONNECTED,
+                        cameraErrorCode = lastCameraError
+                    )
                 )
             }
+        }
+    }
+
+    @GuardedBy("lock")
+    private fun emitState(state: CameraState) {
+        _lastState = state
+        check(_stateFlow.tryEmit(state)) {
+            "Failed to emit $state in ${this@VirtualCameraState}"
         }
     }
 
@@ -169,7 +206,10 @@ internal class AndroidCameraState(
     val cameraId: CameraId,
     val metadata: CameraMetadata,
     private val attemptNumber: Int,
-    private val attemptTimestampNanos: TimestampNs
+    private val attemptTimestampNanos: TimestampNs,
+    private val timeSource: TimeSource,
+    private val interopDeviceStateCallback: CameraDevice.StateCallback? = null,
+    private val interopSessionStateCallback: CameraCaptureSession.StateCallback? = null
 ) : CameraDevice.StateCallback() {
     private val debugId = androidCameraDebugIds.incrementAndGet()
     private val lock = Any()
@@ -193,7 +233,7 @@ internal class AndroidCameraState(
             if (attemptNumber == 1) {
                 attemptTimestampNanos
             } else {
-                Timestamps.now()
+                Timestamps.now(timeSource)
             }
     }
 
@@ -206,7 +246,7 @@ internal class AndroidCameraState(
         }
 
         closeWith(
-            device?.unwrap(),
+            device?.unwrapAs(CameraDevice::class),
             @Suppress("SyntheticAccessor")
             ClosingInfo(
                 ClosedReason.APP_CLOSED
@@ -220,7 +260,7 @@ internal class AndroidCameraState(
 
     override fun onOpened(cameraDevice: CameraDevice) {
         check(cameraDevice.id == cameraId.value)
-        val openedTimestamp = Timestamps.now()
+        val openedTimestamp = Timestamps.now(timeSource)
         openTimestampNanos = openedTimestamp
 
         Debug.traceStart { "Camera-${cameraId.value}#onOpened" }
@@ -245,6 +285,7 @@ internal class AndroidCameraState(
                 opening = true
             }
         }
+        interopDeviceStateCallback?.onOpened(cameraDevice)
         if (closeCamera) {
             cameraDevice.close()
             return
@@ -256,7 +297,8 @@ internal class AndroidCameraState(
             AndroidCameraDevice(
                 metadata,
                 cameraDevice,
-                cameraId
+                cameraId,
+                interopSessionStateCallback
             )
         )
 
@@ -266,7 +308,7 @@ internal class AndroidCameraState(
             pendingClose
         }
         if (closeInfo != null) {
-            _state.value = CameraStateClosing
+            _state.value = CameraStateClosing(closeInfo.errorCode)
             cameraDevice.closeWithTrace()
             _state.value = computeClosedState(closeInfo)
         }
@@ -282,9 +324,11 @@ internal class AndroidCameraState(
             cameraDevice,
             @Suppress("SyntheticAccessor")
             ClosingInfo(
-                ClosedReason.CAMERA2_DISCONNECTED
+                ClosedReason.CAMERA2_DISCONNECTED,
+                errorCode = CameraError.ERROR_CAMERA_DISCONNECTED
             )
         )
+        interopDeviceStateCallback?.onDisconnected(cameraDevice)
         Debug.traceStop()
     }
 
@@ -298,9 +342,10 @@ internal class AndroidCameraState(
             @Suppress("SyntheticAccessor")
             ClosingInfo(
                 ClosedReason.CAMERA2_ERROR,
-                errorCode = errorCode
+                errorCode = CameraError.from(errorCode)
             )
         )
+        interopDeviceStateCallback?.onError(cameraDevice, errorCode)
         Debug.traceStop()
     }
 
@@ -316,22 +361,43 @@ internal class AndroidCameraState(
                 ClosedReason.CAMERA2_CLOSED
             )
         )
+        interopDeviceStateCallback?.onClosed(cameraDevice)
         Debug.traceStop()
     }
 
     internal fun closeWith(throwable: Throwable) {
+        val errorCode = CameraError.from(throwable)
+        // This can happen with CAMERA_ERROR where it can be ERROR_CAMERA_DEVICE or
+        // ERROR_CAMERA_SERVICE. We leave that till onError() tells us the actual error.
+        if (errorCode == CameraError.ERROR_UNDETERMINED) {
+            return
+        }
+        closeWith(throwable, errorCode)
+    }
 
+    private fun closeWith(throwable: Throwable, cameraError: CameraError) {
         closeWith(
             null,
             @Suppress("SyntheticAccessor")
             ClosingInfo(
                 ClosedReason.CAMERA2_EXCEPTION,
+                errorCode = cameraError,
                 exception = throwable
             )
         )
     }
 
-    private fun closeWith(cameraDevice: CameraDevice?, closeRequest: ClosingInfo) {
+    private fun closeWith(
+        cameraDevice: CameraDevice?,
+        closeRequest: ClosingInfo
+    ) {
+        val currentState = _state.value
+        val cameraDeviceWrapper = if (currentState is CameraStateOpen) {
+            currentState.cameraDevice
+        } else {
+            null
+        }
+
         val closeInfo = synchronized(lock) {
             if (pendingClose == null) {
                 pendingClose = closeRequest
@@ -342,7 +408,8 @@ internal class AndroidCameraState(
             null
         }
         if (closeInfo != null) {
-            _state.value = CameraStateClosing
+            _state.value = CameraStateClosing(closeInfo.errorCode)
+            cameraDeviceWrapper.closeWithTrace()
             cameraDevice.closeWithTrace()
             _state.value = computeClosedState(closeInfo)
         }
@@ -351,7 +418,7 @@ internal class AndroidCameraState(
     private fun computeClosedState(
         closingInfo: ClosingInfo
     ): CameraStateClosed {
-        val now = Timestamps.now()
+        val now = Timestamps.now(timeSource)
         val openedTimestamp = openTimestampNanos
         val closingTimestamp = closingInfo.closingTimestamp
         val retryDuration = openedTimestamp?.let { it - attemptTimestampNanos }
@@ -381,8 +448,8 @@ internal class AndroidCameraState(
 
     private data class ClosingInfo(
         val reason: ClosedReason,
-        val closingTimestamp: TimestampNs = Timestamps.now(),
-        val errorCode: Int? = null,
+        val closingTimestamp: TimestampNs = Timestamps.now(SystemTimeSource()),
+        val errorCode: CameraError? = null,
         val exception: Throwable? = null
     )
 

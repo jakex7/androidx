@@ -17,6 +17,9 @@
 package androidx.room.processor
 
 import COMMON
+import androidx.room.compiler.codegen.CodeLanguage
+import androidx.room.compiler.codegen.XTypeName
+import androidx.room.compiler.codegen.toJavaPoet
 import androidx.room.compiler.processing.util.Source
 import androidx.room.compiler.processing.util.compileFiles
 import androidx.room.compiler.processing.util.runProcessorTest
@@ -32,10 +35,9 @@ import androidx.room.vo.Index
 import androidx.room.vo.Pojo
 import androidx.room.vo.columnNames
 import com.google.common.truth.Truth.assertThat
-import com.squareup.javapoet.ClassName
 import com.squareup.javapoet.TypeName
-import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.CoreMatchers.hasItems
+import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.MatcherAssert.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -55,7 +57,10 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
                 public void setId(int id) { this.id = id; }
             """
         ) { entity, invocation ->
-            assertThat(entity.type.typeName.toString(), `is`("foo.bar.MyEntity"))
+            assertThat(
+                entity.type.asTypeName().toString(CodeLanguage.JAVA),
+                `is`("foo.bar.MyEntity")
+            )
             assertThat(entity.fields.size, `is`(1))
             val field = entity.fields.first()
             val intType = invocation.processingEnv.requireType(TypeName.INT)
@@ -71,8 +76,9 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
                     )
                 )
             )
-            assertThat(field.setter, `is`(FieldSetter("setId", intType, CallType.METHOD)))
-            assertThat(field.getter, `is`(FieldGetter("getId", intType, CallType.METHOD)))
+            assertThat(field.setter, `is`(FieldSetter("id", "setId", intType, CallType.METHOD)))
+            assertThat(field.getter,
+                `is`(FieldGetter("id", "getId", intType, CallType.METHOD, true)))
             assertThat(entity.primaryKey.fields, `is`(Fields(field)))
         }
     }
@@ -279,16 +285,16 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
             val cursorValueReader = idField.cursorValueReader
                 ?: throw AssertionError("must have a cursor value reader")
             assertThat(
-                cursorValueReader.typeMirror().typeName,
-                `is`(invocation.processingEnv.requireType(TypeName.INT).typeName)
+                cursorValueReader.typeMirror().asTypeName(),
+                `is`(invocation.processingEnv.requireType(XTypeName.PRIMITIVE_INT).asTypeName())
             )
             invocation.assertCompilationResult {
                 hasWarningContaining(
                     ProcessorErrors.mismatchedSetter(
                         fieldName = "id",
-                        ownerType = ClassName.bestGuess("foo.bar.MyEntity"),
-                        setterType = TypeName.INT,
-                        fieldType = TypeName.INT.box()
+                        ownerType = "foo.bar.MyEntity",
+                        setterType = "int",
+                        fieldType = XTypeName.BOXED_INT.canonicalName
                     )
                 )
             }
@@ -309,8 +315,8 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
             val statementBinder = idField.statementBinder
                 ?: throw AssertionError("must have a statement binder")
             assertThat(
-                statementBinder.typeMirror().typeName,
-                `is`(invocation.processingEnv.requireType(TypeName.INT).typeName)
+                statementBinder.typeMirror().asTypeName(),
+                `is`(invocation.processingEnv.requireType(XTypeName.PRIMITIVE_INT).asTypeName())
             )
         }
     }
@@ -358,7 +364,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
                 @Ignore public int id(){ return id; }
                 """
         ) { entity, _ ->
-            assertThat(entity.fields.first().getter.name, `is`("getId"))
+            assertThat(entity.fields.first().getter.jvmName, `is`("getId"))
         }
     }
 
@@ -373,7 +379,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
                 protected int id(){ return id; }
                 """
         ) { entity, _ ->
-            assertThat(entity.fields.first().getter.name, `is`("getId"))
+            assertThat(entity.fields.first().getter.jvmName, `is`("getId"))
         }
     }
 
@@ -387,7 +393,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
                 public int getId(){ return id; }
                 """
         ) { entity, _ ->
-            assertThat(entity.fields.first().getter.name, `is`("id"))
+            assertThat(entity.fields.first().getter.jvmName, `is`("id"))
             assertThat(entity.fields.first().getter.callType, `is`(CallType.FIELD))
         }
     }
@@ -420,7 +426,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
                 public int getId(){ return id; }
                 """
         ) { entity, _ ->
-            assertThat(entity.fields.first().setter.name, `is`("setId"))
+            assertThat(entity.fields.first().setter.jvmName, `is`("setId"))
         }
     }
 
@@ -435,7 +441,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
                 public int getId(){ return id; }
                 """
         ) { entity, _ ->
-            assertThat(entity.fields.first().setter.name, `is`("setId"))
+            assertThat(entity.fields.first().setter.jvmName, `is`("setId"))
         }
     }
 
@@ -449,7 +455,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
                 public int getId(){ return id; }
                 """
         ) { entity, _ ->
-            assertThat(entity.fields.first().setter.name, `is`("id"))
+            assertThat(entity.fields.first().setter.jvmName, `is`("id"))
             assertThat(entity.fields.first().setter.callType, `is`(CallType.FIELD))
         }
     }
@@ -464,8 +470,8 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
                 public int getId(){ return id; }
                 """
         ) { entity, _ ->
-            assertThat(entity.fields.first().setter.name, `is`("setId"))
-            assertThat(entity.fields.first().getter.name, `is`("getId"))
+            assertThat(entity.fields.first().setter.jvmName, `is`("setId"))
+            assertThat(entity.fields.first().getter.jvmName, `is`("getId"))
         }
     }
 
@@ -2043,7 +2049,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_invalidAction() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = "lastName",
                     childColumns = "name",
                     onDelete = 101
@@ -2103,7 +2109,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_notAnEntity() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.NOT_AN_ENTITY_TYPE_NAME}.class,
+                    entity = ${COMMON.NOT_AN_ENTITY_TYPE_NAME.canonicalName}.class,
                     parentColumns = "lastName",
                     childColumns = "name"
                 )}
@@ -2120,7 +2126,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
             invocation.assertCompilationResult {
                 hasErrorContaining(
                     ProcessorErrors.foreignKeyNotAnEntity(
-                        COMMON.NOT_AN_ENTITY_TYPE_NAME.toString()
+                        COMMON.NOT_AN_ENTITY_TYPE_NAME.canonicalName
                     )
                 )
             }
@@ -2131,7 +2137,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_invalidChildColumn() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = "lastName",
                     childColumns = "namex"
                 )}
@@ -2159,7 +2165,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_columnCountMismatch() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = "lastName",
                     childColumns = {"name", "id"}
                 )}
@@ -2187,7 +2193,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_emptyChildColumns() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = "lastName",
                     childColumns = {}
                 )}
@@ -2211,7 +2217,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_emptyParentColumns() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = {},
                     childColumns = {"name"}
                 )}
@@ -2235,7 +2241,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_simple() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = "lastName",
                     childColumns = "name",
                     onDelete = ForeignKey.SET_NULL,
@@ -2267,7 +2273,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_dontDuplicationChildIndex_SingleColumn() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = "lastName",
                     childColumns = "name",
                     onDelete = ForeignKey.SET_NULL,
@@ -2295,7 +2301,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_dontDuplicationChildIndex_MultipleColumns() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = {"lastName", "name"},
                     childColumns = {"lName", "name"},
                     onDelete = ForeignKey.SET_NULL,
@@ -2325,7 +2331,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_dontDuplicationChildIndex_WhenCovered() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = {"lastName"},
                     childColumns = {"name"},
                     onDelete = ForeignKey.SET_NULL,
@@ -2355,7 +2361,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_warnMissingChildIndex() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = "lastName",
                     childColumns = "name",
                     onDelete = ForeignKey.SET_NULL,
@@ -2383,7 +2389,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_warnMissingChildrenIndex() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = {"lastName", "name"},
                     childColumns = {"lName", "name"}
                 )}
@@ -2416,7 +2422,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
     fun foreignKey_dontIndexIfAlreadyPrimaryKey() {
         val annotation = mapOf(
             "foreignKeys" to """{@ForeignKey(
-                    entity = ${COMMON.USER_TYPE_NAME}.class,
+                    entity = ${COMMON.USER_TYPE_NAME.canonicalName}.class,
                     parentColumns = "lastName",
                     childColumns = "id",
                     onDelete = ForeignKey.SET_NULL,
@@ -2600,7 +2606,7 @@ class TableEntityProcessorTest : BaseEntityParserTest() {
             )
             val parsed = parser.process()
             val field = parsed.primaryKey.fields.first()
-            assertThat(field.typeName).isEqualTo(TypeName.LONG)
+            assertThat(field.typeName.toJavaPoet()).isEqualTo(TypeName.LONG)
         }
     }
 }

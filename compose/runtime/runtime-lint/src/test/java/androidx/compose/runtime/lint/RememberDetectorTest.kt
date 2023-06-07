@@ -121,9 +121,6 @@ class RememberDetectorTest : LintDetectorTest() {
             Stubs.Composable,
             Stubs.Remember
         )
-            // TODO: incorrect missing import warning, because androidx.compose.runtime.remember
-            //  resolves to multiple functions. Remove when this is fixed in a future Lint version
-            .allowCompilationErrors()
             .run()
             .expect(
                 """
@@ -160,6 +157,38 @@ src/androidx/compose/runtime/foo/FooState.kt:69: Error: remember calls must not 
 10 errors, 0 warnings
             """
             )
+    }
+
+    @Test
+    fun returnsUnit_dueToTypeError() {
+        lint().files(
+            kotlin(
+                """
+                package androidx.compose.runtime.foo
+
+                import androidx.compose.runtime.Composable
+                import androidx.compose.runtime.remember
+
+                @Composable
+                fun Test() {
+                    val shouldBeError = remember { Unknown() }
+                    val stillError = remember {
+                        val local = Unknown()
+                        local
+                    }
+                    val shouldBeInt = remember { 42 }
+                    val stillInt = remember {
+                        val local = Unknown()
+                        42
+                    }
+                }
+                """
+            ),
+            Stubs.Composable,
+            Stubs.Remember
+        )
+            .run()
+            .expectClean()
     }
 
     @Test
@@ -245,9 +274,6 @@ src/androidx/compose/runtime/foo/FooState.kt:69: Error: remember calls must not 
             Stubs.Composable,
             Stubs.Remember
         )
-            // TODO: incorrect missing import warning, because androidx.compose.runtime.remember
-            //  resolves to multiple functions. Remove when this is fixed in a future Lint version
-            .allowCompilationErrors()
             .run()
             .expect(
                 """
@@ -359,9 +385,6 @@ src/androidx/compose/runtime/foo/FooState.kt:69: Error: remember calls must not 
             Stubs.Composable,
             Stubs.Remember
         )
-            // TODO: incorrect missing import warning, because androidx.compose.runtime.remember
-            //  resolves to multiple functions. Remove when this is fixed in a future Lint version
-            .allowCompilationErrors()
             .run()
             .expectClean()
     }

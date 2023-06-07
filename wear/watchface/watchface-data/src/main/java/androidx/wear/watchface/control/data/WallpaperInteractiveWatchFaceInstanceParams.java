@@ -17,6 +17,7 @@
 package androidx.wear.watchface.control.data;
 
 import android.annotation.SuppressLint;
+import android.content.ComponentName;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -40,7 +41,7 @@ import java.util.List;
  *
  * @hide
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP_PREFIX)
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @VersionedParcelize(allowSerialization = true)
 @SuppressLint("BanParcelableUsage") // TODO(b/169214666): Remove Parcelable
 public class WallpaperInteractiveWatchFaceInstanceParams
@@ -71,6 +72,16 @@ public class WallpaperInteractiveWatchFaceInstanceParams
     @Nullable
     List<IdAndComplicationDataWireFormat> mIdAndComplicationDataWireFormats;
 
+    /** Reserved field */
+    @ParcelField(101)
+    @Nullable
+    String mAuxiliaryComponentClassName;
+
+    /** Reserved field */
+    @ParcelField(102)
+    @Nullable
+    String mAuxiliaryComponentPackageName;
+
     /** Used by VersionedParcelable. */
     WallpaperInteractiveWatchFaceInstanceParams() {
     }
@@ -80,12 +91,17 @@ public class WallpaperInteractiveWatchFaceInstanceParams
             @NonNull DeviceConfig deviceConfig,
             @NonNull WatchUiState watchUiState,
             @NonNull UserStyleWireFormat userStyle,
-            @Nullable List<IdAndComplicationDataWireFormat> idAndComplicationDataWireFormats) {
+            @Nullable List<IdAndComplicationDataWireFormat> idAndComplicationDataWireFormats,
+            @Nullable ComponentName auxiliaryComponentName) {
         mInstanceId = instanceId;
         mDeviceConfig = deviceConfig;
         mWatchUiState = watchUiState;
         mUserStyle = userStyle;
         mIdAndComplicationDataWireFormats = idAndComplicationDataWireFormats;
+        if (auxiliaryComponentName != null) {
+            mAuxiliaryComponentClassName = auxiliaryComponentName.getClassName();
+            mAuxiliaryComponentPackageName = auxiliaryComponentName.getPackageName();
+        }
     }
 
     @NonNull
@@ -138,6 +154,7 @@ public class WallpaperInteractiveWatchFaceInstanceParams
 
     public static final Parcelable.Creator<WallpaperInteractiveWatchFaceInstanceParams> CREATOR =
             new Parcelable.Creator<WallpaperInteractiveWatchFaceInstanceParams>() {
+                @SuppressWarnings("deprecation")
                 @Override
                 public WallpaperInteractiveWatchFaceInstanceParams createFromParcel(Parcel source) {
                     return ParcelUtils.fromParcelable(

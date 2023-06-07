@@ -70,7 +70,7 @@ public interface Metadata {
  * [CameraGraph]. This class will report the actual keys / values that were sent to camera2 (if
  * different) from the request that was used to create the Camera2 [CaptureRequest].
  */
-public interface RequestMetadata : Metadata, UnsafeWrapper<CaptureRequest> {
+public interface RequestMetadata : Metadata, UnsafeWrapper {
     public operator fun <T> get(key: CaptureRequest.Key<T>): T?
     public fun <T> getOrDefault(key: CaptureRequest.Key<T>, default: T): T
 
@@ -97,7 +97,7 @@ public interface RequestMetadata : Metadata, UnsafeWrapper<CaptureRequest> {
 /**
  * [FrameInfo] is a wrapper around [TotalCaptureResult].
  */
-public interface FrameInfo : UnsafeWrapper<TotalCaptureResult> {
+public interface FrameInfo : UnsafeWrapper {
     public val metadata: FrameMetadata
 
     /**
@@ -114,7 +114,7 @@ public interface FrameInfo : UnsafeWrapper<TotalCaptureResult> {
 /**
  * [FrameMetadata] is a wrapper around [CaptureResult].
  */
-public interface FrameMetadata : Metadata, UnsafeWrapper<CaptureResult> {
+public interface FrameMetadata : Metadata, UnsafeWrapper {
     public operator fun <T> get(key: CaptureResult.Key<T>): T?
     public fun <T> getOrDefault(key: CaptureResult.Key<T>, default: T): T
 
@@ -178,7 +178,20 @@ public data class MetadataTransform(
  * default. These values are defined by camera2.
  */
 @JvmInline
-public value class RequestTemplate(public val value: Int)
+public value class RequestTemplate(public val value: Int) {
+    val name: String
+        get() {
+            return when (value) {
+                1 -> "TEMPLATE_PREVIEW"
+                2 -> "TEMPLATE_STILL_CAPTURE"
+                3 -> "TEMPLATE_RECORD"
+                4 -> "TEMPLATE_VIDEO_SNAPSHOT"
+                5 -> "TEMPLATE_ZERO_SHUTTER_LAG"
+                6 -> "TEMPLATE_MANUAL"
+                else -> "UNKNOWN-$value"
+            }
+        }
+}
 
 /**
  * A [RequestNumber] is an artificial identifier that is created for each request that is submitted
@@ -226,4 +239,13 @@ public fun CaptureRequest.Builder.writeParameter(key: Any?, value: Any?) {
         @Suppress("UNCHECKED_CAST")
         this.set(key as CaptureRequest.Key<Any>, value)
     }
+}
+
+/**
+ * Utility function to put all metadata in the current map through an unchecked cast. The unchecked
+ * cast is necessary since CameraGraph.Config uses Map<*, Any?> as the standard type for parameters.
+ */
+fun MutableMap<Any, Any?>.putAllMetadata(metadata: Map<*, Any?>) {
+    @Suppress("UNCHECKED_CAST")
+    this.putAll(metadata as Map<Any, Any?>)
 }

@@ -16,10 +16,7 @@
 
 package androidx.glance.appwidget
 
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.util.TypedValue.COMPLEX_UNIT_DIP
@@ -29,10 +26,8 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.RemoteViews
 import androidx.annotation.DoNotInline
-import androidx.annotation.IdRes
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.toArgb
-import androidx.core.os.bundleOf
 import androidx.core.widget.RemoteViewsCompat.setTextViewHeight
 import androidx.core.widget.RemoteViewsCompat.setTextViewWidth
 import androidx.core.widget.RemoteViewsCompat.setViewBackgroundColor
@@ -44,23 +39,14 @@ import androidx.glance.BackgroundModifier
 import androidx.glance.GlanceModifier
 import androidx.glance.Visibility
 import androidx.glance.VisibilityModifier
-import androidx.glance.action.Action
 import androidx.glance.action.ActionModifier
-import androidx.glance.action.ActionParameters
-import androidx.glance.action.LaunchActivityAction
-import androidx.glance.action.LaunchActivityClassAction
-import androidx.glance.action.LaunchActivityComponentAction
-import androidx.glance.action.toMutableParameters
-import androidx.glance.appwidget.ListAdapterCallbackTrampolineActivity.Companion.putBroadcastIntentExtra
-import androidx.glance.appwidget.ListAdapterLaunchActivityTrampolineActivity.Companion.putActivityIntentExtra
-import androidx.glance.appwidget.action.CompoundButtonAction
-import androidx.glance.appwidget.action.LaunchActivityIntentAction
-import androidx.glance.appwidget.action.RunCallbackAction
-import androidx.glance.appwidget.action.ToggleableStateKey
-import androidx.glance.appwidget.unit.DayNightColorProvider
+import androidx.glance.appwidget.action.applyAction
+import androidx.glance.color.DayNightColorProvider
 import androidx.glance.layout.HeightModifier
 import androidx.glance.layout.PaddingModifier
 import androidx.glance.layout.WidthModifier
+import androidx.glance.semantics.SemanticsModifier
+import androidx.glance.semantics.SemanticsProperties
 import androidx.glance.unit.Dimension
 import androidx.glance.unit.FixedColorProvider
 import androidx.glance.unit.ResourceColorProvider
@@ -77,10 +63,22 @@ internal fun applyModifiers(
     var paddingModifiers: PaddingModifier? = null
     var cornerRadius: Dimension? = null
     var visibility = Visibility.Visible
+    var actionModifier: ActionModifier? = null
+    var enabled: EnabledModifier? = null
+    var clipToOutline: ClipToOutlineModifier? = null
+    var semanticsModifier: SemanticsModifier? = null
     modifiers.foldIn(Unit) { _, modifier ->
         when (modifier) {
-            is ActionModifier ->
-                applyAction(translationContext, rv, modifier.action, viewDef.mainViewId)
+            is ActionModifier -> {
+                if (actionModifier != null) {
+                    Log.w(
+                        GlanceAppWidgetTag,
+                        "More than one clickable defined on the same GlanceModifier, " +
+                            "only the last one will be used."
+                    )
+                }
+                actionModifier = modifier
+            }
             is WidthModifier -> widthModifier = modifier
             is HeightModifier -> heightModifier = modifier
             is BackgroundModifier -> applyBackgroundModifier(context, rv, modifier, viewDef)
@@ -92,12 +90,27 @@ internal fun applyModifiers(
             is AppWidgetBackgroundModifier -> {
                 // This modifier is handled somewhere else.
             }
+            is SelectableGroupModifier -> {
+                if (!translationContext.canUseSelectableGroup) {
+                    error(
+                        "GlanceModifier.selectableGroup() can only be used on Row or Column " +
+                        "composables."
+                    )
+                }
+            }
+            is AlignmentModifier -> {
+                // This modifier is handled somewhere else.
+            }
+            is ClipToOutlineModifier -> clipToOutline = modifier
+            is EnabledModifier -> enabled = modifier
+            is SemanticsModifier -> semanticsModifier = modifier
             else -> {
                 Log.w(GlanceAppWidgetTag, "Unknown modifier '$modifier', nothing done.")
             }
         }
     }
     applySizeModifiers(translationContext, rv, widthModifier, heightModifier, viewDef)
+    actionModifier?.let { applyAction(translationContext, rv, it.action, viewDef.mainViewId) }
     cornerRadius?.let { applyRoundedCorners(rv, viewDef.mainViewId, it) }
     paddingModifiers?.let { padding ->
         val absolutePadding = padding.toDp(context.resources).toAbsolute(translationContext.isRtl)
@@ -110,6 +123,21 @@ internal fun applyModifiers(
             absolutePadding.bottom.toPixels(displayMetrics)
         )
     }
+    clipToOutline?.let {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            rv.setBoolean(viewDef.mainViewId, "setClipToOutline", true)
+        }
+    }
+    enabled?.let {
+        rv.setBoolean(viewDef.mainViewId, "setEnabled", it.enabled)
+    }
+    semanticsModifier?.let { semantics ->
+        val contentDescription: List<String>? =
+            semantics.configuration.getOrNull(SemanticsProperties.ContentDescription)
+        if (contentDescription != null) {
+            rv.setContentDescription(viewDef.mainViewId, contentDescription.joinToString())
+        }
+    }
     rv.setViewVisibility(viewDef.mainViewId, visibility.toViewVisibility())
 }
 
@@ -119,170 +147,6 @@ private fun Visibility.toViewVisibility() =
         Visibility.Invisible -> View.INVISIBLE
         Visibility.Gone -> View.GONE
     }
-
-private fun applyAction(
-    translationContext: TranslationContext,
-    rv: RemoteViews,
-    action: Action,
-    @IdRes viewId: Int
-) {
-    when (action) {
-        is LaunchActivityAction, is RunCallbackAction -> {
-            if (translationContext.isLazyCollectionDescendant) {
-                rv.setOnClickFillInIntent(
-                    viewId,
-                    getFillInIntentForAction(action, translationContext, viewId)
-                )
-            } else {
-                rv.setOnClickPendingIntent(
-                    viewId,
-                    getPendingIntentForAction(action, translationContext)
-                )
-            }
-        }
-        is CompoundButtonAction -> {
-            val editParams = { params: ActionParameters ->
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                    params.toMutableParameters().apply {
-                        set(ToggleableStateKey, !action.checked)
-                    }
-                } else {
-                    params
-                }
-            }
-            if (translationContext.isLazyCollectionDescendant) {
-                val intent = getFillInIntentForAction(
-                    action.innerAction,
-                    translationContext,
-                    viewId,
-                    editParams
-                )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    ApplyModifiersApi31Impl.setOnCheckedChangeResponse(rv, viewId, intent)
-                } else {
-                    rv.setOnClickFillInIntent(viewId, intent)
-                }
-            } else {
-                val intent = getPendingIntentForAction(
-                    action.innerAction,
-                    translationContext,
-                    editParams
-                )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    ApplyModifiersApi31Impl.setOnCheckedChangeResponse(rv, viewId, intent)
-                } else {
-                    rv.setOnClickPendingIntent(viewId, intent)
-                }
-            }
-        }
-        else -> {
-            Log.e(
-                GlanceAppWidgetTag,
-                "Unrecognized action type: ${action.javaClass.canonicalName}."
-            )
-        }
-    }
-}
-
-private fun getPendingIntentForAction(
-    action: Action,
-    translationContext: TranslationContext,
-    editParams: (ActionParameters) -> ActionParameters = { it }
-): PendingIntent {
-    when (action) {
-        is LaunchActivityAction -> {
-            val activityIntent = getLaunchActivityIntent(action, translationContext, editParams)
-            return PendingIntent.getActivity(
-                translationContext.context,
-                0,
-                activityIntent,
-                PendingIntent.FLAG_MUTABLE
-            )
-        }
-        is RunCallbackAction -> {
-            return ActionCallbackBroadcastReceiver.createPendingIntent(
-                translationContext.context,
-                action.callbackClass,
-                translationContext.appWidgetId,
-                editParams(action.parameters)
-            )
-        }
-        else -> error("Cannot create PendingIntent for action type: $action")
-    }
-}
-private fun getFillInIntentForAction(
-    action: Action,
-    translationContext: TranslationContext,
-    @IdRes viewId: Int,
-    editParams: (ActionParameters) -> ActionParameters = { it }
-): Intent {
-    when (action) {
-        is LaunchActivityAction -> {
-            val activityIntent = getLaunchActivityIntent(action, translationContext, editParams)
-            val fillIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Fill in the pending intent template with the action intent directly, with a
-                // unique identifier to ensure unique filterEquals
-                ApplyModifiersApiApi29Impl.setIntentIdentifier(activityIntent, viewId)
-            } else {
-                // Send the action intent to an activity trampoline, where it will be invoked,
-                // unmodified
-                Intent(
-                    translationContext.context,
-                    ListAdapterLaunchActivityTrampolineActivity::class.java
-                ).apply {
-                    data = Uri.parse(toUri(0))
-                        .buildUpon()
-                        .scheme("startActivityAction")
-                        .path(viewId.toString())
-                        .build()
-                    putActivityIntentExtra(activityIntent)
-                }
-            }
-            return fillIntent
-        }
-        is RunCallbackAction -> {
-            val actionIntent = ActionCallbackBroadcastReceiver.createIntent(
-                translationContext.context,
-                action.callbackClass,
-                translationContext.appWidgetId,
-                editParams(action.parameters)
-            )
-            return Intent(
-                translationContext.context,
-                ListAdapterCallbackTrampolineActivity::class.java
-            ).apply {
-                data = Uri.parse(toUri(0))
-                    .buildUpon()
-                    .scheme("updateContentAction")
-                    .path(viewId.toString())
-                    .build()
-                putBroadcastIntentExtra(actionIntent)
-            }
-        }
-        else -> error("Cannot create fill-in Intent for action type: $action")
-    }
-}
-
-private fun getLaunchActivityIntent(
-    action: LaunchActivityAction,
-    translationContext: TranslationContext,
-    editParams: (ActionParameters) -> ActionParameters = { it }
-): Intent {
-    val activityIntent = when (action) {
-        is LaunchActivityComponentAction -> Intent().setComponent(action.componentName)
-        is LaunchActivityClassAction ->
-            Intent(translationContext.context, action.activityClass)
-        is LaunchActivityIntentAction -> action.intent
-        else -> error("Action type not defined in app widget package: $action")
-    }
-
-    val parametersPairs = editParams(action.parameters).asMap().map { (key, value) ->
-        key.name to value
-    }.toTypedArray()
-
-    activityIntent.putExtras(bundleOf(*parametersPairs))
-    return activityIntent
-}
 
 private fun applySizeModifiers(
     translationContext: TranslationContext,
@@ -360,8 +224,9 @@ internal fun applySimpleWidthModifier(
             "Using a width of $width requires a complex layout before API 31"
         )
     }
-    // Wrap and Expand are done in XML on Android S+
-    if (width in listOf(Dimension.Wrap, Dimension.Expand)) return
+    // Wrap and Expand are done in XML on Android S & Sv2
+    if (Build.VERSION.SDK_INT < 33 &&
+        width in listOf(Dimension.Wrap, Dimension.Expand)) return
     ApplyModifiersApi31Impl.setViewWidth(rv, viewId, width)
 }
 
@@ -389,8 +254,9 @@ internal fun applySimpleHeightModifier(
             "Using a height of $height requires a complex layout before API 31"
         )
     }
-    // Wrap and Expand are done in XML on Android S+
-    if (height in listOf(Dimension.Wrap, Dimension.Expand)) return
+    // Wrap and Expand are done in XML on Android S & Sv2
+    if (Build.VERSION.SDK_INT < 33 &&
+        height in listOf(Dimension.Wrap, Dimension.Expand)) return
     ApplyModifiersApi31Impl.setViewHeight(rv, viewId, height)
 }
 
@@ -424,7 +290,7 @@ private fun applyBackgroundModifier(
                     colorProvider.night.toArgb()
                 )
             } else {
-                rv.setViewBackgroundColor(viewId, colorProvider.resolve(context).toArgb())
+                rv.setViewBackgroundColor(viewId, colorProvider.getColor(context).toArgb())
             }
         }
         else -> Log.w(GlanceAppWidgetTag, "Unexpected background color modifier: $colorProvider")
@@ -489,23 +355,5 @@ private object ApplyModifiersApi31Impl {
             }
             else -> error("Rounded corners should not be ${radius.javaClass.canonicalName}")
         }
-    }
-
-    @DoNotInline
-    fun setOnCheckedChangeResponse(rv: RemoteViews, viewId: Int, intent: PendingIntent) {
-        rv.setOnCheckedChangeResponse(viewId, RemoteViews.RemoteResponse.fromPendingIntent(intent))
-    }
-
-    @DoNotInline
-    fun setOnCheckedChangeResponse(rv: RemoteViews, viewId: Int, intent: Intent) {
-        rv.setOnCheckedChangeResponse(viewId, RemoteViews.RemoteResponse.fromFillInIntent(intent))
-    }
-}
-
-@RequiresApi(Build.VERSION_CODES.Q)
-private object ApplyModifiersApiApi29Impl {
-    @DoNotInline
-    fun setIntentIdentifier(intent: Intent, viewId: Int): Intent = intent.apply {
-        identifier = viewId.toString()
     }
 }

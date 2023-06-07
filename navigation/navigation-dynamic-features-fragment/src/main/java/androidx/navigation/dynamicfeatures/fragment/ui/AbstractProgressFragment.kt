@@ -23,10 +23,9 @@ import android.util.Log
 import android.view.View
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RestrictTo
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.dynamicfeatures.Constants
 import androidx.navigation.dynamicfeatures.DynamicExtras
 import androidx.navigation.dynamicfeatures.DynamicInstallMonitor
@@ -52,8 +51,12 @@ public abstract class AbstractProgressFragment : Fragment {
         private const val TAG = "AbstractProgress"
     }
 
-    private val installViewModel: InstallViewModel by viewModels {
-        InstallViewModel.FACTORY
+    private val installViewModel: InstallViewModel by lazy {
+        ViewModelProvider(
+            viewModelStore,
+            InstallViewModel.FACTORY,
+            defaultViewModelCreationExtras
+        )[InstallViewModel::class.java]
     }
     private val destinationId by lazy {
         requireArguments().getInt(Constants.DESTINATION_ID)
@@ -100,11 +103,8 @@ public abstract class AbstractProgressFragment : Fragment {
     }
     /**
      * Navigates to an installed dynamic feature module or kicks off installation.
-     *
-     * @hide
      */
-    @RestrictTo(RestrictTo.Scope.LIBRARY)
-    protected fun navigate() {
+    internal fun navigate() {
         Log.i(TAG, "navigate: ")
         val installMonitor = DynamicInstallMonitor()
         val extras = DynamicExtras(installMonitor)

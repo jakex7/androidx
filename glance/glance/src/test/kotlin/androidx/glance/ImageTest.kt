@@ -21,25 +21,28 @@ import androidx.glance.layout.ContentScale
 import androidx.glance.layout.PaddingModifier
 import androidx.glance.layout.padding
 import androidx.glance.layout.runTestingComposition
+import androidx.glance.semantics.SemanticsModifier
+import androidx.glance.semantics.SemanticsProperties
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.TestCoroutineScope
-import kotlinx.coroutines.test.runBlockingTest
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ImageTest {
-    private lateinit var fakeCoroutineScope: TestCoroutineScope
+    private lateinit var fakeCoroutineScope: TestScope
 
     @Before
     fun setUp() {
-        fakeCoroutineScope = TestCoroutineScope()
+        fakeCoroutineScope = TestScope()
     }
 
     @Test
-    fun createImage() = fakeCoroutineScope.runBlockingTest {
+    fun createImage() = fakeCoroutineScope.runTest {
         val root = runTestingComposition {
             Image(
                 provider = ImageProvider(5),
@@ -56,7 +59,9 @@ class ImageTest {
 
         val imgSource = assertIs<AndroidResourceImageProvider>(img.provider)
         assertThat(imgSource.resId).isEqualTo(5)
-        assertThat(img.contentDescription).isEqualTo("Hello World")
+        val semanticsModifier = assertNotNull(img.modifier.findModifier<SemanticsModifier>())
+        assertThat(semanticsModifier.configuration[SemanticsProperties.ContentDescription])
+            .containsExactly("Hello World")
         assertThat(img.contentScale).isEqualTo(ContentScale.FillBounds)
         assertThat(img.modifier.findModifier<PaddingModifier>()).isNotNull()
     }
