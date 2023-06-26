@@ -252,12 +252,13 @@ public final class Preview extends UseCase {
             SurfaceEdge appEdge = requireNonNull(nodeOutput.get(outConfig));
             appEdge.addOnInvalidatedListener(() -> onAppEdgeInvalidated(appEdge, camera));
             mCurrentSurfaceRequest = appEdge.createSurfaceRequest(camera);
+            mSessionDeferrableSurface = mCameraEdge.getDeferrableSurface();
         } else {
             mCameraEdge.addOnInvalidatedListener(this::notifyReset);
             mCurrentSurfaceRequest = mCameraEdge.createSurfaceRequest(camera);
+            mSessionDeferrableSurface = mCurrentSurfaceRequest.getDeferrableSurface();
         }
-        // Send the app Surface to the app.
-        mSessionDeferrableSurface = mCameraEdge.getDeferrableSurface();
+
         if (mSurfaceProvider != null) {
             // Only send surface request if the provider is set.
             sendSurfaceRequest();
@@ -266,6 +267,7 @@ public final class Preview extends UseCase {
         // Send the camera Surface to the camera2.
         SessionConfig.Builder sessionConfigBuilder = SessionConfig.Builder.createFrom(config,
                 streamSpec.getResolution());
+        sessionConfigBuilder.setExpectedFrameRateRange(streamSpec.getExpectedFrameRateRange());
         if (streamSpec.getImplementationOptions() != null) {
             sessionConfigBuilder.addImplementationOptions(streamSpec.getImplementationOptions());
         }
@@ -437,7 +439,6 @@ public final class Preview extends UseCase {
         } else {
             mSurfaceProvider = surfaceProvider;
             mSurfaceProviderExecutor = executor;
-            notifyActive();
 
             // It could be a previous request has already been sent, which means the caller wants
             // to replace the Surface. Or, it could be the pipeline has not started. Or the use
@@ -448,6 +449,7 @@ public final class Preview extends UseCase {
                         getAttachedStreamSpec());
                 notifyReset();
             }
+            notifyActive();
         }
     }
 

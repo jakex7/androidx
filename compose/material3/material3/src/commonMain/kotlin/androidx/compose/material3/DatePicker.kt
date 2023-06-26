@@ -169,7 +169,8 @@ fun DatePicker(
     showModeToggle: Boolean = true,
     colors: DatePickerColors = DatePickerDefaults.colors()
 ) {
-    val calendarModel = remember { CalendarModel() }
+    val defaultLocale = defaultLocale()
+    val calendarModel = remember(defaultLocale) { createCalendarModel(defaultLocale) }
     DateEntryContainer(
         modifier = modifier,
         title = title,
@@ -357,16 +358,20 @@ fun rememberDatePickerState(
     yearRange: IntRange = DatePickerDefaults.YearRange,
     initialDisplayMode: DisplayMode = DisplayMode.Picker,
     selectableDates: SelectableDates = object : SelectableDates {}
-): DatePickerState = rememberSaveable(
-    saver = DatePickerStateImpl.Saver(selectableDates)
-) {
-    DatePickerStateImpl(
-        initialSelectedDateMillis = initialSelectedDateMillis,
-        initialDisplayedMonthMillis = initialDisplayedMonthMillis,
-        yearRange = yearRange,
-        initialDisplayMode = initialDisplayMode,
-        selectableDates = selectableDates
-    )
+): DatePickerState {
+    val locale = defaultLocale()
+    return rememberSaveable(
+        saver = DatePickerStateImpl.Saver(selectableDates, locale)
+    ) {
+        DatePickerStateImpl(
+            initialSelectedDateMillis = initialSelectedDateMillis,
+            initialDisplayedMonthMillis = initialDisplayedMonthMillis,
+            yearRange = yearRange,
+            initialDisplayMode = initialDisplayMode,
+            selectableDates = selectableDates,
+            locale = locale
+        )
+    }
 }
 
 /**
@@ -640,37 +645,72 @@ object DatePickerDefaults {
 /**
  * Represents the colors used by the date picker.
  *
- * See [DatePickerDefaults.colors] for the default implementation that follows Material
- * specifications.
+ * @constructor create an instance with arbitrary colors, see [DatePickerDefaults.colors] for the
+ * default implementation that follows Material specifications.
+ *
+ * @param containerColor the color used for the date picker's background
+ * @param titleContentColor the color used for the date picker's title
+ * @param headlineContentColor the color used for the date picker's headline
+ * @param weekdayContentColor the color used for the weekday letters
+ * @param subheadContentColor the color used for the month and year subhead labels that appear
+ * when months are displayed at a `DateRangePicker`.
+ * @param navigationContentColor the content color used for the year selection menu button and
+ * the months arrow navigation when displayed at a `DatePicker`.
+ * @param yearContentColor the color used for a year item content
+ * @param disabledYearContentColor the color used for a disabled year item content
+ * @param currentYearContentColor the color used for the current year content when selecting a
+ * year
+ * @param selectedYearContentColor the color used for a selected year item content
+ * @param disabledSelectedYearContentColor the color used for a disabled selected year item
+ * content
+ * @param selectedYearContainerColor the color used for a selected year item container
+ * @param disabledSelectedYearContainerColor the color used for a disabled selected year item
+ * container
+ * @param dayContentColor the color used for days content
+ * @param disabledDayContentColor the color used for disabled days content
+ * @param selectedDayContentColor the color used for selected days content
+ * @param disabledSelectedDayContentColor the color used for disabled selected days content
+ * @param selectedDayContainerColor the color used for a selected day container
+ * @param disabledSelectedDayContainerColor the color used for a disabled selected day container
+ * @param todayContentColor the color used for the day that marks the current date
+ * @param todayDateBorderColor the color used for the border of the day that marks the current
+ * date
+ * @param dayInSelectionRangeContentColor the content color used for days that are within a date
+ * range selection
+ * @param dayInSelectionRangeContainerColor the container color used for days that are within a
+ * date range selection
+ * @param dividerColor the color used for the dividers used at the date pickers
+ * @param dateTextFieldColors the [TextFieldColors] defaults for the date text field when in
+ * [DisplayMode.Input]. See [OutlinedTextFieldDefaults.colors].
  */
 @ExperimentalMaterial3Api
 @Immutable
-class DatePickerColors internal constructor(
-    internal val containerColor: Color,
-    internal val titleContentColor: Color,
-    internal val headlineContentColor: Color,
-    internal val weekdayContentColor: Color,
-    internal val subheadContentColor: Color,
-    internal val navigationContentColor: Color,
-    private val yearContentColor: Color,
-    private val disabledYearContentColor: Color,
-    private val currentYearContentColor: Color,
-    private val selectedYearContentColor: Color,
-    private val disabledSelectedYearContentColor: Color,
-    private val selectedYearContainerColor: Color,
-    private val disabledSelectedYearContainerColor: Color,
-    private val dayContentColor: Color,
-    private val disabledDayContentColor: Color,
-    private val selectedDayContentColor: Color,
-    private val disabledSelectedDayContentColor: Color,
-    private val selectedDayContainerColor: Color,
-    private val disabledSelectedDayContainerColor: Color,
-    private val todayContentColor: Color,
-    internal val todayDateBorderColor: Color,
-    internal val dayInSelectionRangeContainerColor: Color,
-    private val dayInSelectionRangeContentColor: Color,
-    internal val dividerColor: Color,
-    internal val dateTextFieldColors: TextFieldColors
+class DatePickerColors constructor(
+    val containerColor: Color,
+    val titleContentColor: Color,
+    val headlineContentColor: Color,
+    val weekdayContentColor: Color,
+    val subheadContentColor: Color,
+    val navigationContentColor: Color,
+    val yearContentColor: Color,
+    val disabledYearContentColor: Color,
+    val currentYearContentColor: Color,
+    val selectedYearContentColor: Color,
+    val disabledSelectedYearContentColor: Color,
+    val selectedYearContainerColor: Color,
+    val disabledSelectedYearContainerColor: Color,
+    val dayContentColor: Color,
+    val disabledDayContentColor: Color,
+    val selectedDayContentColor: Color,
+    val disabledSelectedDayContentColor: Color,
+    val selectedDayContainerColor: Color,
+    val disabledSelectedDayContainerColor: Color,
+    val todayContentColor: Color,
+    val todayDateBorderColor: Color,
+    val dayInSelectionRangeContainerColor: Color,
+    val dayInSelectionRangeContentColor: Color,
+    val dividerColor: Color,
+    val dateTextFieldColors: TextFieldColors
 ) {
     /**
      * Represents the content color for a calendar day.
@@ -864,10 +904,11 @@ class DatePickerColors internal constructor(
 internal abstract class BaseDatePickerStateImpl(
     @Suppress("AutoBoxing") initialDisplayedMonthMillis: Long?,
     val yearRange: IntRange,
-    val selectableDates: SelectableDates
+    val selectableDates: SelectableDates,
+    locale: CalendarLocale
 ) {
 
-    val calendarModel = CalendarModel.Default
+    val calendarModel = createCalendarModel(locale)
 
     private var _displayedMonth =
         mutableStateOf(if (initialDisplayedMonthMillis != null) {
@@ -920,11 +961,13 @@ private class DatePickerStateImpl(
     @Suppress("AutoBoxing") initialDisplayedMonthMillis: Long?,
     yearRange: IntRange,
     initialDisplayMode: DisplayMode,
-    selectableDates: SelectableDates
+    selectableDates: SelectableDates,
+    locale: CalendarLocale
 ) : BaseDatePickerStateImpl(
     initialDisplayedMonthMillis,
     yearRange,
-    selectableDates
+    selectableDates,
+    locale
 ), DatePickerState {
 
     /**
@@ -980,7 +1023,10 @@ private class DatePickerStateImpl(
          * @param selectableDates a [SelectableDates] instance that is consulted to check if a date
          * is allowed
          */
-        fun Saver(selectableDates: SelectableDates): Saver<DatePickerStateImpl, Any> = listSaver(
+        fun Saver(
+            selectableDates: SelectableDates,
+            locale: CalendarLocale
+        ): Saver<DatePickerStateImpl, Any> = listSaver(
             save = {
                 listOf(
                     it.selectedDateMillis,
@@ -996,7 +1042,8 @@ private class DatePickerStateImpl(
                     initialDisplayedMonthMillis = value[1] as Long?,
                     yearRange = IntRange(value[2] as Int, value[3] as Int),
                     initialDisplayMode = DisplayMode(value[4] as Int),
-                    selectableDates = selectableDates
+                    selectableDates = selectableDates,
+                    locale = locale
                 )
             }
         )
@@ -1136,7 +1183,6 @@ internal fun DateEntryContainer(
 internal fun DisplayModeToggleButton(
     modifier: Modifier,
     displayMode: DisplayMode,
-    @Suppress("PrimitiveInLambda")
     onDisplayModeChange: (DisplayMode) -> Unit
 ) {
     if (displayMode == DisplayMode.Picker) {
@@ -1166,9 +1212,7 @@ private fun SwitchableDateEntryContent(
     selectedDateMillis: Long?,
     displayedMonthMillis: Long,
     displayMode: DisplayMode,
-    @Suppress("PrimitiveInLambda")
     onDateSelectionChange: (dateInMillis: Long?) -> Unit,
-    @Suppress("PrimitiveInLambda")
     onDisplayedMonthChange: (monthInMillis: Long) -> Unit,
     calendarModel: CalendarModel,
     yearRange: IntRange,
@@ -1256,9 +1300,7 @@ private fun SwitchableDateEntryContent(
 private fun DatePickerContent(
     selectedDateMillis: Long?,
     displayedMonthMillis: Long,
-    @Suppress("PrimitiveInLambda")
     onDateSelectionChange: (dateInMillis: Long) -> Unit,
-    @Suppress("PrimitiveInLambda")
     onDisplayedMonthChange: (monthInMillis: Long) -> Unit,
     calendarModel: CalendarModel,
     yearRange: IntRange,
@@ -1411,9 +1453,7 @@ internal fun DatePickerHeader(
 private fun HorizontalMonthsList(
     lazyListState: LazyListState,
     selectedDateMillis: Long?,
-    @Suppress("PrimitiveInLambda")
     onDateSelectionChange: (dateInMillis: Long) -> Unit,
-    @Suppress("PrimitiveInLambda")
     onDisplayedMonthChange: (monthInMillis: Long) -> Unit,
     calendarModel: CalendarModel,
     yearRange: IntRange,
@@ -1476,7 +1516,6 @@ private fun HorizontalMonthsList(
 @OptIn(ExperimentalMaterial3Api::class)
 internal suspend fun updateDisplayedMonth(
     lazyListState: LazyListState,
-    @Suppress("PrimitiveInLambda")
     onDisplayedMonthChange: (monthInMillis: Long) -> Unit,
     calendarModel: CalendarModel,
     yearRange: IntRange
@@ -1550,7 +1589,6 @@ internal fun WeekDays(colors: DatePickerColors, calendarModel: CalendarModel) {
 @Composable
 internal fun Month(
     month: CalendarMonth,
-    @Suppress("PrimitiveInLambda")
     onDateSelectionChange: (dateInMillis: Long) -> Unit,
     todayMillis: Long,
     startDateMillis: Long?,
@@ -1767,7 +1805,6 @@ private fun Day(
 private fun YearPicker(
     modifier: Modifier,
     displayedMonthMillis: Long,
-    @Suppress("PrimitiveInLambda")
     onYearSelected: (year: Int) -> Unit,
     selectableDates: SelectableDates,
     calendarModel: CalendarModel,

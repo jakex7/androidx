@@ -79,7 +79,6 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.internal.DoNotInstrument;
 import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowPackageManager;
-import org.robolectric.shadows.ShadowPhoneWindow;
 
 /** Tests for {@link CarAppActivity}. */
 @RunWith(RobolectricTestRunner.class)
@@ -423,9 +422,7 @@ public class CarAppActivityTest {
         try (ActivityScenario<CarAppActivity> scenario = ActivityScenario.launch(newIntent)) {
             scenario.onActivity(activity -> {
                 try {
-                    ShadowPhoneWindow shadowPhoneWindow = (ShadowPhoneWindow) shadowOf(
-                            activity.getWindow());
-                    assertThat(shadowPhoneWindow.getDecorFitsSystemWindows()).isFalse();
+                    assertThat(activity.getDecorFitsSystemWindows()).isFalse();
                 } catch (Exception e) {
                     fail(Log.getStackTraceString(e));
                 }

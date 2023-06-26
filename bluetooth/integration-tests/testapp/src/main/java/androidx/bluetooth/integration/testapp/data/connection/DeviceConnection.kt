@@ -16,12 +16,11 @@
 
 package androidx.bluetooth.integration.testapp.data.connection
 
-// TODO(ofy) Migrate to androidx.bluetooth.BluetoothDevice
 // TODO(ofy) Migrate to androidx.bluetooth.BluetoothGattCharacteristic
 // TODO(ofy) Migrate to androidx.bluetooth.BluetoothGattService
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattService
+import androidx.bluetooth.BluetoothDevice
 import java.util.UUID
 import kotlinx.coroutines.Job
 
@@ -31,7 +30,7 @@ class DeviceConnection(
     var job: Job? = null
     var onClickReadCharacteristic: OnClickCharacteristic? = null
     var onClickWriteCharacteristic: OnClickCharacteristic? = null
-    var status = Status.NOT_CONNECTED
+    var status = Status.DISCONNECTED
     var services = emptyList<BluetoothGattService>()
 
     private val values = mutableMapOf<UUID, ByteArray?>()

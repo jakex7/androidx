@@ -17,6 +17,7 @@
 package androidx.compose.ui.text.input
 
 import android.view.View
+import android.view.inputmethod.CursorAnchorInfo
 import android.view.inputmethod.ExtractedText
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.Executor
@@ -256,6 +257,19 @@ class TextInputServiceAndroidCommandDebouncingTest {
         assertThat(inputMethodManager.showSoftInputCalls).isEqualTo(0)
     }
 
+    @Test
+    fun commandsAreCleared_afterProcessing() {
+        service.startInput()
+        scope.advanceUntilIdle()
+        assertThat(inputMethodManager.restartCalls).isEqualTo(1)
+        assertThat(inputMethodManager.showSoftInputCalls).isEqualTo(1)
+
+        service.showSoftwareKeyboard()
+        scope.advanceUntilIdle()
+        assertThat(inputMethodManager.restartCalls).isEqualTo(1) // does not increase
+        assertThat(inputMethodManager.showSoftInputCalls).isEqualTo(2)
+    }
+
     private fun TextInputServiceAndroid.startInput() {
         startInput(
             TextFieldValue(),
@@ -269,6 +283,8 @@ class TextInputServiceAndroidCommandDebouncingTest {
         var restartCalls = 0
         var showSoftInputCalls = 0
         var hideSoftInputCalls = 0
+
+        override fun isActive(): Boolean = true
 
         override fun restartInput() {
             restartCalls++
@@ -291,6 +307,9 @@ class TextInputServiceAndroidCommandDebouncingTest {
             compositionStart: Int,
             compositionEnd: Int
         ) {
+        }
+
+        override fun updateCursorAnchorInfo(cursorAnchorInfo: CursorAnchorInfo) {
         }
     }
 }

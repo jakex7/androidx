@@ -23,6 +23,7 @@ import android.view.accessibility.AccessibilityManager
 import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeListener
 import android.view.accessibility.AccessibilityManager.TouchExplorationStateChangeListener
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,6 +53,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
@@ -105,6 +107,8 @@ public fun TimePicker(
     modifier: Modifier = Modifier,
     time: LocalTime = LocalTime.now()
 ) {
+    val fullyDrawn = remember { Animatable(0f) }
+
     // Omit scaling according to Settings > Display > Font size for this screen
     val typography = MaterialTheme.typography.copy(
         display3 = MaterialTheme.typography.display3.copy(
@@ -137,7 +141,6 @@ public fun TimePicker(
         }
         val textStyle = MaterialTheme.typography.display3
         val optionColor = MaterialTheme.colors.secondary
-        @Suppress("PrimitiveInLambda")
         val pickerOption = pickerTextOption(textStyle) { "%02d".format(it) }
         val focusRequesterConfirmButton = remember { FocusRequester() }
 
@@ -161,7 +164,7 @@ public fun TimePicker(
                 }
             }
 
-        Box(modifier = modifier.fillMaxSize()) {
+        Box(modifier = modifier.fillMaxSize().alpha(fullyDrawn.value)) {
             Column(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -269,6 +272,10 @@ public fun TimePicker(
             }
         }
     }
+
+    LaunchedEffect(Unit) {
+        fullyDrawn.animateTo(1f)
+    }
 }
 
 /**
@@ -291,6 +298,8 @@ public fun TimePickerWith12HourClock(
     modifier: Modifier = Modifier,
     time: LocalTime = LocalTime.now()
 ) {
+    val fullyDrawn = remember { Animatable(0f) }
+
     // Omit scaling according to Settings > Display > Font size for this screen,
     val typography = MaterialTheme.typography.copy(
         display1 = MaterialTheme.typography.display1.copy(
@@ -348,9 +357,7 @@ public fun TimePickerWith12HourClock(
                 } else pmString
             }
         }
-        Box(
-            modifier = modifier.fillMaxSize()
-        ) {
+        Box(modifier = modifier.fillMaxSize().alpha(fullyDrawn.value)) {
             Column(
                 modifier = modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
@@ -474,6 +481,10 @@ public fun TimePickerWith12HourClock(
             }
         }
     }
+
+    LaunchedEffect(Unit) {
+        fullyDrawn.animateTo(1f)
+    }
 }
 
 /**
@@ -500,6 +511,8 @@ public fun DatePicker(
     fromDate: LocalDate? = null,
     toDate: LocalDate? = null
 ) {
+    val fullyDrawn = remember { Animatable(0f) }
+
     if (fromDate != null && toDate != null) {
         verifyDates(date, fromDate, toDate)
     }
@@ -592,10 +605,7 @@ public fun DatePicker(
                 )
             }
         }
-        BoxWithConstraints(
-            modifier = modifier
-                .fillMaxSize()
-        ) {
+        BoxWithConstraints(modifier = modifier.fillMaxSize().alpha(fullyDrawn.value)) {
             val boxConstraints = this
             Column(
                 verticalArrangement = Arrangement.Center,
@@ -755,6 +765,10 @@ public fun DatePicker(
             }
         }
     }
+
+    LaunchedEffect(Unit) {
+        fullyDrawn.animateTo(1f)
+    }
 }
 
 // getPickerGroupRowOffset function calculates the offset of the picker group row in talkback mode.
@@ -809,7 +823,6 @@ fun pickerGroupItemWithRSB(
     contentDescription: String?,
     onSelected: () -> Unit,
     readOnlyLabel: @Composable (BoxScope.() -> Unit)? = null,
-    @Suppress("PrimitiveInLambda")
     option: @Composable PickerScope.(optionIndex: Int, pickerSelected: Boolean) -> Unit
 ) = PickerGroupItem(
     pickerState = pickerState,
@@ -846,12 +859,8 @@ fun PickerWithoutGradient() {
     }
 }
 
-@Suppress("PrimitiveInLambda")
-private fun pickerTextOption(
-    textStyle: TextStyle,
-    @Suppress("PrimitiveInLambda")
-    indexToText: (Int) -> String
-): (@Composable PickerScope.(optionIndex: Int, pickerSelected: Boolean) -> Unit) = {
+private fun pickerTextOption(textStyle: TextStyle, indexToText: (Int) -> String):
+    (@Composable PickerScope.(optionIndex: Int, pickerSelected: Boolean) -> Unit) = {
         value: Int, pickerSelected: Boolean ->
     Box(modifier = Modifier.fillMaxSize()) {
         Text(

@@ -98,7 +98,7 @@ internal class KspProcessingEnv(
     override val filer: XFiler = KspFiler(codeGenerator, messager)
 
     val commonTypes
-        get() = CommonTypes(resolver)
+        get() = CommonTypes()
 
     val voidType
         get() = KspVoidType(
@@ -217,6 +217,12 @@ internal class KspProcessingEnv(
     fun wrap(ksTypeArgument: KSTypeArgument): KspType {
         val typeRef = ksTypeArgument.type
         if (typeRef != null && ksTypeArgument.variance == Variance.INVARIANT) {
+            val declaration = typeRef.resolve().declaration
+            // inline classes can't be non-invariant.
+            if (declaration.isValueClass()) {
+                return KspValueClassArgumentType(env = this, typeArg = ksTypeArgument)
+            }
+
             // fully resolved type argument, return regular type.
             return wrap(
                 ksType = typeRef.resolve(),
@@ -308,15 +314,7 @@ internal class KspProcessingEnv(
         return returnType(type1).isSameType(returnType(type2))
     }
 
-    class CommonTypes(resolver: Resolver) {
-        val nullableInt by lazy {
-            resolver.builtIns.intType.makeNullable()
-        }
-        val nullableLong by lazy {
-            resolver.builtIns.longType.makeNullable()
-        }
-        val nullableByte by lazy {
-            resolver.builtIns.byteType.makeNullable()
-        }
+    inner class CommonTypes() {
+        val anyType: XType = requireType("kotlin.Any")
     }
 }

@@ -50,6 +50,9 @@ import androidx.wear.compose.materialcore.Text
  *
  * Cards can be enabled or disabled. A disabled card will not respond to click events.
  *
+ * Example of a [Card]:
+ * @sample androidx.wear.compose.material3.samples.CardSample
+ *
  * For more information, see the
  * [Cards](https://developer.android.com/training/wearables/components/cards)
  * Wear OS Material design guide.
@@ -126,6 +129,15 @@ fun Card(
  *
  * If more than one composable is provided in the content slot it is the responsibility of the
  * caller to determine how to layout the contents, e.g. provide either a row or a column.
+ *
+ * Example of an [AppCard]:
+ * @sample androidx.wear.compose.material3.samples.AppCardSample
+ *
+ * Example of an [AppCard] with icon:
+ * @sample androidx.wear.compose.material3.samples.AppCardWithIconSample
+ *
+ * Example of an outlined [AppCard]:
+ * @sample androidx.wear.compose.material3.samples.OutlinedAppCardSample
  *
  * For more information, see the
  * [Cards](https://developer.android.com/training/wearables/components/cards)
@@ -242,6 +254,15 @@ fun AppCard(
  * If more than one composable is provided in the content slot it is the responsibility of the
  * caller to determine how to layout the contents, e.g. provide either a row or a column.
  *
+ * Example of a [TitleCard]:
+ * @sample androidx.wear.compose.material3.samples.TitleCardSample
+ *
+ * Example of a [TitleCard] with image:
+ * @sample androidx.wear.compose.material3.samples.TitleCardWithImageSample
+ *
+ * Example of an outlined [TitleCard]:
+ * @sample androidx.wear.compose.material3.samples.OutlinedTitleCardSample
+ *
  * For more information, see the
  * [Cards](https://developer.android.com/training/wearables/components/cards)
  * guide.
@@ -332,6 +353,9 @@ fun TitleCard(
  * The [Card] is Rectangle shaped with rounded corners by default.
  *
  * Cards can be enabled or disabled. A disabled card will not respond to click events.
+ *
+ * Example of an [OutlinedCard]:
+ * @sample androidx.wear.compose.material3.samples.OutlinedCardSample
  *
  * For more information, see the
  * [Cards](https://developer.android.com/training/wearables/components/cards)
@@ -518,15 +542,21 @@ public object CardDefaults {
 /**
  * Represents Colors used in [Card].
  * Unlike other Material 3 components, Cards do not change their color appearance when
- * they are disabled. All colors remain the same in enabled and disabled states
+ * they are disabled. All colors remain the same in enabled and disabled states.
+ *
+ * @param containerPainter [Painter] which is used to draw the background of this [Card].
+ * @param contentColor the content color of this [Card].
+ * @param appNameColor the color used for appName, only applies to [AppCard].
+ * @param timeColor the color used for time, applies to [AppCard] and [TitleCard].
+ * @param titleColor the color used for title, applies to [AppCard] and [TitleCard].
  */
 @Immutable
 public class CardColors(
-    internal val containerPainter: Painter,
-    internal val contentColor: Color,
-    internal val appNameColor: Color,
-    internal val timeColor: Color,
-    internal val titleColor: Color,
+    val containerPainter: Painter,
+    val contentColor: Color,
+    val appNameColor: Color,
+    val timeColor: Color,
+    val titleColor: Color,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

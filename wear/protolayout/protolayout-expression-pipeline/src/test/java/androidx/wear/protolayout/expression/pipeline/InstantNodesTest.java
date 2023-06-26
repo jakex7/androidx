@@ -18,7 +18,9 @@ package androidx.wear.protolayout.expression.pipeline;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.wear.protolayout.expression.pipeline.InstantNodes.FixedInstantNode;
@@ -27,6 +29,7 @@ import androidx.wear.protolayout.expression.proto.FixedProto.FixedInstant;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,7 +37,6 @@ import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
 public class InstantNodesTest {
-
     @Test
     public void testFixedInstant() {
         List<Instant> results = new ArrayList<>();
@@ -49,9 +51,10 @@ public class InstantNodesTest {
     }
 
     @Test
-    public void testPlatformTimeSourceNodeDestroy() {
+    public void testPlatformTimeSourceNode() {
+        PlatformTimeUpdateNotifier notifier = mock(PlatformTimeUpdateNotifier.class);
         EpochTimePlatformDataSource timeSource =
-                new EpochTimePlatformDataSource(mock(PlatformTimeUpdateNotifier.class));
+                new EpochTimePlatformDataSource(() -> Instant.ofEpochSecond(1234567L), notifier);
         List<Instant> results = new ArrayList<>();
 
         PlatformTimeSourceNode node =
@@ -59,6 +62,11 @@ public class InstantNodesTest {
         node.preInit();
         node.init();
         assertThat(timeSource.getRegisterConsumersCount()).isEqualTo(1);
+
+        ArgumentCaptor<Runnable> receiverCaptor = ArgumentCaptor.forClass(Runnable.class);
+        verify(notifier).setReceiver(any(), receiverCaptor.capture());
+        receiverCaptor.getValue().run(); // Ticking.
+        assertThat(results).containsExactly(Instant.ofEpochSecond(1234567L));
 
         node.destroy();
         assertThat(timeSource.getRegisterConsumersCount()).isEqualTo(0);

@@ -27,10 +27,6 @@ val TIMER_TYPE_SPEC: TypeSpec<Timer> = TypeSpecBuilder.newBuilder(
   "Timer",
   Timer::Builder,
   Timer.Builder<*>::build
-).bindStringField(
-  "namespace",
-  { it.namespace },
-  Timer.Builder<*>::setNamespace
 ).bindSpecField(
   "duration",
   { it.duration },

@@ -59,6 +59,11 @@ object MetalavaTasks {
             task.baselines.set(baselinesApiLocation)
             task.targetsJavaConsumers = extension.targetsJavaConsumers
             task.k2UastEnabled.set(extension.metalavaK2UastEnabled)
+
+            // Arguments needed for generating the API levels JSON
+            task.projectApiDirectory = project.layout.projectDirectory.dir("api")
+            task.currentVersion.set(version)
+
             processManifest?.let {
                 task.manifestPath.set(processManifest.manifestOutputFile)
             }
@@ -67,6 +72,7 @@ object MetalavaTasks {
             // using it to validate the generated api
             task.mustRunAfter("updateApiLintBaseline")
         }
+        project.registerVersionMetadataComponent(generateApi)
 
         // Policy: If the artifact has previously been released, e.g. has a beta or later API file
         // checked in, then we must verify "release compatibility" against the work-in-progress
@@ -190,6 +196,7 @@ object MetalavaTasks {
             regenerateOldApis,
             updateApi,
             regenerateApis,
+            generateApi
         )
     }
 
