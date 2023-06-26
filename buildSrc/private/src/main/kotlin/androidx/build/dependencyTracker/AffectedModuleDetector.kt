@@ -85,7 +85,8 @@ abstract class AffectedModuleDetector(
      * Returns whether this task was affected by current changes.
      */
     open fun shouldInclude(task: Task): Boolean {
-        val include = shouldInclude(task.project.path)
+        val projectPath = getProjectPathFromTaskPath(task.path)
+        val include = shouldInclude(projectPath)
         val inclusionVerb = if (include) "Including" else "Excluding"
         logger?.info(
             "$inclusionVerb task ${task.path}"
@@ -99,11 +100,10 @@ abstract class AffectedModuleDetector(
      */
     abstract fun getSubset(projectPath: String): ProjectSubset
 
-    fun getSubset(task: Task): ProjectSubset {
-        val taskPath = task.path
+    fun getProjectPathFromTaskPath(taskPath: String): String {
         val lastColonIndex = taskPath.lastIndexOf(":")
         val projectPath = taskPath.substring(0, lastColonIndex)
-        return getSubset(projectPath)
+        return projectPath
     }
 
     companion object {

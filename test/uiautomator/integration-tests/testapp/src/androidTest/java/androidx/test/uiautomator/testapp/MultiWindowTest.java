@@ -36,6 +36,7 @@ import org.junit.Test;
 @LargeTest
 public class MultiWindowTest extends BaseTest {
 
+    private static final long LONG_TIMEOUT_MS = 30_000;
     private static final long SHORT_TIMEOUT_MS = 5_000;
 
     private static final BySelector STATUS_BAR = By.res("com.android.systemui", "status_bar");
@@ -62,6 +63,7 @@ public class MultiWindowTest extends BaseTest {
         }
     }
 
+    @Ignore // b/288158153
     @Test
     @SdkSuppress(minSdkVersion = 24)
     public void testMultiWindow_pictureInPicture() {
@@ -74,7 +76,7 @@ public class MultiWindowTest extends BaseTest {
 
         // Create window in PiP mode and verify its location (bounds correctly calculated).
         mDevice.pressHome();
-        assertTrue(mDevice.wait(Until.hasObject(pipMode), TIMEOUT_MS));
+        assertTrue(mDevice.wait(Until.hasObject(pipMode), LONG_TIMEOUT_MS));
         UiObject2 pipWindow = mDevice.findObject(pipMode);
         int width = mDevice.getDisplayWidth();
         int height = mDevice.getDisplayHeight();

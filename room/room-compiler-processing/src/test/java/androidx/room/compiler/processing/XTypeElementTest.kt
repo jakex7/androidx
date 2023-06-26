@@ -232,6 +232,55 @@ class XTypeElementTest(
     }
 
     @Test
+    fun superTypeWithNoSuperClass() {
+        runTest(
+            sources = listOf(
+                Source.kotlin(
+                    "foo.bar.KotlinClass.kt",
+                    """
+                    package foo.bar
+                    class KotlinClass
+                    class KotlinClassWithInterface : KotlinInterface
+                    interface KotlinInterface
+                    """.trimIndent()
+                ),
+                Source.java(
+                    "foo.bar.JavaClass",
+                    """
+                    package foo.bar;
+                    class JavaClass {}
+                    class JavaClassWithInterface implements JavaInterface {}
+                    interface JavaInterface {}
+                    """.trimIndent()
+                )
+            )
+        ) { invocation ->
+            invocation.processingEnv.requireTypeElement("foo.bar.KotlinClass").let {
+                assertThat(it.superClass?.asTypeName()).isEqualTo(XTypeName.ANY_OBJECT)
+            }
+            invocation.processingEnv.requireTypeElement("foo.bar.KotlinClassWithInterface").let {
+                assertThat(it.superClass?.asTypeName()).isEqualTo(XTypeName.ANY_OBJECT)
+            }
+            invocation.processingEnv.requireTypeElement("foo.bar.JavaClass").let {
+                assertThat(it.superClass?.asTypeName()).isEqualTo(XTypeName.ANY_OBJECT)
+            }
+            invocation.processingEnv.requireTypeElement("foo.bar.JavaClassWithInterface").let {
+                assertThat(it.superClass?.asTypeName()).isEqualTo(XTypeName.ANY_OBJECT)
+            }
+        }
+    }
+
+    @Test
+    fun superTypeOfAny() {
+        runTest(sources = listOf()) { invocation ->
+            val any = invocation.processingEnv.requireTypeElement(Any::class)
+            val obj = invocation.processingEnv.requireTypeElement(Object::class)
+            assertThat(any.superClass).isNull()
+            assertThat(obj.superClass).isNull()
+        }
+    }
+
+    @Test
     fun superInterfaces() {
         val src = Source.kotlin(
             "foo.kt",
@@ -1389,13 +1438,14 @@ class XTypeElementTest(
             }
             abstract class AbstractNoExplicit
             abstract class AbstractExplicit(x:Int)
+            annotation class AnnotationClass
             """.trimIndent()
         )
         runTest(sources = listOf(src)) { invocation ->
             val subjects = listOf(
                 "MyInterface", "NoExplicitConstructor", "Base", "ExplicitConstructor",
                 "BaseWithSecondary", "Sub", "SubWith3Constructors",
-                "AbstractNoExplicit", "AbstractExplicit"
+                "AbstractNoExplicit", "AbstractExplicit", "AnnotationClass"
             )
             val constructorCounts = subjects.map {
                 it to invocation.processingEnv.requireTypeElement(it).getConstructors().size
@@ -1410,7 +1460,8 @@ class XTypeElementTest(
                     "Sub" to 1,
                     "SubWith3Constructors" to 3,
                     "AbstractNoExplicit" to 1,
-                    "AbstractExplicit" to 1
+                    "AbstractExplicit" to 1,
+                    "AnnotationClass" to 0
                 )
 
             val primaryConstructorParameterNames = subjects.map {
@@ -1430,7 +1481,75 @@ class XTypeElementTest(
                     "Sub" to listOf("x"),
                     "SubWith3Constructors" to emptyList<String>(),
                     "AbstractNoExplicit" to emptyList<String>(),
-                    "AbstractExplicit" to listOf("x")
+                    "AbstractExplicit" to listOf("x"),
+                    "AnnotationClass" to null
+                )
+        }
+    }
+
+    @Test
+    fun constructorsWithDefaultValues() {
+        val src = Source.kotlin(
+            "Subject.kt",
+            """
+            // These should have a no-arg constructor
+            class DefaultCtor
+            class DefaultArgsPrimary(val x: String = "")
+            class AlreadyHasPrimaryNoArgsCtor() {
+                constructor(y: Int = 1) : this()
+            }
+            class AlreadyHasSecondaryNoArgsCtor(val x: String) {
+                constructor() : this("")
+            }
+
+            // These can't have no arg constructor
+            class DefaultArgsSecondary(val x: String) {
+                constructor(y: Int = 1) : this("")
+            }
+            class CantHaveNoArgsCtor(val x: String = "", val y: Int)
+
+            // Shouldn't synthesize no-arg for annotation classes
+            annotation class AnnotationClass(val x: String = "")
+            """.trimIndent()
+        )
+        runTest(sources = listOf(src)) { invocation ->
+            val subjects = listOf(
+                "DefaultCtor", "DefaultArgsPrimary", "AlreadyHasPrimaryNoArgsCtor",
+                "AlreadyHasSecondaryNoArgsCtor", "DefaultArgsSecondary", "CantHaveNoArgsCtor",
+                "AnnotationClass"
+            )
+            val constructorCounts =
+                subjects.associateWith {
+                    invocation.processingEnv.requireTypeElement(it).getConstructors().size
+                }
+            assertThat(constructorCounts)
+                .containsExactlyEntriesIn(
+                    mapOf(
+                        "DefaultCtor" to 1,
+                        "DefaultArgsPrimary" to 2,
+                        "AlreadyHasPrimaryNoArgsCtor" to 2,
+                        "AlreadyHasSecondaryNoArgsCtor" to 2,
+                        "DefaultArgsSecondary" to 2,
+                        "CantHaveNoArgsCtor" to 1,
+                        "AnnotationClass" to 0,
+                    )
+                )
+
+            val hasNoArgConstructor = subjects.associateWith {
+                invocation.processingEnv.requireTypeElement(it)
+                    .getConstructors().any { it.parameters.isEmpty() }
+            }
+            assertThat(hasNoArgConstructor)
+                .containsExactlyEntriesIn(
+                    mapOf(
+                        "DefaultCtor" to true,
+                        "DefaultArgsPrimary" to true,
+                        "AlreadyHasPrimaryNoArgsCtor" to true,
+                        "AlreadyHasSecondaryNoArgsCtor" to true,
+                        "DefaultArgsSecondary" to false,
+                        "CantHaveNoArgsCtor" to false,
+                        "AnnotationClass" to false,
+                    )
                 )
         }
     }
@@ -2086,6 +2205,24 @@ class XTypeElementTest(
                     "method(Ljava/lang/Object;)Ljava/lang/String;",
                     "method(Ltest/Bar;)Ltest/Baz;",
                 )
+        }
+    }
+
+    @Test
+    fun testClassNameWithDollarSign() {
+        runTest(
+            sources = listOf(
+                Source.java(
+                    "test.MyClass\$Foo",
+                    """
+                    package test;
+                    class MyClass${'$'}Foo {}
+                    """.trimIndent()
+                )
+            )
+        ) { invocation ->
+            val subject = invocation.processingEnv.requireTypeElement("test.MyClass\$Foo")
+            assertThat(subject.asClassName().canonicalName).isEqualTo("test.MyClass\$Foo")
         }
     }
 

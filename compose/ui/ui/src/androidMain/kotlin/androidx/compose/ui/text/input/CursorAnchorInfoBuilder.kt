@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.ResolvedTextDirection
  * [CursorAnchorInfo](https://developer.android.com/reference/android/view/inputmethod/CursorAnchorInfo).
  *
  * @param textFieldValue the text field's [TextFieldValue]
+ * @param offsetMapping the offset mapping for the text field's visual transformation
  * @param textLayoutResult the text field's [TextLayoutResult]
  * @param matrix matrix that transforms local coordinates into screen coordinates
  * @param innerTextFieldBounds visible bounds of the text field in local coordinates, or an empty
@@ -43,16 +44,19 @@ import androidx.compose.ui.text.style.ResolvedTextDirection
  * @param includeInsertionMarker whether to include insertion marker info in the CursorAnchorInfo
  * @param includeCharacterBounds whether to include character bounds info in the CursorAnchorInfo
  * @param includeEditorBounds whether to include editor bounds info in the CursorAnchorInfo
+ * @param includeLineBounds whether to include line bounds info in the CursorAnchorInfo
  */
 internal fun CursorAnchorInfo.Builder.build(
     textFieldValue: TextFieldValue,
+    offsetMapping: OffsetMapping,
     textLayoutResult: TextLayoutResult,
     matrix: Matrix,
     innerTextFieldBounds: Rect,
     decorationBoxBounds: Rect,
     includeInsertionMarker: Boolean = true,
     includeCharacterBounds: Boolean = true,
-    includeEditorBounds: Boolean = true
+    includeEditorBounds: Boolean = true,
+    includeLineBounds: Boolean = true
 ): CursorAnchorInfo {
     reset()
 
@@ -63,7 +67,7 @@ internal fun CursorAnchorInfo.Builder.build(
     setSelectionRange(selectionStart, selectionEnd)
 
     if (includeInsertionMarker) {
-        setInsertionMarker(selectionStart, textLayoutResult, innerTextFieldBounds)
+        setInsertionMarker(selectionStart, offsetMapping, textLayoutResult, innerTextFieldBounds)
     }
 
     if (includeCharacterBounds) {
@@ -78,6 +82,7 @@ internal fun CursorAnchorInfo.Builder.build(
             addCharacterBounds(
                 compositionStart,
                 compositionEnd,
+                offsetMapping,
                 textLayoutResult,
                 innerTextFieldBounds
             )
@@ -88,20 +93,31 @@ internal fun CursorAnchorInfo.Builder.build(
         CursorAnchorInfoApi33Helper.setEditorBoundsInfo(this, decorationBoxBounds)
     }
 
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && includeLineBounds) {
+        CursorAnchorInfoApi34Helper.addVisibleLineBounds(
+            this,
+            textLayoutResult,
+            innerTextFieldBounds
+        )
+    }
+
     return build()
 }
 
 private fun CursorAnchorInfo.Builder.setInsertionMarker(
     selectionStart: Int,
+    offsetMapping: OffsetMapping,
     textLayoutResult: TextLayoutResult,
     innerTextFieldBounds: Rect
 ): CursorAnchorInfo.Builder {
     if (selectionStart < 0) return this
 
-    val cursorRect = textLayoutResult.getCursorRect(selectionStart)
+    val selectionStartTransformed = offsetMapping.originalToTransformed(selectionStart)
+    val cursorRect = textLayoutResult.getCursorRect(selectionStartTransformed)
     val isTopVisible = innerTextFieldBounds.containsInclusive(cursorRect.topLeft)
     val isBottomVisible = innerTextFieldBounds.containsInclusive(cursorRect.bottomLeft)
-    val isRtl = textLayoutResult.getBidiRunDirection(selectionStart) == ResolvedTextDirection.Rtl
+    val isRtl =
+        textLayoutResult.getBidiRunDirection(selectionStartTransformed) == ResolvedTextDirection.Rtl
 
     var flags = 0
     if (isTopVisible || isBottomVisible) flags = flags or CursorAnchorInfo.FLAG_HAS_VISIBLE_REGION
@@ -125,14 +141,28 @@ private fun CursorAnchorInfo.Builder.setInsertionMarker(
 private fun CursorAnchorInfo.Builder.addCharacterBounds(
     startOffset: Int,
     endOffset: Int,
+    offsetMapping: OffsetMapping,
     textLayoutResult: TextLayoutResult,
     innerTextFieldBounds: Rect
 ): CursorAnchorInfo.Builder {
-    val array = FloatArray((endOffset - startOffset) * 4)
-    textLayoutResult.multiParagraph.fillBoundingBoxes(TextRange(startOffset, endOffset), array, 0)
+    val startOffsetTransformed = offsetMapping.originalToTransformed(startOffset)
+    val endOffsetTransformed = offsetMapping.originalToTransformed(endOffset)
+    val array = FloatArray((endOffsetTransformed - startOffsetTransformed) * 4)
+    textLayoutResult.multiParagraph.fillBoundingBoxes(
+        TextRange(
+            startOffsetTransformed,
+            endOffsetTransformed
+        ), array, 0
+    )
 
     for (offset in startOffset until endOffset) {
-        val arrayIndex = 4 * (offset - startOffset)
+        // It's possible for a visual transformation to hide some characters. If the character at
+        // the offset is hidden, then offsetTransformed points to the last preceding character that
+        // is not hidden. Since the CursorAnchorInfo API doesn't define what to return in this case,
+        // and visual transformations hiding characters should be rare, returning the bounds for the
+        // last preceding character is the simplest behavior.
+        val offsetTransformed = offsetMapping.originalToTransformed(offset)
+        val arrayIndex = 4 * (offsetTransformed - startOffsetTransformed)
         val rect =
             Rect(
                 array[arrayIndex] /* left */,
@@ -147,11 +177,11 @@ private fun CursorAnchorInfo.Builder.addCharacterBounds(
         }
         if (
             !innerTextFieldBounds.containsInclusive(rect.topLeft) ||
-                !innerTextFieldBounds.containsInclusive(rect.bottomRight)
+            !innerTextFieldBounds.containsInclusive(rect.bottomRight)
         ) {
             flags = flags or CursorAnchorInfo.FLAG_HAS_INVISIBLE_REGION
         }
-        if (textLayoutResult.getBidiRunDirection(offset) == ResolvedTextDirection.Rtl) {
+        if (textLayoutResult.getBidiRunDirection(offsetTransformed) == ResolvedTextDirection.Rtl) {
             flags = flags or CursorAnchorInfo.FLAG_IS_RTL
         }
 
@@ -174,6 +204,31 @@ private object CursorAnchorInfoApi33Helper {
                 .setHandwritingBounds(decorationBoxBounds.toAndroidRectF())
                 .build()
         )
+}
+
+@RequiresApi(34)
+private object CursorAnchorInfoApi34Helper {
+    @JvmStatic
+    @DoNotInline
+    fun addVisibleLineBounds(
+        builder: CursorAnchorInfo.Builder,
+        textLayoutResult: TextLayoutResult,
+        innerTextFieldBounds: Rect
+    ): CursorAnchorInfo.Builder {
+        if (!innerTextFieldBounds.isEmpty) {
+            val firstLine = textLayoutResult.getLineForVerticalPosition(innerTextFieldBounds.top)
+            val lastLine = textLayoutResult.getLineForVerticalPosition(innerTextFieldBounds.bottom)
+            for (index in firstLine..lastLine) {
+                builder.addVisibleLineBounds(
+                    textLayoutResult.getLineLeft(index),
+                    textLayoutResult.getLineTop(index),
+                    textLayoutResult.getLineRight(index),
+                    textLayoutResult.getLineBottom(index)
+                )
+            }
+        }
+        return builder
+    }
 }
 
 /**

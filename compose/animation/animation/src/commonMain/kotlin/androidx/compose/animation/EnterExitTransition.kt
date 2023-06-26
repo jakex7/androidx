@@ -40,9 +40,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
 import androidx.compose.ui.layout.MeasureScope
@@ -513,7 +513,6 @@ fun expandHorizontally(
         ),
     expandFrom: Alignment.Horizontal = Alignment.End,
     clip: Boolean = true,
-    @Suppress("PrimitiveInLambda")
     initialWidth: (fullWidth: Int) -> Int = { 0 },
 ): EnterTransition {
     return expandIn(animationSpec, expandFrom.toAlignment(), clip = clip) {
@@ -553,7 +552,6 @@ fun expandVertically(
         ),
     expandFrom: Alignment.Vertical = Alignment.Bottom,
     clip: Boolean = true,
-    @Suppress("PrimitiveInLambda")
     initialHeight: (fullHeight: Int) -> Int = { 0 },
 ): EnterTransition {
     return expandIn(animationSpec, expandFrom.toAlignment(), clip) {
@@ -593,7 +591,6 @@ fun shrinkHorizontally(
         ),
     shrinkTowards: Alignment.Horizontal = Alignment.End,
     clip: Boolean = true,
-    @Suppress("PrimitiveInLambda")
     targetWidth: (fullWidth: Int) -> Int = { 0 }
 ): ExitTransition {
     // TODO: Support different animation types
@@ -634,7 +631,6 @@ fun shrinkVertically(
         ),
     shrinkTowards: Alignment.Vertical = Alignment.Bottom,
     clip: Boolean = true,
-    @Suppress("PrimitiveInLambda")
     targetHeight: (fullHeight: Int) -> Int = { 0 },
 ): ExitTransition {
     // TODO: Support different animation types
@@ -667,7 +663,6 @@ fun slideInHorizontally(
             stiffness = Spring.StiffnessMediumLow,
             visibilityThreshold = IntOffset.VisibilityThreshold
         ),
-    @Suppress("PrimitiveInLambda")
     initialOffsetX: (fullWidth: Int) -> Int = { -it / 2 },
 ): EnterTransition =
     slideIn(
@@ -699,7 +694,6 @@ fun slideInVertically(
             stiffness = Spring.StiffnessMediumLow,
             visibilityThreshold = IntOffset.VisibilityThreshold
         ),
-    @Suppress("PrimitiveInLambda")
     initialOffsetY: (fullHeight: Int) -> Int = { -it / 2 },
 ): EnterTransition =
     slideIn(
@@ -731,7 +725,6 @@ fun slideOutHorizontally(
             stiffness = Spring.StiffnessMediumLow,
             visibilityThreshold = IntOffset.VisibilityThreshold
         ),
-    @Suppress("PrimitiveInLambda")
     targetOffsetX: (fullWidth: Int) -> Int = { -it / 2 },
 ): ExitTransition =
     slideOut(
@@ -761,7 +754,6 @@ fun slideOutVertically(
             stiffness = Spring.StiffnessMediumLow,
             visibilityThreshold = IntOffset.VisibilityThreshold
         ),
-    @Suppress("PrimitiveInLambda")
     targetOffsetY: (fullHeight: Int) -> Int = { -it / 2 },
 ): ExitTransition =
     slideOut(
@@ -864,7 +856,8 @@ internal fun Transition<EnterExitState>.createModifier(
 
     val graphicsLayerBlock = createGraphicsLayerBlock(enter, exit, label)
 
-    return (if (disableClip) Modifier else Modifier.clipToBounds())
+    return Modifier
+        .graphicsLayer(clip = !disableClip)
         .then(
             EnterExitTransitionElement(
                 this, sizeAnimation, offsetAnimation, slideAnimation,

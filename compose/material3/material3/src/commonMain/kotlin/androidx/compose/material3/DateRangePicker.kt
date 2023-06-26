@@ -106,7 +106,8 @@ fun DateRangePicker(
     showModeToggle: Boolean = true,
     colors: DatePickerColors = DatePickerDefaults.colors()
 ) {
-    val calendarModel = remember { CalendarModel() }
+    val defaultLocale = defaultLocale()
+    val calendarModel = remember(defaultLocale) { createCalendarModel(defaultLocale) }
     DateEntryContainer(
         modifier = modifier,
         title = title,
@@ -258,17 +259,21 @@ fun rememberDateRangePickerState(
     yearRange: IntRange = DatePickerDefaults.YearRange,
     initialDisplayMode: DisplayMode = DisplayMode.Picker,
     selectableDates: SelectableDates = object : SelectableDates {}
-): DateRangePickerState = rememberSaveable(
-    saver = DateRangePickerStateImpl.Saver(selectableDates)
-) {
-    DateRangePickerStateImpl(
-        initialSelectedStartDateMillis = initialSelectedStartDateMillis,
-        initialSelectedEndDateMillis = initialSelectedEndDateMillis,
-        initialDisplayedMonthMillis = initialDisplayedMonthMillis,
-        yearRange = yearRange,
-        initialDisplayMode = initialDisplayMode,
-        selectableDates = selectableDates
-    )
+): DateRangePickerState {
+    val locale = defaultLocale()
+    return rememberSaveable(
+        saver = DateRangePickerStateImpl.Saver(selectableDates, locale)
+    ) {
+        DateRangePickerStateImpl(
+            initialSelectedStartDateMillis = initialSelectedStartDateMillis,
+            initialSelectedEndDateMillis = initialSelectedEndDateMillis,
+            initialDisplayedMonthMillis = initialDisplayedMonthMillis,
+            yearRange = yearRange,
+            initialDisplayMode = initialDisplayMode,
+            selectableDates = selectableDates,
+            locale = locale
+        )
+    }
 }
 
 /**
@@ -462,11 +467,13 @@ private class DateRangePickerStateImpl(
     @Suppress("AutoBoxing") initialDisplayedMonthMillis: Long?,
     yearRange: IntRange,
     initialDisplayMode: DisplayMode,
-    selectableDates: SelectableDates
+    selectableDates: SelectableDates,
+    locale: CalendarLocale
 ) : BaseDatePickerStateImpl(
     initialDisplayedMonthMillis,
     yearRange,
-    selectableDates
+    selectableDates,
+    locale
 ), DateRangePickerState {
 
     /**
@@ -574,7 +581,10 @@ private class DateRangePickerStateImpl(
          * @param selectableDates a [SelectableDates] instance that is consulted to check if a date
          * is allowed
          */
-        fun Saver(selectableDates: SelectableDates): Saver<DateRangePickerStateImpl, Any> =
+        fun Saver(
+            selectableDates: SelectableDates,
+            locale: CalendarLocale
+        ): Saver<DateRangePickerStateImpl, Any> =
             listSaver(
                 save = {
                     listOf(
@@ -593,7 +603,8 @@ private class DateRangePickerStateImpl(
                         initialDisplayedMonthMillis = value[2] as Long?,
                         yearRange = IntRange(value[3] as Int, value[4] as Int),
                         initialDisplayMode = DisplayMode(value[5] as Int),
-                        selectableDates = selectableDates
+                        selectableDates = selectableDates,
+                        locale = locale
                     )
                 }
             )
@@ -611,9 +622,7 @@ private fun SwitchableDateEntryContent(
     selectedEndDateMillis: Long?,
     displayedMonthMillis: Long,
     displayMode: DisplayMode,
-    @Suppress("PrimitiveInLambda")
     onDatesSelectionChange: (startDateMillis: Long?, endDateMillis: Long?) -> Unit,
-    @Suppress("PrimitiveInLambda")
     onDisplayedMonthChange: (monthInMillis: Long) -> Unit,
     calendarModel: CalendarModel,
     yearRange: IntRange,
@@ -664,9 +673,7 @@ private fun DateRangePickerContent(
     selectedStartDateMillis: Long?,
     selectedEndDateMillis: Long?,
     displayedMonthMillis: Long,
-    @Suppress("PrimitiveInLambda")
     onDatesSelectionChange: (startDateMillis: Long?, endDateMillis: Long?) -> Unit,
-    @Suppress("PrimitiveInLambda")
     onDisplayedMonthChange: (monthInMillis: Long) -> Unit,
     calendarModel: CalendarModel,
     yearRange: IntRange,
@@ -704,9 +711,7 @@ private fun VerticalMonthsList(
     lazyListState: LazyListState,
     selectedStartDateMillis: Long?,
     selectedEndDateMillis: Long?,
-    @Suppress("PrimitiveInLambda")
     onDatesSelectionChange: (startDateMillis: Long?, endDateMillis: Long?) -> Unit,
-    @Suppress("PrimitiveInLambda")
     onDisplayedMonthChange: (monthInMillis: Long) -> Unit,
     calendarModel: CalendarModel,
     yearRange: IntRange,
@@ -784,7 +789,6 @@ private fun VerticalMonthsList(
                         }
                     // The updateDateSelection will invoke the onDatesSelectionChange with the proper
                     // selection according to the current state.
-                    @Suppress("PrimitiveInLambda")
                     val onDateSelectionChange = { dateInMillis: Long ->
                         updateDateSelection(
                             dateInMillis = dateInMillis,
@@ -823,7 +827,6 @@ private fun updateDateSelection(
     dateInMillis: Long,
     currentStartDateMillis: Long?,
     currentEndDateMillis: Long?,
-    @Suppress("PrimitiveInLambda")
     onDatesSelectionChange: (startDateMillis: Long?, endDateMillis: Long?) -> Unit
 ) {
     if ((currentStartDateMillis == null && currentEndDateMillis == null) ||

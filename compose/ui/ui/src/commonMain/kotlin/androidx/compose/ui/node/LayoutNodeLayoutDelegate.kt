@@ -47,6 +47,13 @@ internal class LayoutNodeLayoutDelegate(
         get() = measurePassDelegate.width
 
     /**
+     * This gets set to true via [MeasurePassDelegate.markDetachedFromParentLookaheadPass] and
+     * automatically gets unset in `measure` when the measure call comes from parent with
+     * layoutState being LookaheadMeasuring or LookaheadLayingOut.
+     */
+    private var detachedFromParentLookaheadPass: Boolean = false
+
+    /**
      * The layout state the node is currently in.
      *
      * The mutation of [layoutState] is confined to [LayoutNodeLayoutDelegate], and is therefore
@@ -331,6 +338,10 @@ internal class LayoutNodeLayoutDelegate(
                 childDelegatesDirty = false
                 return _childDelegates.asMutableList()
             }
+
+        internal fun markDetachedFromParentLookaheadPass() {
+            detachedFromParentLookaheadPass = true
+        }
 
         var layingOutChildren = false
             private set
@@ -1135,6 +1146,10 @@ internal class LayoutNodeLayoutDelegate(
         }
 
         override fun measure(constraints: Constraints): Placeable {
+            if (layoutNode.parent?.layoutState == LayoutState.LookaheadMeasuring ||
+                layoutNode.parent?.layoutState == LayoutState.LookaheadLayingOut) {
+                detachedFromParentLookaheadPass = false
+            }
             trackLookaheadMeasurementByParent(layoutNode)
             if (layoutNode.intrinsicsUsageByParent == LayoutNode.UsageByParent.NotUsed) {
                 // This LayoutNode may have asked children for intrinsics. If so, we should
@@ -1191,14 +1206,19 @@ internal class LayoutNodeLayoutDelegate(
                 forEachChildAlignmentLinesOwner {
                     it.alignmentLines.usedDuringParentMeasurement = false
                 }
+                // Copy out the previous size before performing lookahead measure. If never
+                // measured, set the last size to negative instead of Zero in anticipation for zero
+                // being a valid lookahead size.
+                val lastLookaheadSize = if (measuredOnce)
+                    measuredSize
+                else
+                    IntSize(Int.MIN_VALUE, Int.MIN_VALUE)
                 measuredOnce = true
                 val lookaheadDelegate = outerCoordinator.lookaheadDelegate
                 check(lookaheadDelegate != null) {
                     "Lookahead result from lookaheadRemeasure cannot be null"
                 }
 
-                // Copy out the previous size before perform lookahead measure
-                val lastLookaheadSize = IntSize(lookaheadDelegate.width, lookaheadDelegate.height)
                 performLookaheadMeasure(constraints)
                 measuredSize = IntSize(lookaheadDelegate.width, lookaheadDelegate.height)
                 val sizeChanged = lastLookaheadSize.width != lookaheadDelegate.width ||
@@ -1482,7 +1502,7 @@ internal class LayoutNodeLayoutDelegate(
      * has a lookahead root.
      */
     private fun LayoutNode.isOutMostLookaheadRoot(): Boolean =
-        lookaheadRoot != null && parent?.lookaheadRoot == null
+        lookaheadRoot != null && (parent?.lookaheadRoot == null || detachedFromParentLookaheadPass)
 
     /**
      * Performs measure with the given constraints and perform necessary state mutations before

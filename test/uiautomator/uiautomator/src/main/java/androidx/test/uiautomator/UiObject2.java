@@ -41,6 +41,8 @@ import androidx.annotation.FloatRange;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.test.uiautomator.util.Traces;
+import androidx.test.uiautomator.util.Traces.Section;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -190,14 +192,41 @@ public class UiObject2 implements Searchable {
     /**
      * Waits for a {@code condition} to be met.
      *
+     * @param condition The {@link UiObject2Condition} to wait for.
+     * @param timeout   The maximum time in milliseconds to wait for.
+     * @return The final result returned by the {@code condition}, or {@code null} if the {@code
+     * condition} was not met before the {@code timeout}.
+     */
+    public <U> U wait(@NonNull UiObject2Condition<U> condition, long timeout) {
+        return wait((Condition<? super UiObject2, U>) condition, timeout);
+    }
+
+    /**
+     * Waits for a {@code condition} to be met.
+     *
+     * @param condition The {@link SearchCondition} to evaluate.
+     * @param timeout   The maximum time in milliseconds to wait for.
+     * @return The final result returned by the {@code condition}, or {@code null} if the {@code
+     * condition} was not met before the {@code timeout}.
+     */
+    public <U> U wait(@NonNull SearchCondition<U> condition, long timeout) {
+        return wait((Condition<? super UiObject2, U>) condition, timeout);
+    }
+
+
+    /**
+     * Waits for a {@code condition} to be met.
+     *
      * @param condition The {@link Condition} to evaluate.
      * @param timeout   The maximum time in milliseconds to wait for.
      * @return The final result returned by the {@code condition}, or {@code null} if the {@code
      * condition} was not met before the {@code timeout}.
      */
     public <U> U wait(@NonNull Condition<? super UiObject2, U> condition, long timeout) {
-        Log.d(TAG, String.format("Waiting %dms for %s.", timeout, condition));
-        return mWaitMixin.wait(condition, timeout);
+        try (Section ignored = Traces.trace("UiObject2#wait")) {
+            Log.d(TAG, String.format("Waiting %dms for %s.", timeout, condition));
+            return mWaitMixin.wait(condition, timeout);
+        }
     }
 
     // Search functions

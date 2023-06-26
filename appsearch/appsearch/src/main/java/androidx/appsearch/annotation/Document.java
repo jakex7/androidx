@@ -88,6 +88,22 @@ public @interface Document {
     String name() default "";
 
     /**
+     * The list of {@link Document} annotated classes that this type inherits from, in the context
+     * of AppSearch.
+     *
+     * <p>Please note that the type systems in AppSearch and Java are not necessarily equivalent.
+     * Specifically, if Foo and Bar are two classes, Bar can be a parent type of Foo in
+     * AppSearch, but the Foo class does not have to extend the Bar class in Java. The converse
+     * holds as well. However, the most common use case is to align the two type systems for
+     * single parent pattern, given that if Foo extends Bar in Java, Bar's properties will
+     * automatically be copied into Foo so that it is not necessary to redefine every property in
+     * Foo.
+     *
+     * @see AppSearchSchema.Builder#addParentType(String)
+     */
+    Class<?>[] parent() default {};
+
+    /**
      * Marks a member field of a document as the document's unique identifier (ID).
      *
      * <p>Indexing a document with a particular ID replaces any existing documents with the same
@@ -213,6 +229,28 @@ public @interface Document {
          */
         @AppSearchSchema.StringPropertyConfig.IndexingType int indexingType()
                 default AppSearchSchema.StringPropertyConfig.INDEXING_TYPE_NONE;
+
+        /**
+         * Configures how a property should be processed so that the document can be joined.
+         *
+         * <p>Properties configured with
+         * {@link AppSearchSchema.StringPropertyConfig#JOINABLE_VALUE_TYPE_QUALIFIED_ID} enable
+         * the documents to be joined with other documents that have the same qualified ID as the
+         * value of this field. (A qualified ID is a compact representation of the tuple <package
+         * name, database name, namespace, document ID> that uniquely identifies a document
+         * indexed in the AppSearch storage backend.) This property name can be specified as the
+         * child property expression in {@link androidx.appsearch.app.JoinSpec.Builder(String)} for
+         * join operations.
+         *
+         * <p>This attribute doesn't apply to properties of a repeated type (e.g., a list).
+         *
+         * <p>If not specified, defaults to
+         * {@link AppSearchSchema.StringPropertyConfig#JOINABLE_VALUE_TYPE_NONE}, which means the
+         * property can not be used in a child property expression to configure a
+         * {@link androidx.appsearch.app.JoinSpec.Builder(String)}.
+         */
+        @AppSearchSchema.StringPropertyConfig.JoinableValueType int joinableValueType()
+                default AppSearchSchema.StringPropertyConfig.JOINABLE_VALUE_TYPE_NONE;
 
         /**
          * Configures whether this property must be specified for the document to be valid.

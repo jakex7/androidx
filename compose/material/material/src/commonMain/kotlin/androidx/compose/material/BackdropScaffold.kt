@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:Suppress("Deprecation") // b/274465184
+
 package androidx.compose.material
 
 import androidx.compose.animation.core.AnimationSpec
@@ -453,7 +455,6 @@ private fun BackdropStack(
     modifier: Modifier,
     backLayer: @Composable @UiComposable () -> Unit,
     calculateBackLayerConstraints: (Constraints) -> Constraints,
-    @Suppress("PrimitiveInLambda")
     frontLayer: @Composable @UiComposable (Constraints, Float) -> Unit
 ) {
     SubcomposeLayout(modifier) { constraints ->

@@ -17,6 +17,7 @@
 package androidx.room.compiler.processing
 
 import androidx.room.compiler.codegen.XClassName
+import androidx.room.compiler.codegen.XTypeName.Companion.ANY_OBJECT
 import androidx.room.compiler.codegen.XTypeName.Companion.UNAVAILABLE_KTYPE_NAME
 import androidx.room.compiler.processing.ksp.ERROR_JTYPE_NAME
 import androidx.room.compiler.processing.ksp.ERROR_KTYPE_NAME
@@ -1563,6 +1564,68 @@ class XTypeTest {
     }
 
     @Test
+    fun rawTypeNames() {
+        val src = Source.java(
+            "test.Subject",
+            """
+            package test;
+            import java.util.Set;
+            @SuppressWarnings("rawtypes")
+            class Subject {
+                Foo foo;
+                Foo<Foo> fooFoo;
+                Foo<Foo<Foo>> fooFooFoo;
+                Bar<Foo, Foo> barFooFoo;
+            }
+            class Foo<T> {}
+            class Bar<T1, T2> {}
+            """.trimIndent()
+        )
+        runProcessorTest(sources = listOf(src)) { invocation ->
+            fun assertHasTypeName(type: XType, expectedTypeName: String) {
+                assertThat(type.asTypeName().java.toString()).isEqualTo(expectedTypeName)
+                if (invocation.isKsp) {
+                    assertThat(type.asTypeName().kotlin.toString()).isEqualTo(expectedTypeName)
+                }
+            }
+
+            val subject = invocation.processingEnv.requireTypeElement("test.Subject")
+            assertHasTypeName(subject.getDeclaredField("foo").type, "test.Foo")
+            assertHasTypeName(subject.getDeclaredField("fooFoo").type, "test.Foo<test.Foo>")
+            assertHasTypeName(
+                subject.getDeclaredField("fooFooFoo").type, "test.Foo<test.Foo<test.Foo>>")
+            assertHasTypeName(
+                subject.getDeclaredField("barFooFoo").type, "test.Bar<test.Foo, test.Foo>")
+
+            // Test manually wrapping raw type using XProcessingEnv#getDeclaredType()
+            subject.getDeclaredField("foo").type.let { foo ->
+                val fooTypeElement = invocation.processingEnv.requireTypeElement("test.Foo")
+                val fooFoo: XType = invocation.processingEnv.getDeclaredType(fooTypeElement, foo)
+                assertHasTypeName(fooFoo, "test.Foo<test.Foo>")
+
+                val fooFooFoo: XType =
+                    invocation.processingEnv.getDeclaredType(fooTypeElement, fooFoo)
+                assertHasTypeName(fooFooFoo, "test.Foo<test.Foo<test.Foo>>")
+
+                val barTypeElement = invocation.processingEnv.requireTypeElement("test.Bar")
+                val barFooFoo: XType =
+                    invocation.processingEnv.getDeclaredType(barTypeElement, foo, foo)
+                assertHasTypeName(barFooFoo, "test.Bar<test.Foo, test.Foo>")
+            }
+
+            // Test manually unwrapping a type with a raw type argument:
+            subject.getDeclaredField("fooFoo").type.let { fooFoo ->
+                assertHasTypeName(fooFoo.typeArguments.single(), "test.Foo")
+            }
+            subject.getDeclaredField("barFooFoo").type.let { barFooFoo ->
+                assertThat(barFooFoo.typeArguments).hasSize(2)
+                assertHasTypeName(barFooFoo.typeArguments[0], "test.Foo")
+                assertHasTypeName(barFooFoo.typeArguments[1], "test.Foo")
+            }
+        }
+    }
+
+    @Test
     fun hasAnnotationWithPackage() {
         val kotlinSrc = Source.kotlin(
             "KotlinClass.kt",
@@ -1723,5 +1786,86 @@ class XTypeTest {
             """.trimIndent()
             )
         )
+    }
+
+    @Test
+    fun selfReferenceSuperTypesDoesNotInfinitelyRecurse() {
+        val baseInterface = Source.java(
+            "test.BaseInterface",
+            """
+            package test;
+            public interface BaseInterface<T> {}
+            """.trimIndent()
+        )
+        val selfReferenceClass = Source.java(
+            "test.SelfRef",
+            """
+            package test;
+            public abstract class SelfRef<T extends SelfRef<T>> { }
+            """.trimIndent()
+        )
+        val source = Source.java(
+            "test.Subject",
+            """
+            package test;
+            public final class Subject implements BaseInterface<SelfRef<?>> { }
+            """.trimIndent()
+        )
+        runProcessorTest(
+            sources = listOf(
+                baseInterface,
+                selfReferenceClass,
+                source
+            ),
+        ) {
+            val subject = it.processingEnv.requireTypeElement("test.Subject")
+            val superType = subject.type.superTypes
+                .map { it.asTypeName() }
+                .filterNot { it == ANY_OBJECT }
+                .single()
+            assertThat(superType.java)
+                .isEqualTo(
+                    JParameterizedTypeName.get(
+                        JClassName.get("test", "BaseInterface"),
+                        JParameterizedTypeName.get(
+                            JClassName.get("test", "SelfRef"),
+                            JWildcardTypeName.subtypeOf(JClassName.OBJECT)
+                        )
+                    )
+                )
+        }
+    }
+
+    @Test
+    fun valueTypes() {
+        val kotlinSrc = Source.kotlin(
+            "KotlinClass.kt",
+            """
+            @JvmInline value class PackageName(val value: String)
+
+            class KotlinClass {
+                fun getPackageNames(): Set<PackageName> = emptySet()
+                fun setPackageNames(pkgNames: Set<PackageName>) { }
+            }
+            """.trimIndent()
+        )
+        runProcessorTest(
+            sources = listOf(kotlinSrc)
+        ) { invocation ->
+            val kotlinElm = invocation.processingEnv.requireTypeElement("KotlinClass")
+            kotlinElm.getMethodByJvmName("getPackageNames").apply {
+                assertThat(returnType.typeName.toString())
+                    .isEqualTo("java.util.Set<PackageName>")
+                assertThat(returnType.typeArguments.single().typeName.toString())
+                    .isEqualTo("PackageName")
+            }
+            kotlinElm.getMethodByJvmName("setPackageNames").apply {
+                val paramType = parameters.single().type
+                assertThat(paramType.typeName.toString())
+                    .isEqualTo("java.util.Set<PackageName>")
+                assertThat(paramType.typeArguments.single().typeName.toString())
+                    .isEqualTo("PackageName")
+            }
+        }
     }
 }

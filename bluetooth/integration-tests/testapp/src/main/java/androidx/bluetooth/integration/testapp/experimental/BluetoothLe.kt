@@ -117,6 +117,11 @@ class BluetoothLe(private val context: Context) {
             value: ByteArray,
             writeType: Int
         ): Result<Unit>
+        suspend fun readDescriptor(descriptor: BluetoothGattDescriptor): Result<ByteArray>
+        suspend fun writeDescriptor(
+            descriptor: BluetoothGattDescriptor,
+            value: ByteArray
+        ): Result<Unit>
         fun subscribeToCharacteristic(characteristic: BluetoothGattCharacteristic): Flow<ByteArray>
         suspend fun awaitClose(onClosed: () -> Unit)
     }
@@ -124,157 +129,159 @@ class BluetoothLe(private val context: Context) {
     suspend fun <R> connectGatt(
         context: Context,
         device: BluetoothDevice,
-        block: GattClientScope.() -> R
-    ) {
-        GattClientImpl().connect(context, device, block)
+        block: suspend GattClientScope.() -> R
+    ): R? {
+        return GattClientImpl().connect(context, device, block)
     }
 
     @SuppressLint("MissingPermission")
-    fun gattServer(): Flow<GattServerCallback> =
-        callbackFlow {
-            val callback = object : BluetoothGattServerCallback() {
-                override fun onConnectionStateChange(
-                    device: BluetoothDevice?,
-                    status: Int,
-                    newState: Int
-                ) {
-                    trySend(
-                        GattServerCallback.OnConnectionStateChange(device, status, newState)
-                    )
-                }
-
-                override fun onServiceAdded(status: Int, service: BluetoothGattService?) {
-                    trySend(
-                        GattServerCallback.OnServiceAdded(status, service)
-                    )
-                }
-
-                override fun onCharacteristicReadRequest(
-                    device: BluetoothDevice?,
-                    requestId: Int,
-                    offset: Int,
-                    characteristic: BluetoothGattCharacteristic?
-                ) {
-                    trySend(
-                        GattServerCallback.OnCharacteristicReadRequest(
-                            device,
-                            requestId,
-                            offset,
-                            characteristic
-                        )
-                    )
-                }
-
-                override fun onCharacteristicWriteRequest(
-                    device: BluetoothDevice?,
-                    requestId: Int,
-                    characteristic: BluetoothGattCharacteristic?,
-                    preparedWrite: Boolean,
-                    responseNeeded: Boolean,
-                    offset: Int,
-                    value: ByteArray?
-                ) {
-                    trySend(
-                        GattServerCallback.OnCharacteristicWriteRequest(
-                            device,
-                            requestId,
-                            characteristic,
-                            preparedWrite,
-                            responseNeeded,
-                            offset,
-                            value
-                        )
-                    )
-                }
-
-                override fun onDescriptorReadRequest(
-                    device: BluetoothDevice?,
-                    requestId: Int,
-                    offset: Int,
-                    descriptor: BluetoothGattDescriptor?
-                ) {
-                    trySend(
-                        GattServerCallback.OnDescriptorReadRequest(
-                            device,
-                            requestId,
-                            offset,
-                            descriptor
-                        )
-                    )
-                }
-
-                override fun onDescriptorWriteRequest(
-                    device: BluetoothDevice?,
-                    requestId: Int,
-                    descriptor: BluetoothGattDescriptor?,
-                    preparedWrite: Boolean,
-                    responseNeeded: Boolean,
-                    offset: Int,
-                    value: ByteArray?
-                ) {
-                    trySend(
-                        GattServerCallback.OnDescriptorWriteRequest(
-                            device,
-                            requestId,
-                            descriptor,
-                            preparedWrite,
-                            responseNeeded,
-                            offset,
-                            value
-                        )
-                    )
-                }
-
-                override fun onExecuteWrite(
-                    device: BluetoothDevice?,
-                    requestId: Int,
-                    execute: Boolean
-                ) {
-                    trySend(
-                        GattServerCallback.OnExecuteWrite(device, requestId, execute)
-                    )
-                }
-
-                override fun onNotificationSent(device: BluetoothDevice?, status: Int) {
-                    trySend(
-                        GattServerCallback.OnNotificationSent(device, status)
-                    )
-                }
-
-                override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
-                    trySend(
-                        GattServerCallback.OnMtuChanged(device, mtu)
-                    )
-                }
-
-                override fun onPhyUpdate(
-                    device: BluetoothDevice?,
-                    txPhy: Int,
-                    rxPhy: Int,
-                    status: Int
-                ) {
-                    trySend(
-                        GattServerCallback.OnPhyUpdate(device, txPhy, rxPhy, status)
-                    )
-                }
-
-                override fun onPhyRead(
-                    device: BluetoothDevice?,
-                    txPhy: Int,
-                    rxPhy: Int,
-                    status: Int
-                ) {
-                    trySend(
-                        GattServerCallback.OnPhyRead(device, txPhy, rxPhy, status)
-                    )
-                }
+    fun openGattServer(
+        services: List<BluetoothGattService> = emptyList()
+    ): Flow<GattServerCallback> = callbackFlow {
+        val callback = object : BluetoothGattServerCallback() {
+            override fun onConnectionStateChange(
+                device: BluetoothDevice?,
+                status: Int,
+                newState: Int
+            ) {
+                trySend(
+                    GattServerCallback.OnConnectionStateChange(device, status, newState)
+                )
             }
 
-            val bluetoothGattServer = bluetoothManager?.openGattServer(context, callback)
+            override fun onServiceAdded(status: Int, service: BluetoothGattService?) {
+                trySend(
+                    GattServerCallback.OnServiceAdded(status, service)
+                )
+            }
 
-            awaitClose {
-                Log.d(TAG, "awaitClose() called")
-                bluetoothGattServer?.close()
+            override fun onCharacteristicReadRequest(
+                device: BluetoothDevice?,
+                requestId: Int,
+                offset: Int,
+                characteristic: BluetoothGattCharacteristic?
+            ) {
+                trySend(
+                    GattServerCallback.OnCharacteristicReadRequest(
+                        device,
+                        requestId,
+                        offset,
+                        characteristic
+                    )
+                )
+            }
+
+            override fun onCharacteristicWriteRequest(
+                device: BluetoothDevice?,
+                requestId: Int,
+                characteristic: BluetoothGattCharacteristic?,
+                preparedWrite: Boolean,
+                responseNeeded: Boolean,
+                offset: Int,
+                value: ByteArray?
+            ) {
+                trySend(
+                    GattServerCallback.OnCharacteristicWriteRequest(
+                        device,
+                        requestId,
+                        characteristic,
+                        preparedWrite,
+                        responseNeeded,
+                        offset,
+                        value
+                    )
+                )
+            }
+
+            override fun onDescriptorReadRequest(
+                device: BluetoothDevice?,
+                requestId: Int,
+                offset: Int,
+                descriptor: BluetoothGattDescriptor?
+            ) {
+                trySend(
+                    GattServerCallback.OnDescriptorReadRequest(
+                        device,
+                        requestId,
+                        offset,
+                        descriptor
+                    )
+                )
+            }
+
+            override fun onDescriptorWriteRequest(
+                device: BluetoothDevice?,
+                requestId: Int,
+                descriptor: BluetoothGattDescriptor?,
+                preparedWrite: Boolean,
+                responseNeeded: Boolean,
+                offset: Int,
+                value: ByteArray?
+            ) {
+                trySend(
+                    GattServerCallback.OnDescriptorWriteRequest(
+                        device,
+                        requestId,
+                        descriptor,
+                        preparedWrite,
+                        responseNeeded,
+                        offset,
+                        value
+                    )
+                )
+            }
+
+            override fun onExecuteWrite(
+                device: BluetoothDevice?,
+                requestId: Int,
+                execute: Boolean
+            ) {
+                trySend(
+                    GattServerCallback.OnExecuteWrite(device, requestId, execute)
+                )
+            }
+
+            override fun onNotificationSent(device: BluetoothDevice?, status: Int) {
+                trySend(
+                    GattServerCallback.OnNotificationSent(device, status)
+                )
+            }
+
+            override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
+                trySend(
+                    GattServerCallback.OnMtuChanged(device, mtu)
+                )
+            }
+
+            override fun onPhyUpdate(
+                device: BluetoothDevice?,
+                txPhy: Int,
+                rxPhy: Int,
+                status: Int
+            ) {
+                trySend(
+                    GattServerCallback.OnPhyUpdate(device, txPhy, rxPhy, status)
+                )
+            }
+
+            override fun onPhyRead(
+                device: BluetoothDevice?,
+                txPhy: Int,
+                rxPhy: Int,
+                status: Int
+            ) {
+                trySend(
+                    GattServerCallback.OnPhyRead(device, txPhy, rxPhy, status)
+                )
             }
         }
+
+        val bluetoothGattServer = bluetoothManager?.openGattServer(context, callback)
+        services.forEach { bluetoothGattServer?.addService(it) }
+
+        awaitClose {
+            Log.d(TAG, "awaitClose() called")
+            bluetoothGattServer?.close()
+        }
+    }
 }

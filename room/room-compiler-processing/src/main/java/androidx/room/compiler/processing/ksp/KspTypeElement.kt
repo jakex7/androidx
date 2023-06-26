@@ -33,6 +33,7 @@ import androidx.room.compiler.processing.collectAllMethods
 import androidx.room.compiler.processing.collectFieldsIncludingPrivateSupers
 import androidx.room.compiler.processing.filterMethodsByConfig
 import androidx.room.compiler.processing.ksp.KspAnnotated.UseSiteFilter.Companion.NO_USE_SITE
+import androidx.room.compiler.processing.ksp.synthetic.KspSyntheticNoArgConstructorElement
 import androidx.room.compiler.processing.ksp.synthetic.KspSyntheticPropertyMethodElement
 import androidx.room.compiler.processing.tryBox
 import androidx.room.compiler.processing.util.MemoizedSequence
@@ -94,17 +95,19 @@ internal sealed class KspTypeElement(
         if (isInterface()) {
             // interfaces don't have super classes (they do have super types)
             null
+        } else if (this == env.commonTypes.anyType.typeElement) {
+            null
         } else {
-            declaration.superTypes.firstOrNull {
-                val type =
-                    it.resolve().declaration as? KSClassDeclaration ?: return@firstOrNull false
-                type.classKind == ClassKind.CLASS
-            }?.let {
-                env.wrap(
-                    ksType = it.resolve(),
-                    allowPrimitives = false
-                )
-            }
+            declaration.superTypes
+                .map { it.resolve() }
+                .singleOrNull {
+                    (it.declaration as? KSClassDeclaration)?.classKind == ClassKind.CLASS
+                }?.let {
+                    env.wrap(
+                        ksType = it,
+                        allowPrimitives = false
+                    )
+                } ?: env.commonTypes.anyType
         }
     }
 
@@ -236,11 +239,7 @@ internal sealed class KspTypeElement(
         return Modifier.DATA in declaration.modifiers
     }
 
-    override fun isValueClass(): Boolean {
-        // The inline modifier for inline classes is deprecated in Kotlin but we still include it
-        // in this check.
-        return Modifier.VALUE in declaration.modifiers || Modifier.INLINE in declaration.modifiers
-    }
+    override fun isValueClass(): Boolean = declaration.isValueClass()
 
     override fun isFunctionalInterface(): Boolean {
         return Modifier.FUN in declaration.modifiers
@@ -260,6 +259,9 @@ internal sealed class KspTypeElement(
     }
 
     override fun findPrimaryConstructor(): XConstructorElement? {
+        if (isAnnotationClass()) {
+            return null
+        }
         return declaration.primaryConstructor?.let {
             KspConstructorElement(
                 env = env,
@@ -321,12 +323,34 @@ internal sealed class KspTypeElement(
     }
 
     override fun getConstructors(): List<XConstructorElement> {
-        return declaration.getConstructors().map {
-            KspConstructorElement(
-                env = env,
-                declaration = it
+        if (isAnnotationClass()) {
+            return emptyList()
+        }
+        return buildList {
+            addAll(
+                declaration.getConstructors().map {
+                    KspConstructorElement(
+                        env = env,
+                        declaration = it
+                    )
+                }
             )
-        }.toList()
+            // Too match KAPT if all params in the primary constructor have default values then
+            // synthesize a no-arg constructor if one is not already present.
+            val hasNoArgConstructor = declaration.getConstructors().any { it.parameters.isEmpty() }
+            if (!hasNoArgConstructor) {
+                declaration.primaryConstructor?.let {
+                    if (it.parameters.all { it.hasDefault }) {
+                        add(
+                            KspSyntheticNoArgConstructorElement(
+                                env = env,
+                                declaration = it
+                            )
+                        )
+                    }
+                }
+            }
+        }
     }
 
     override fun getSuperInterfaceElements(): List<XTypeElement> {

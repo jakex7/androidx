@@ -24,8 +24,6 @@ import org.gradle.api.file.FileCollection
 object SupportConfig {
     const val DEFAULT_MIN_SDK_VERSION = 14
     const val INSTRUMENTATION_RUNNER = "androidx.test.runner.AndroidJUnitRunner"
-    private const val INTERNAL_BUILD_TOOLS_VERSION = "34.0.0-rc3"
-    private const val PUBLIC_BUILD_TOOLS_VERSION = "34.0.0"
     const val NDK_VERSION = "23.1.7779620"
 
     /**
@@ -34,7 +32,7 @@ object SupportConfig {
      * Either an integer value or a pre-release platform code, prefixed with "android-" (ex.
      * "android-28" or "android-Q") as you would see within the SDK's platforms directory.
      */
-    const val COMPILE_SDK_VERSION = "android-33-ext5"
+    const val COMPILE_SDK_VERSION = "android-34"
 
     /**
      * The Android SDK version to use for targetSdkVersion meta-data.
@@ -47,7 +45,7 @@ object SupportConfig {
      * order for tests to run on devices running released versions of the Android OS. If this is
      * set to a pre-release version, tests will only be able to run on pre-release devices.
      */
-    const val TARGET_SDK_VERSION = 33
+    const val TARGET_SDK_VERSION = 34
 
     /**
      * Returns the build tools version that should be used for the project.
@@ -55,13 +53,7 @@ object SupportConfig {
      * Note that the value might be different between the internal and external (github) builds.
      */
     @JvmStatic
-    fun buildToolsVersion(project: Project): String {
-        return if (ProjectLayoutType.isPlayground(project)) {
-            PUBLIC_BUILD_TOOLS_VERSION
-        } else {
-            INTERNAL_BUILD_TOOLS_VERSION
-        }
-    }
+    fun buildToolsVersion(@Suppress("UNUSED_PARAMETER") project: Project): String = "34.0.0"
 }
 
 fun Project.getExternalProjectPath(): File {

@@ -208,7 +208,7 @@ internal fun CoreTextField(
 
     // CompositionLocals
     // If the text field is disabled or read-only, we should not deal with the input service
-    val textInputService = if (!enabled || readOnly) null else LocalTextInputService.current
+    val textInputService = LocalTextInputService.current
     val density = LocalDensity.current
     val fontFamilyResolver = LocalFontFamilyResolver.current
     val selectionBackgroundColor = LocalTextSelectionColors.current.backgroundColor
@@ -384,6 +384,7 @@ internal fun CoreTextField(
 
     val onPositionedModifier = Modifier.onGloballyPositioned {
         state.layoutCoordinates = it
+        state.layoutResult?.innerTextFieldCoordinates = it
         if (enabled) {
             if (state.handleState == HandleState.Selection) {
                 if (state.showFloatingToolbar) {
@@ -401,8 +402,19 @@ internal fun CoreTextField(
                     manager.isSelectionHandleInVisibleBound(isStartHandle = true)
             }
             notifyFocusedRect(state, value, offsetMapping)
+            state.layoutResult?.let { layoutResult ->
+                state.inputSession?.let { inputSession ->
+                    if (state.hasFocus) {
+                        TextFieldDelegate.updateTextLayoutResult(
+                            inputSession,
+                            value,
+                            offsetMapping,
+                            layoutResult
+                        )
+                    }
+                }
+            }
         }
-        state.layoutResult?.innerTextFieldCoordinates = it
     }
 
     val isPassword = visualTransformation is PasswordVisualTransformation

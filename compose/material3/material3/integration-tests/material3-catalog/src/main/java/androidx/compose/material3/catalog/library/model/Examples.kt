@@ -120,6 +120,7 @@ import androidx.compose.material3.samples.ScrollingSecondaryTabs
 import androidx.compose.material3.samples.ScrollingTextTabs
 import androidx.compose.material3.samples.SearchBarSample
 import androidx.compose.material3.samples.SecondaryTabs
+import androidx.compose.material3.samples.SegmentedButtonSingleSelectSample
 import androidx.compose.material3.samples.SimpleBottomAppBar
 import androidx.compose.material3.samples.SimpleBottomSheetScaffoldSample
 import androidx.compose.material3.samples.SimpleCenterAlignedTopAppBar
@@ -146,7 +147,8 @@ import androidx.compose.material3.samples.TextFieldWithPlaceholder
 import androidx.compose.material3.samples.TextFieldWithPrefixAndSuffix
 import androidx.compose.material3.samples.TextFieldWithSupportingText
 import androidx.compose.material3.samples.TextTabs
-import androidx.compose.material3.samples.ThreeLineListItem
+import androidx.compose.material3.samples.ThreeLineListItemWithExtendedSupporting
+import androidx.compose.material3.samples.ThreeLineListItemWithOverlineAndSupporting
 import androidx.compose.material3.samples.TimeInputSample
 import androidx.compose.material3.samples.TimePickerSample
 import androidx.compose.material3.samples.TimePickerSwitchableSample
@@ -559,11 +561,18 @@ val ListsExamples = listOf(
         TwoLineListItem()
     },
     Example(
-        name = ::ThreeLineListItem.name,
+        name = ::ThreeLineListItemWithOverlineAndSupporting.name,
         description = ListsExampleDescription,
         sourceUrl = ListsExampleSourceUrl
     ) {
-        ThreeLineListItem()
+        ThreeLineListItemWithOverlineAndSupporting()
+    },
+    Example(
+        name = ::ThreeLineListItemWithExtendedSupporting.name,
+        description = ListsExampleDescription,
+        sourceUrl = ListsExampleSourceUrl
+    ) {
+        ThreeLineListItemWithExtendedSupporting()
     },
 )
 
@@ -778,6 +787,18 @@ val SearchBarExamples = listOf(
         sourceUrl = SearchBarExampleSourceUrl
     ) {
         DockedSearchBarSample()
+    }
+)
+
+private const val SegmentedButtonExampleDescription = "Segmented Button examples"
+private const val SegmentedButtonSourceUrl = "$SampleSourceUrl/SegmentedButtonSamples.kt"
+val SegmentedButtonExamples = listOf(
+    Example(
+        name = ::SegmentedButtonSingleSelectSample.name,
+        description = SegmentedButtonExampleDescription,
+        sourceUrl = SegmentedButtonSourceUrl
+    ) {
+        SegmentedButtonSingleSelectSample()
     },
 )
 
