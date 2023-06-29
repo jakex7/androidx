@@ -21,15 +21,18 @@ import android.telecom.DisconnectCause
 import androidx.annotation.RequiresApi
 import androidx.core.telecom.internal.utils.Utils
 import androidx.core.telecom.utils.BaseTelecomTest
+import androidx.core.telecom.utils.MockInCallService
 import androidx.core.telecom.utils.TestUtils
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.filters.SdkSuppress
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -102,7 +105,22 @@ class BasicCallControlsTest : BaseTelecomTest() {
     @Test
     fun testTogglingHoldOnActiveCall() {
         setUpV2Test()
-        runBlocking_ToggleCallAsserts()
+        runBlocking_ToggleCallAsserts(TestUtils.OUTGOING_CALL_ATTRIBUTES)
+    }
+
+    /**
+     * assert [CallsManager.addCall] can successfully add a call that does NOT support setting the
+     * call inactive and when the setInactive is called, the transaction fails.
+     * The call should use the *V2 platform APIs* under the hood.
+     */
+    @SdkSuppress(minSdkVersion = VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @LargeTest
+    @Test
+    fun testTogglingHoldOnActiveCall_NoHoldCapabilities() {
+        setUpV2Test()
+        assertFalse(TestUtils.OUTGOING_NO_HOLD_CAP_CALL_ATTRIBUTES
+            .hasSupportsSetInactiveCapability())
+        runBlocking_ShouldFailHold(TestUtils.OUTGOING_NO_HOLD_CAP_CALL_ATTRIBUTES)
     }
 
     /**
@@ -116,6 +134,31 @@ class BasicCallControlsTest : BaseTelecomTest() {
     fun testRequestEndpointChange() {
         setUpV2Test()
         runBlocking_RequestEndpointChangeAsserts()
+    }
+
+    /**
+     * assert [CallsManager.addCall] can successfully add a call and verifies that requests to
+     * mute/unmute the call are reflected in [CallControlScope.isMuted]. The call should use the
+     * *V2 platform APIs* under the hood.
+     */
+    @SdkSuppress(minSdkVersion = VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @LargeTest
+    @Test
+    fun testIsMuted() {
+        setUpV2Test()
+        verifyMuteStateChange()
+    }
+
+    /**
+     * assert that an exception is thrown in the call flow when CallControlScope#setCallbacks isn't
+     * the first function to be invoked. The call should use the *V2 platform APIs* under the hood.
+     */
+    @SdkSuppress(minSdkVersion = VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @LargeTest
+    @Test
+    fun testBasicCallControlCallbackOperations_CallbackNotSet() {
+        setUpV2Test()
+        verifyAnswerCallFails_CallbackNotSet()
     }
 
     /***********************************************************************************************
@@ -158,7 +201,23 @@ class BasicCallControlsTest : BaseTelecomTest() {
     @Test
     fun testTogglingHoldOnActiveCall_BackwardsCompat() {
         setUpBackwardsCompatTest()
-        runBlocking_ToggleCallAsserts()
+        runBlocking_ToggleCallAsserts(TestUtils.OUTGOING_CALL_ATTRIBUTES)
+    }
+
+    /**
+     * assert [CallsManager.addCall] can successfully add a call that does NOT support setting the
+     * call inactive and when the setInactive is called, the transaction fails.
+     * The call should use the *[android.telecom.ConnectionService] and [android.telecom.Connection]
+     * APIs* under the hood.
+     */
+    @SdkSuppress(minSdkVersion = VERSION_CODES.O)
+    @LargeTest
+    @Test
+    fun testTogglingHoldOnActiveCall_NoHoldCapabilities_BackwardsCompat() {
+        setUpBackwardsCompatTest()
+        assertFalse(TestUtils.OUTGOING_NO_HOLD_CAP_CALL_ATTRIBUTES
+            .hasSupportsSetInactiveCapability())
+        runBlocking_ShouldFailHold(TestUtils.OUTGOING_NO_HOLD_CAP_CALL_ATTRIBUTES)
     }
 
     /**
@@ -175,6 +234,32 @@ class BasicCallControlsTest : BaseTelecomTest() {
         runBlocking_RequestEndpointChangeAsserts()
         // TODO:: tracking bug: b/283324578. This test passes when the request is sent off and does
         // not actually verify the request was successful. Need to change the impl. details.
+    }
+
+    /**
+     * assert [CallsManager.addCall] can successfully add a call and verifies that requests to
+     * mute/unmute the call are reflected in [CallControlScope.isMuted]. The call should use the
+     * *[android.telecom.ConnectionService] and [android.telecom.Connection] APIs* under the hood.
+     */
+    @SdkSuppress(minSdkVersion = VERSION_CODES.O)
+    @LargeTest
+    @Test
+    fun testIsMuted_BackwardsCompat() {
+        setUpBackwardsCompatTest()
+        verifyMuteStateChange()
+    }
+
+    /**
+     * assert that an exception is thrown in the call flow when CallControlScope#setCallbacks isn't
+     * the first function to be invoked. The call should use the
+     * *[android.telecom.ConnectionService] and [android.telecom.Connection] APIs* under the hood.
+     */
+    @SdkSuppress(minSdkVersion = VERSION_CODES.O)
+    @LargeTest
+    @Test
+    fun testBasicCallControlCallbackOperations_BackwardsCompat_CallbackNotSet() {
+        setUpBackwardsCompatTest()
+        verifyAnswerCallFails_CallbackNotSet()
     }
 
     /***********************************************************************************************
@@ -208,15 +293,29 @@ class BasicCallControlsTest : BaseTelecomTest() {
     }
 
     // similar to runBlocking_addCallAndSetActive except for toggling
-    private fun runBlocking_ToggleCallAsserts() {
+    private fun runBlocking_ToggleCallAsserts(callAttributesCompat: CallAttributesCompat) {
         runBlocking {
             val deferred = CompletableDeferred<Unit>()
-            assertWithinTimeout_addCall(deferred, TestUtils.OUTGOING_CALL_ATTRIBUTES) {
+            assertWithinTimeout_addCall(deferred, callAttributesCompat) {
                 launch {
                     repeat(NUM_OF_TIMES_TO_TOGGLE) {
                         assertTrue(setActive())
                         assertTrue(setInactive())
                     }
+                    assertTrue(disconnect(DisconnectCause(DisconnectCause.LOCAL)))
+                    deferred.complete(Unit) // completed all asserts. cancel timeout!
+                }
+            }
+        }
+    }
+
+    private fun runBlocking_ShouldFailHold(callAttributesCompat: CallAttributesCompat) {
+        runBlocking {
+            val deferred = CompletableDeferred<Unit>()
+            assertWithinTimeout_addCall(deferred, callAttributesCompat) {
+                launch {
+                    assertTrue(setActive())
+                    assertFalse(setInactive()) // API under test / expect failure
                     assertTrue(disconnect(DisconnectCause(DisconnectCause.LOCAL)))
                     deferred.complete(Unit) // completed all asserts. cancel timeout!
                 }
@@ -252,6 +351,78 @@ class BasicCallControlsTest : BaseTelecomTest() {
                     deferred.complete(Unit) // completed all asserts. cancel timeout!
                 }
             }
+        }
+    }
+
+    /**
+     * This helper verifies that [CallControlScope.isMuted] properly collects updates to the mute
+     * state via [MockInCallService.setMuted].
+     *
+     * Note: Due to the possibility that the channel can receive stale updates, it's necessary to
+     * keep receiving those updates until the state does change. To prevent the test execution from
+     * blocking on additional updates, the coroutine scope needs to be cancelled.
+     */
+    @Suppress("deprecation")
+    private fun verifyMuteStateChange() {
+        runBlocking {
+            val deferred = CompletableDeferred<Unit>()
+            assertWithinTimeout_addCall(deferred, TestUtils.OUTGOING_CALL_ATTRIBUTES) {
+                launch {
+                    assertTrue(setActive())
+                    // Grab initial mute state
+                    val initialMuteState = isMuted.first()
+                    // Toggle to other state
+                    val setMuteStateTo = !initialMuteState
+                    var muteStateChanged = false
+                    // Toggle mute via ICS
+                    MockInCallService.setMute(setMuteStateTo)
+                    runBlocking {
+                        launch {
+                            isMuted.collect {
+                                if (it != initialMuteState) {
+                                    muteStateChanged = true
+                                    // Cancel the coroutine to ensure we don't block on waiting for
+                                    // updates and force a timeout.
+                                    cancel()
+                                }
+                            }
+                        }
+                    }
+
+                    // Ensure that the updated mute state was collected
+                    assertTrue(muteStateChanged)
+                    assertTrue(disconnect(DisconnectCause(DisconnectCause.LOCAL)))
+                    deferred.complete(Unit) // completed all asserts. cancel timeout!
+                }
+            }
+        }
+    }
+
+    @Suppress("deprecation")
+    private fun verifyAnswerCallFails_CallbackNotSet() {
+        try {
+            runBlocking {
+                val deferred = CompletableDeferred<Unit>()
+                // Skip setting callback
+                assertWithinTimeout_addCall(deferred, TestUtils.INCOMING_CALL_ATTRIBUTES, false) {
+                    launch {
+                        val call = TestUtils.waitOnInCallServiceToReachXCalls(1)
+                        assertNotNull("The returned Call object is <NULL>", call)
+                        // Send answer request
+                        answer(CallAttributesCompat.CALL_TYPE_AUDIO_CALL)
+                        // Always send the disconnect signal if possible:
+                        disconnect(DisconnectCause(DisconnectCause.LOCAL))
+                        // CallException should be thrown at this point. Add failing assertion to
+                        // ensure that the exception is always thrown.
+                        assertTrue("Call was set to active without setting callbacks", false)
+                    }
+                }
+            }
+        } catch (e: CallException) {
+            // Exception should be thrown from not setting the callback.
+            assertTrue(e.code == CallException.ERROR_CALLBACKS_CODE)
+            // Assert that the callback wasn't invoked
+            assertFalse(TestUtils.mOnAnswerCallbackCalled)
         }
     }
 
