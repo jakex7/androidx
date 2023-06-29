@@ -324,6 +324,7 @@ filteredProjects.add(":lint-checks")
 @Field Pattern projectReferencePattern = Pattern.compile(
         "(project|projectOrArtifact)\\((path: )?[\"'](?<name>\\S*)[\"'](, configuration: .*)?\\)"
 )
+@Field Pattern testProjectTarget = Pattern.compile("targetProjectPath = \"(.*)\"")
 @Field Pattern multilineProjectReference = Pattern.compile("project\\(\$")
 @Field Pattern inspection = Pattern.compile("packageInspector\\(project, \"(.*)\"\\)")
 @Field Pattern composePlugin = Pattern.compile("id\\(\"AndroidXComposePlugin\"\\)")
@@ -372,6 +373,10 @@ def includeProject(String name, filePath, List<BuildType> filter = []) {
                         "Multi-line project() references are not supported. Please fix $file.absolutePath"
                 )
             }
+            Matcher targetProject = testProjectTarget.matcher(line)
+            if (targetProject.find()) {
+                links.add(targetProject.group(1))
+            }
             Matcher matcherInspection = inspection.matcher(line)
             if (matcherInspection) {
                 links.add(matcherInspection.group(1))
@@ -390,6 +395,7 @@ def includeProject(String name, filePath, List<BuildType> filter = []) {
         }
         projectReferences[name] = links
     }
+    // Remove file existence checking when https://github.com/gradle/gradle/issues/25531 is fixed.
     if (!file.exists()) {
         // This option is supported so that development/simplify_build_failure.sh can try
         // deleting entire projects at once to identify the cause of a build failure
@@ -1213,7 +1219,6 @@ if (isAllProjects()) {
     includeProject(":docs-public")
 }
 
-includeProject(":docs-kmp", [BuildType.KMP, BuildType.INFRAROGUE])
 // placeholder test project that has a test for each size to ensure that at least one test is run
 // for each size and test runner is happy when there is nothing to test.
 includeProject(":placeholder-tests")

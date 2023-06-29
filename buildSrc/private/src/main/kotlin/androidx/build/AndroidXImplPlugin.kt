@@ -19,17 +19,12 @@ package androidx.build
 import androidx.benchmark.gradle.BenchmarkPlugin
 import androidx.build.AndroidXImplPlugin.Companion.TASK_TIMEOUT_MINUTES
 import androidx.build.Release.DEFAULT_PUBLISH_CONFIG
-import androidx.build.SupportConfig.COMPILE_SDK_VERSION
-import androidx.build.SupportConfig.DEFAULT_MIN_SDK_VERSION
-import androidx.build.SupportConfig.INSTRUMENTATION_RUNNER
-import androidx.build.SupportConfig.TARGET_SDK_VERSION
 import androidx.build.buildInfo.addCreateLibraryBuildInfoFileTasks
 import androidx.build.checkapi.JavaApiTaskConfig
 import androidx.build.checkapi.KmpApiTaskConfig
 import androidx.build.checkapi.LibraryApiTaskConfig
 import androidx.build.checkapi.configureProjectForApiTasks
 import androidx.build.dependencies.KOTLIN_VERSION
-import androidx.build.docs.AndroidXKmpDocsImplPlugin
 import androidx.build.gradle.isRoot
 import androidx.build.license.configureExternalDependencyLicenseCheck
 import androidx.build.resources.configurePublicResourcesStub
@@ -346,8 +341,6 @@ class AndroidXImplPlugin @Inject constructor(
                 }
             }
         }
-        // setup a partial docs artifact that can be used to generate offline docs, if requested.
-        AndroidXKmpDocsImplPlugin.setupPartialDocsArtifact(project)
         if (plugin is KotlinMultiplatformPluginWrapper) {
             project.configureKonanDirectory()
             project.extensions.findByType<LibraryExtension>()?.apply {
@@ -648,15 +641,21 @@ class AndroidXImplPlugin @Inject constructor(
             targetCompatibility = VERSION_1_8
         }
 
-        compileSdkVersion(COMPILE_SDK_VERSION)
-        buildToolsVersion = SupportConfig.buildToolsVersion(project)
-        defaultConfig.targetSdk = TARGET_SDK_VERSION
-        ndkVersion = SupportConfig.NDK_VERSION
+        val defaultMinSdkVersion = project.defaultAndroidConfig.minSdk
+        val defaultCompileSdkVersion = project.defaultAndroidConfig.compileSdk
 
         // Suppress output of android:compileSdkVersion and related attributes (b/277836549).
         aaptOptions.additionalParameters += "--no-compile-sdk-metadata"
 
-        defaultConfig.testInstrumentationRunner = INSTRUMENTATION_RUNNER
+        // Specify default values. The client may attempt to override these in their build.gradle,
+        // so we'll need to perform validation in afterEvaluate().
+        compileSdkVersion(defaultCompileSdkVersion)
+        buildToolsVersion = project.defaultAndroidConfig.buildToolsVersion
+        ndkVersion = project.defaultAndroidConfig.ndkVersion
+
+        defaultConfig.minSdk = defaultMinSdkVersion
+        defaultConfig.targetSdk = project.defaultAndroidConfig.targetSdk
+        defaultConfig.testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         testOptions.animationsDisabled = true
         testOptions.unitTests.isReturnDefaultValues = true
@@ -671,18 +670,15 @@ class AndroidXImplPlugin @Inject constructor(
             task.maxHeapSize = "3g"
         }
 
-        // Include resources in Robolectric tests as a workaround for b/184641296 and
-        // ensure the build directory exists as a workaround for b/187970292.
+        // Include resources in Robolectric tests as a workaround for b/184641296
         testOptions.unitTests.isIncludeAndroidResources = true
-        if (!project.buildDir.exists()) project.buildDir.mkdirs()
 
-        defaultConfig.minSdk = DEFAULT_MIN_SDK_VERSION
         project.afterEvaluate {
             val minSdkVersion = defaultConfig.minSdk!!
-            check(minSdkVersion >= DEFAULT_MIN_SDK_VERSION) {
-                "minSdkVersion $minSdkVersion lower than the default of $DEFAULT_MIN_SDK_VERSION"
+            check(minSdkVersion >= defaultMinSdkVersion) {
+                "minSdkVersion $minSdkVersion lower than the default of $defaultMinSdkVersion"
             }
-            check(compileSdkVersion == COMPILE_SDK_VERSION ||
+            check(compileSdkVersion == defaultCompileSdkVersion ||
                 project.isCustomCompileSdkAllowed()
             ) {
                 "compileSdkVersion must not be explicitly specified, was \"$compileSdkVersion\""
@@ -752,7 +748,7 @@ class AndroidXImplPlugin @Inject constructor(
         // Note, this should really match COMPILE_SDK_VERSION, however
         // this API takes an integer and we are unable to set it to a
         // pre-release SDK.
-        defaultConfig.aarMetadata.minCompileSdk = TARGET_SDK_VERSION
+        defaultConfig.aarMetadata.minCompileSdk = project.defaultAndroidConfig.targetSdk
         project.configurations.all { config ->
             val isTestConfig = config.name.lowercase(Locale.US).contains("test")
 

@@ -16,17 +16,17 @@
 
 package androidx.tracing.perfetto.handshake
 
-import androidx.tracing.perfetto.handshake.protocol.EnableTracingResponse
 import androidx.tracing.perfetto.handshake.protocol.RequestKeys.ACTION_DISABLE_TRACING_COLD_START
 import androidx.tracing.perfetto.handshake.protocol.RequestKeys.ACTION_ENABLE_TRACING
 import androidx.tracing.perfetto.handshake.protocol.RequestKeys.ACTION_ENABLE_TRACING_COLD_START
 import androidx.tracing.perfetto.handshake.protocol.RequestKeys.KEY_PATH
 import androidx.tracing.perfetto.handshake.protocol.RequestKeys.KEY_PERSISTENT
 import androidx.tracing.perfetto.handshake.protocol.RequestKeys.RECEIVER_CLASS_NAME
-import androidx.tracing.perfetto.handshake.protocol.ResponseExitCodes
-import androidx.tracing.perfetto.handshake.protocol.ResponseKeys.KEY_EXIT_CODE
+import androidx.tracing.perfetto.handshake.protocol.Response
 import androidx.tracing.perfetto.handshake.protocol.ResponseKeys.KEY_MESSAGE
 import androidx.tracing.perfetto.handshake.protocol.ResponseKeys.KEY_REQUIRED_VERSION
+import androidx.tracing.perfetto.handshake.protocol.ResponseKeys.KEY_RESULT_CODE
+import androidx.tracing.perfetto.handshake.protocol.ResponseResultCodes
 import java.io.File
 
 /**
@@ -57,7 +57,7 @@ public class PerfettoSdkHandshake(
      */
     public fun enableTracingImmediate(
         librarySource: LibrarySource? = null
-    ): EnableTracingResponse = safeExecute {
+    ): Response = safeExecute {
         val libPath = librarySource?.run {
             PerfettoSdkSideloader(targetPackage).sideloadFromZipFile(
                 libraryZip,
@@ -84,8 +84,8 @@ public class PerfettoSdkHandshake(
     @JvmOverloads
     public fun enableTracingColdStart(
         librarySource: LibrarySource?,
-        persistent: Boolean = false // TODO(245426369): add test for `persistent == true`
-    ): EnableTracingResponse = safeExecute {
+        persistent: Boolean = false
+    ): Response = safeExecute {
         // sideload the `libtracing_perfetto.so` file if applicable
         val libPath = librarySource?.run {
             PerfettoSdkSideloader(targetPackage).sideloadFromZipFile(
@@ -105,7 +105,7 @@ public class PerfettoSdkHandshake(
             libPath,
             persistent = persistent
         )
-        if (response.exitCode == ResponseExitCodes.RESULT_CODE_SUCCESS) {
+        if (response.resultCode == ResponseResultCodes.RESULT_CODE_SUCCESS) {
             // terminate the app process (that we woke up by issuing a broadcast earlier)
             killAppProcess()
         }
@@ -124,9 +124,7 @@ public class PerfettoSdkHandshake(
      *
      * @see [enableTracingColdStart]
      */
-    // Note: The class name of [EnableTracingResponse] no longer matches its purpose here, so we
-    // need to rename it e.g. to [Response] in a follow-up TODO(288257855)
-    public fun disableTracingColdStart(): EnableTracingResponse = safeExecute {
+    public fun disableTracingColdStart(): Response = safeExecute {
         sendTracingBroadcast(ACTION_DISABLE_TRACING_COLD_START).also {
             killAppProcess()
         }
@@ -136,7 +134,7 @@ public class PerfettoSdkHandshake(
         action: String,
         libPath: File? = null,
         persistent: Boolean? = null
-    ): EnableTracingResponse {
+    ): Response {
         val commandBuilder = StringBuilder("am broadcast -a $action")
         if (persistent != null) commandBuilder.append(" --es $KEY_PERSISTENT $persistent")
         if (libPath != null) commandBuilder.append(" --es $KEY_PATH $libPath")
@@ -153,14 +151,14 @@ public class PerfettoSdkHandshake(
         }
     }
 
-    private fun parseResponse(rawResponse: String): EnableTracingResponse {
+    private fun parseResponse(rawResponse: String): Response {
         val line = rawResponse
             .split(Regex("\r?\n"))
             .firstOrNull { it.contains("Broadcast completed: result=") }
             ?: throw PerfettoSdkHandshakeException("Cannot parse: $rawResponse")
 
-        if (line == "Broadcast completed: result=0") return EnableTracingResponse(
-            ResponseExitCodes.RESULT_CODE_CANCELLED, null, null
+        if (line == "Broadcast completed: result=0") return Response(
+            ResponseResultCodes.RESULT_CODE_CANCELLED, null, null
         )
 
         val matchResult =
@@ -186,9 +184,9 @@ public class PerfettoSdkHandshake(
             )
 
         val dataMap = parseJsonMap(dataString)
-        val response = EnableTracingResponse(
-            dataMap[KEY_EXIT_CODE]?.toInt()
-                ?: throw PerfettoSdkHandshakeException("Response missing $KEY_EXIT_CODE value"),
+        val response = Response(
+            dataMap[KEY_RESULT_CODE]?.toInt()
+                ?: throw PerfettoSdkHandshakeException("Response missing $KEY_RESULT_CODE value"),
             dataMap[KEY_REQUIRED_VERSION]
                 ?: throw PerfettoSdkHandshakeException(
                     "Response missing $KEY_REQUIRED_VERSION" +
@@ -197,20 +195,20 @@ public class PerfettoSdkHandshake(
             dataMap[KEY_MESSAGE]
         )
 
-        if (broadcastResponseCode != response.exitCode) {
+        if (broadcastResponseCode != response.resultCode) {
             throw PerfettoSdkHandshakeException(
-                "Cannot parse: $rawResponse. Exit code not matching broadcast exit code."
+                "Cannot parse: $rawResponse. Result code not matching broadcast result code."
             )
         }
 
         return response
     }
 
-    /** Executes provided [block] and wraps exceptions in an appropriate [EnableTracingResponse] */
-    private fun safeExecute(block: () -> EnableTracingResponse): EnableTracingResponse = try {
+    /** Executes provided [block] and wraps exceptions in an appropriate [Response] */
+    private fun safeExecute(block: () -> Response): Response = try {
         block()
     } catch (exception: Exception) {
-        EnableTracingResponse(ResponseExitCodes.RESULT_CODE_ERROR_OTHER, null, exception.message)
+        Response(ResponseResultCodes.RESULT_CODE_ERROR_OTHER, null, exception.message)
     }
 
     private fun killAppProcess() {
@@ -221,9 +219,9 @@ public class PerfettoSdkHandshake(
             true -> executeShellCommand("killall $targetPackage")
             else -> executeShellCommand("am force-stop $targetPackage")
         }
-        if (result.isNotBlank()) throw PerfettoSdkHandshakeException(
-            "Issue while trying to kill app process: $result"
-        )
+        if (result.isNotBlank() && !result.contains("No such process")) {
+            throw PerfettoSdkHandshakeException("Issue while trying to kill app process: $result")
+        }
     }
 
     /**

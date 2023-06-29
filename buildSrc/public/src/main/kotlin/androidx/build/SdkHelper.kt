@@ -20,6 +20,7 @@ import java.io.File
 import java.util.Properties
 import org.gradle.api.GradleException
 import org.gradle.api.Project
+import org.gradle.api.file.FileTree
 import org.gradle.api.plugins.ExtraPropertiesExtension
 
 /**
@@ -28,18 +29,12 @@ import org.gradle.api.plugins.ExtraPropertiesExtension
 fun Project.writeSdkPathToLocalPropertiesFile() {
     val sdkPath = project.getSdkPath()
     if (sdkPath.exists()) {
-        // This must be the project's real root directory (ex. fw/support/ui) rather than the
-        // canonical root obtained via getSupportRootFolder().
         val props = File(project.rootDir, "local.properties")
         // Gradle always separates directories with '/' regardless of the OS, so convert here.
         val gradlePath = sdkPath.absolutePath.replace(File.separator, "/")
-        var expectedContents = "sdk.dir=$gradlePath"
-        expectedContents += "\ncmake.dir=$gradlePath/native-build-tools"
-        if (!props.exists() || props.readText(Charsets.UTF_8).trim() != expectedContents) {
-            props.printWriter().use { out ->
-                out.println(expectedContents)
-            }
-            println("updated local.properties")
+        val contents = "sdk.dir=$gradlePath\ncmake.dir=$gradlePath/native-build-tools"
+        props.printWriter().use { out ->
+            out.println(contents)
         }
     } else {
         throw Exception(
@@ -48,6 +43,15 @@ fun Project.writeSdkPathToLocalPropertiesFile() {
                 "go/androidx-onboarding."
         )
     }
+}
+
+/**
+ * Returns a file tree representing the platform SDK suitable for use as a dependency.
+ */
+fun Project.getSdkDependency(): FileTree = fileTree(
+    "${getSdkPath()}/platforms/${project.defaultAndroidConfig.compileSdk}/"
+) {
+    it.include("android.jar")
 }
 
 /**
