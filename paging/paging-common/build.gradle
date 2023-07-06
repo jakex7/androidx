@@ -40,13 +40,15 @@ androidXMultiplatform {
             dependencies {
                 api(libs.kotlinStdlib)
                 api(libs.kotlinCoroutinesCore)
+                api("androidx.annotation:annotation:1.7.0-alpha02")
+                implementation(libs.statelyConcurrency)
+                implementation(libs.statelyConcurrentCollections)
             }
         }
 
         jvmMain {
             dependsOn(commonMain)
             dependencies {
-                api("androidx.annotation:annotation:1.3.0")
                 api("androidx.arch.core:core-common:2.2.0")
 
             }
@@ -55,6 +57,8 @@ androidXMultiplatform {
         commonTest {
             dependencies {
                 implementation(libs.kotlinCoroutinesTest)
+                implementation(libs.kotlinTest)
+                implementation(project(":internal-testutils-kmp"))
             }
         }
 
@@ -64,10 +68,8 @@ androidXMultiplatform {
                 implementation(libs.mockitoCore4)
                 implementation(libs.mockitoKotlin4)
                 implementation(project(":internal-testutils-common"))
-                implementation(project(":internal-testutils-kmp"))
                 implementation(project(":internal-testutils-ktx"))
                 implementation(project(":internal-testutils-paging"))
-                implementation(libs.kotlinTest)
             }
         }
 
