@@ -32,7 +32,8 @@ import java.io.File
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.withLock
 
-object Trace {
+/** Allows for emitting trace events using Perfetto SDK. */
+object PerfettoSdkTrace {
     /**
      * Checks whether the tracing library has been loaded and the app has been registered with
      * Perfetto SDK tracing server. This is useful to avoid intermediate string creation for trace

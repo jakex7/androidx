@@ -21,13 +21,13 @@ import androidx.build.dackka.DackkaTask
 import androidx.build.dackka.GenerateMetadataTask
 import androidx.build.defaultAndroidConfig
 import androidx.build.dependencies.KOTLIN_VERSION
-import androidx.build.enforceKtlintVersion
 import androidx.build.getAndroidJar
 import androidx.build.getBuildId
 import androidx.build.getCheckoutRoot
 import androidx.build.getDistributionDirectory
 import androidx.build.getKeystore
 import androidx.build.getLibraryByName
+import androidx.build.metalava.versionMetadataUsage
 import androidx.build.multiplatformUsage
 import com.android.build.api.attributes.BuildTypeAttr
 import com.android.build.gradle.LibraryExtension
@@ -46,6 +46,7 @@ import org.gradle.api.artifacts.ComponentMetadataContext
 import org.gradle.api.artifacts.ComponentMetadataRule
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.attributes.Attribute
+import org.gradle.api.attributes.Bundling
 import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.DocsType
 import org.gradle.api.attributes.LibraryElements
@@ -86,6 +87,7 @@ abstract class AndroidXDocsImplPlugin : Plugin<Project> {
     lateinit var docsSourcesConfiguration: Configuration
     lateinit var multiplatformDocsSourcesConfiguration: Configuration
     lateinit var samplesSourcesConfiguration: Configuration
+    lateinit var versionMetadataConfiguration: Configuration
     lateinit var dependencyClasspath: FileCollection
 
     @get:Inject
@@ -284,11 +286,12 @@ abstract class AndroidXDocsImplPlugin : Plugin<Project> {
      * - stubs(project(":foo:foo-stubs")) - stubs needed for a documented library
      */
     private fun createConfigurations(project: Project) {
-        project.configurations.all {
-            project.enforceKtlintVersion(it)
-        }
         project.dependencies.components.all<SourcesVariantRule>()
         val docsConfiguration = project.configurations.create("docs") {
+            it.isCanBeResolved = false
+            it.isCanBeConsumed = false
+        }
+        val apiSinceDocsConfiguration = project.configurations.create("apiSinceDocs") {
             it.isCanBeResolved = false
             it.isCanBeConsumed = false
         }
@@ -329,7 +332,7 @@ abstract class AndroidXDocsImplPlugin : Plugin<Project> {
         }
         docsSourcesConfiguration = project.configurations.create("docs-sources") {
             it.setResolveSources()
-            it.extendsFrom(docsConfiguration)
+            it.extendsFrom(docsConfiguration, apiSinceDocsConfiguration)
         }
         multiplatformDocsSourcesConfiguration = project.configurations.create(
             "multiplatform-docs-sources"
@@ -361,6 +364,26 @@ abstract class AndroidXDocsImplPlugin : Plugin<Project> {
             it.extendsFrom(samplesConfiguration)
         }
 
+        versionMetadataConfiguration = project.configurations.create("library-version-metadata") {
+            it.isTransitive = false
+            it.isCanBeConsumed = false
+
+            it.attributes.attribute(
+                Usage.USAGE_ATTRIBUTE,
+                project.versionMetadataUsage
+            )
+            it.attributes.attribute(
+                Category.CATEGORY_ATTRIBUTE,
+                project.objects.named<Category>(Category.DOCUMENTATION)
+            )
+            it.attributes.attribute(
+                Bundling.BUNDLING_ATTRIBUTE,
+                project.objects.named<Bundling>(Bundling.EXTERNAL)
+            )
+
+            it.extendsFrom(apiSinceDocsConfiguration)
+        }
+
         fun Configuration.setResolveClasspathForUsage(usage: String) {
             isCanBeConsumed = false
             attributes {
@@ -377,7 +400,10 @@ abstract class AndroidXDocsImplPlugin : Plugin<Project> {
                     project.objects.named<BuildTypeAttr>("release")
                 )
             }
-            extendsFrom(docsConfiguration, samplesConfiguration, stubsConfiguration)
+            extendsFrom(
+                docsConfiguration, samplesConfiguration, stubsConfiguration,
+                apiSinceDocsConfiguration
+            )
         }
 
         // Build a compile & runtime classpaths for needed for documenting the libraries
@@ -481,6 +507,8 @@ abstract class AndroidXDocsImplPlugin : Plugin<Project> {
                 annotationsNotToDisplay = hiddenAnnotations
                 annotationsNotToDisplayJava = hiddenAnnotationsJava
                 annotationsNotToDisplayKotlin = hiddenAnnotationsKotlin
+                versionMetadataFiles = versionMetadataConfiguration.incoming.artifacts
+                    .resolvedArtifacts.map { it.map { it.file } }
                 task.doFirst {
                     taskStartTime = LocalDateTime.now()
                 }

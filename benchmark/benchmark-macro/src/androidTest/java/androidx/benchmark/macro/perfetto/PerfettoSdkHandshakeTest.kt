@@ -177,7 +177,7 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
         val tmpDir = Outputs.dirUsableByAppAndShell
         val mvTmpDst = createShellFileMover()
         val librarySource = libraryZip?.let {
-            PerfettoSdkHandshake.LibrarySource(libraryZip, tmpDir, mvTmpDst)
+            PerfettoSdkHandshake.LibrarySource.aarLibrarySource(libraryZip, tmpDir, mvTmpDst)
         }
         val versionRx = "\\d+(\\.\\d+){2}(-[\\w-]+)?"
         val handshake = constructPerfettoHandshake()
@@ -233,12 +233,12 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
         val tmpDir = Outputs.dirUsableByAppAndShell
         val mvTmpDst = createShellFileMover()
         val librarySource = libraryZip?.let {
-            PerfettoSdkHandshake.LibrarySource(libraryZip, tmpDir, mvTmpDst)
+            PerfettoSdkHandshake.LibrarySource.aarLibrarySource(libraryZip, tmpDir, mvTmpDst)
         }
 
         try {
             val enableColdTracingResponse =
-                handshake.enableTracingColdStart(librarySource, persistent)
+                handshake.enableTracingColdStart(persistent, librarySource)
             assertThat(enableColdTracingResponse.resultCode).isEqualTo(RESULT_CODE_SUCCESS)
             assertPackageAlive(false)
 
@@ -293,10 +293,10 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
         val tmpDir = Outputs.dirUsableByAppAndShell
         val mvTmpDst = createShellFileMover()
         val librarySource = libraryZip?.let {
-            PerfettoSdkHandshake.LibrarySource(libraryZip, tmpDir, mvTmpDst)
+            PerfettoSdkHandshake.LibrarySource.aarLibrarySource(libraryZip, tmpDir, mvTmpDst)
         }
         val enableColdTracingResponse =
-            handshake.enableTracingColdStart(librarySource, persistent)
+            handshake.enableTracingColdStart(persistent, librarySource)
         assertThat(enableColdTracingResponse.resultCode).isEqualTo(RESULT_CODE_SUCCESS)
 
         // disable cold start tracing
