@@ -17,10 +17,13 @@
 package androidx.compose.foundation.lazy
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.lazy.layout.LazyLayoutAnimateItemModifierNode
-import androidx.compose.foundation.lazy.layout.LazyLayoutAnimateItemModifierNode.Companion.NotInitialized
+import androidx.compose.foundation.lazy.layout.LazyLayoutItemAnimation.Companion.NotInitialized
+import androidx.compose.foundation.lazy.layout.LazyLayoutItemAnimator
+import androidx.compose.foundation.lazy.layout.LazyLayoutMeasuredItem
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.util.fastForEach
@@ -33,7 +36,7 @@ import androidx.compose.ui.util.fastForEachIndexed
 internal class LazyListMeasuredItem @ExperimentalFoundationApi constructor(
     override val index: Int,
     private val placeables: List<Placeable>,
-    val isVertical: Boolean,
+    override val isVertical: Boolean,
     private val horizontalAlignment: Alignment.Horizontal?,
     private val verticalAlignment: Alignment.Vertical?,
     private val layoutDirection: LayoutDirection,
@@ -51,8 +54,10 @@ internal class LazyListMeasuredItem @ExperimentalFoundationApi constructor(
      */
     private val visualOffset: IntOffset,
     override val key: Any,
-    override val contentType: Any?
-) : LazyListItemInfo {
+    override val contentType: Any?,
+    private val animator: LazyLayoutItemAnimator<LazyListMeasuredItem>,
+    override val constraints: Constraints
+) : LazyListItemInfo, LazyLayoutMeasuredItem {
     override var offset: Int = 0
         private set
 
@@ -61,15 +66,26 @@ internal class LazyListMeasuredItem @ExperimentalFoundationApi constructor(
      */
     override val size: Int
 
+    /** In lists we only have one lane. */
+    override val lane: Int = 0
+    /** And each item takes one span. */
+    override val span: Int = 1
+
     /**
      * Sum of the main axis sizes of all the inner placeables and [spacing].
      */
-    val sizeWithSpacings: Int
+    override val mainAxisSizeWithSpacings: Int
 
     /**
      * Max of the cross axis sizes of all the inner placeables.
      */
     val crossAxisSize: Int
+
+    /**
+     * True when this item is not supposted to react on scroll delta. for example sticky header,
+     * or items being animated away out of the bounds are non scrollable.
+     */
+    override var nonScrollableItem: Boolean = false
 
     private var mainAxisLayoutSize: Int = Unset
     private var minMainAxisOffset: Int = 0
@@ -87,27 +103,41 @@ internal class LazyListMeasuredItem @ExperimentalFoundationApi constructor(
             maxCrossAxis = maxOf(maxCrossAxis, if (!isVertical) it.height else it.width)
         }
         size = mainAxisSize
-        sizeWithSpacings = (size + spacing).coerceAtLeast(0)
+        mainAxisSizeWithSpacings = (size + spacing).coerceAtLeast(0)
         crossAxisSize = maxCrossAxis
         placeableOffsets = IntArray(placeables.size * 2)
     }
 
-    val placeablesCount: Int get() = placeables.size
+    override val placeablesCount: Int get() = placeables.size
 
-    fun getParentData(index: Int) = placeables[index].parentData
+    override fun getParentData(index: Int) = placeables[index].parentData
 
-    /**
-     * Calculates positions for the inner placeables at [offset] main axis position.
-     * If [reverseOrder] is true the inner placeables would be placed in the inverted order.
-     */
-    fun position(
-        offset: Int,
+    override fun position(
+        mainAxisOffset: Int,
+        crossAxisOffset: Int,
         layoutWidth: Int,
         layoutHeight: Int
     ) {
-        this.offset = offset
+        require(crossAxisOffset == 0) {
+            "positioning a list item with non zero crossAxisOffset is not supported." +
+                "$crossAxisOffset was passed."
+        }
+        position(mainAxisOffset, layoutWidth, layoutHeight)
+    }
+
+    /**
+     * Calculates positions for the inner placeables at [mainAxisOffset] main axis position.
+     * If [reverseOrder] is true the inner placeables would be placed in the inverted order.
+     */
+    fun position(
+        mainAxisOffset: Int,
+        layoutWidth: Int,
+        layoutHeight: Int
+    ) {
+        this.offset = mainAxisOffset
         mainAxisLayoutSize = if (isVertical) layoutHeight else layoutWidth
-        var mainAxisOffset = offset
+        @Suppress("NAME_SHADOWING")
+        var mainAxisOffset = mainAxisOffset
         placeables.fastForEachIndexed { index, placeable ->
             val indexInArray = index * 2
             if (isVertical) {
@@ -130,8 +160,39 @@ internal class LazyListMeasuredItem @ExperimentalFoundationApi constructor(
         maxMainAxisOffset = mainAxisLayoutSize + afterContentPadding
     }
 
-    fun getOffset(index: Int) =
+    /**
+     * Update a [mainAxisLayoutSize] when the size did change after last [position] call.
+     * Knowing the final size is important for calculating the final position in reverse layout.
+     */
+    fun updateMainAxisLayoutSize(mainAxisLayoutSize: Int) {
+        this.mainAxisLayoutSize = mainAxisLayoutSize
+        maxMainAxisOffset = mainAxisLayoutSize + afterContentPadding
+    }
+
+    override fun getOffset(index: Int) =
         IntOffset(placeableOffsets[index * 2], placeableOffsets[index * 2 + 1])
+
+    fun applyScrollDelta(delta: Int, updateAnimations: Boolean) {
+        if (nonScrollableItem) {
+            return
+        }
+        offset += delta
+        repeat(placeableOffsets.size) { index ->
+            // placeableOffsets consist of x and y pairs for each placeable.
+            // if isVertical is true then the main axis offsets are located at indexes 1, 3, 5 etc.
+            if ((isVertical && index % 2 == 1) || (!isVertical && index % 2 == 0)) {
+                placeableOffsets[index] += delta
+            }
+        }
+        if (updateAnimations) {
+            repeat(placeablesCount) { index ->
+                val animation = animator.getAnimation(key, index)
+                if (animation != null) {
+                    animation.rawOffset = animation.rawOffset.copy { mainAxis -> mainAxis + delta }
+                }
+            }
+        }
+    }
 
     fun place(
         scope: Placeable.PlacementScope,
@@ -143,28 +204,32 @@ internal class LazyListMeasuredItem @ExperimentalFoundationApi constructor(
             val minOffset = minMainAxisOffset - placeable.mainAxisSize
             val maxOffset = maxMainAxisOffset
             var offset = getOffset(index)
-            val animateNode = getParentData(index) as? LazyLayoutAnimateItemModifierNode
-            if (animateNode != null) {
+            val animation = animator.getAnimation(key, index)
+            val layer: GraphicsLayer?
+            if (animation != null) {
                 if (isLookingAhead) {
                     // Skip animation in lookahead pass
-                    animateNode.lookaheadOffset = offset
+                    animation.lookaheadOffset = offset
                 } else {
-                    val targetOffset = if (animateNode.lookaheadOffset != NotInitialized) {
-                        animateNode.lookaheadOffset
+                    val targetOffset = if (animation.lookaheadOffset != NotInitialized) {
+                        animation.lookaheadOffset
                     } else {
                         offset
                     }
-                    val animatedOffset = targetOffset + animateNode.placementDelta
+                    val animatedOffset = targetOffset + animation.placementDelta
                     // cancel the animation if current and target offsets are both out of the bounds
                     if ((targetOffset.mainAxis <= minOffset &&
                             animatedOffset.mainAxis <= minOffset) ||
                         (targetOffset.mainAxis >= maxOffset &&
                             animatedOffset.mainAxis >= maxOffset)
                     ) {
-                        animateNode.cancelAnimation()
+                        animation.cancelPlacementAnimation()
                     }
                     offset = animatedOffset
                 }
+                layer = animation.layer
+            } else {
+                layer = null
             }
             if (reverseLayout) {
                 offset = offset.copy { mainAxisOffset ->
@@ -172,10 +237,21 @@ internal class LazyListMeasuredItem @ExperimentalFoundationApi constructor(
                 }
             }
             offset += visualOffset
+            if (!isLookingAhead) {
+                animation?.finalOffset = offset
+            }
             if (isVertical) {
-                placeable.placeWithLayer(offset)
+                if (layer != null) {
+                    placeable.placeWithLayer(offset, layer)
+                } else {
+                    placeable.placeWithLayer(offset)
+                }
             } else {
-                placeable.placeRelativeWithLayer(offset)
+                if (layer != null) {
+                    placeable.placeRelativeWithLayer(offset, layer)
+                } else {
+                    placeable.placeRelativeWithLayer(offset)
+                }
             }
         }
     }

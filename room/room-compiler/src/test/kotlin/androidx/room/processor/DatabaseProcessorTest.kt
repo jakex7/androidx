@@ -33,7 +33,7 @@ import androidx.room.compiler.processing.util.runProcessorTest
 import androidx.room.parser.ParsedQuery
 import androidx.room.parser.QueryType
 import androidx.room.parser.Table
-import androidx.room.processor.ProcessorErrors.autoMigrationSchemasMustBeRoomGenerated
+import androidx.room.processor.ProcessorErrors.invalidAutoMigrationSchema
 import androidx.room.solver.query.result.EntityRowAdapter
 import androidx.room.solver.query.result.PojoRowAdapter
 import androidx.room.testing.context
@@ -487,6 +487,7 @@ class DatabaseProcessorTest {
         )
         runProcessorTest(
             sources = listOf(BOOK, BOOK_DAO, DB1, DB2, db1_2),
+            options = mapOf(Context.BooleanProcessorOptions.GENERATE_KOTLIN.argName to "false"),
             createProcessingSteps = { listOf(DatabaseProcessingStep()) }
         ) { result ->
             result.generatedSourceFileWithPath("foo/bar/Db1_Impl.java")
@@ -880,7 +881,7 @@ class DatabaseProcessorTest {
             USER, USER_DAO
         ) { db, _ ->
             val userDao = db.daoMethods.first().dao
-            val insertionMethod = userDao.insertionMethods.find { it.element.jvmName == "insert" }
+            val insertionMethod = userDao.insertMethods.find { it.element.jvmName == "insert" }
             assertThat(insertionMethod, notNullValue())
             val loadOne = userDao.queryMethods
                 .filterIsInstance<ReadQueryMethod>()
@@ -1297,7 +1298,7 @@ class DatabaseProcessorTest {
                 hasErrorCount(1)
                 hasErrorContaining(
                     ProcessorErrors.autoMigrationSchemasNotFound(
-                        "1.json",
+                        1,
                         schemaFolder.root.absolutePath + File.separator + "foo.bar.MyDb"
                     )
                 )
@@ -1322,7 +1323,7 @@ class DatabaseProcessorTest {
                 hasErrorCount(1)
                 hasErrorContaining(
                     ProcessorErrors.autoMigrationSchemasNotFound(
-                        "1.json",
+                        1,
                         schemaFolder.root.absolutePath + File.separator + "foo.bar.MyDb"
                     )
                 )
@@ -1333,10 +1334,6 @@ class DatabaseProcessorTest {
     @Test
     fun autoMigrationToSchemaNotFound() {
         schemaFolder.newFolder("foo.bar.MyDb")
-        val createdFile: File = schemaFolder.newFile("foo.bar.MyDb" + File.separator + "1.json")
-        FileOutputStream(createdFile).bufferedWriter().use {
-            it.write("{}")
-        }
         singleDb(
             """
                 @Database(entities = {User.class}, version = 42, exportSchema = true,
@@ -1350,7 +1347,7 @@ class DatabaseProcessorTest {
                 hasErrorCount(1)
                 hasErrorContaining(
                     ProcessorErrors.autoMigrationSchemasNotFound(
-                        "2.json",
+                        1,
                         schemaFolder.root.absolutePath + File.separator + "foo.bar.MyDb"
                     )
                 )
@@ -1374,10 +1371,11 @@ class DatabaseProcessorTest {
             USER, AUTOMIGRATION,
         ) { _, invocation ->
             invocation.assertCompilationResult {
-                hasErrorCount(1)
+                hasErrorCount(2)
+                hasErrorContaining("Unable to read schema file")
                 hasErrorContaining(
-                    ProcessorErrors.autoMigrationSchemaIsEmpty(
-                        "1.json",
+                    ProcessorErrors.invalidAutoMigrationSchema(
+                        1,
                         schemaFolder.root.absolutePath + File.separator + "foo.bar.MyDb"
                     )
                 )
@@ -1387,14 +1385,14 @@ class DatabaseProcessorTest {
 
     @Test
     fun allAutoMigrationSchemasProvidedButNotRoomGenerated() {
-        schemaFolder.newFolder("foo.bar.MyDb")
+        val dbFolder = schemaFolder.newFolder("foo.bar.MyDb")
         val from: File = schemaFolder.newFile("foo.bar.MyDb" + File.separator + "1.json")
         val to: File = schemaFolder.newFile("foo.bar.MyDb" + File.separator + "2.json")
         FileOutputStream(from).bufferedWriter().use {
-            it.write("{}")
+            it.write("BAD FILE")
         }
         FileOutputStream(to).bufferedWriter().use {
-            it.write("{}")
+            it.write("BAD FILE")
         }
         singleDb(
             """
@@ -1405,9 +1403,13 @@ class DatabaseProcessorTest {
             USER, AUTOMIGRATION,
         ) { _, invocation ->
             invocation.assertCompilationResult {
-                hasErrorCount(1)
+                hasErrorCount(2)
+                hasErrorContaining("Unable to read schema file")
                 hasErrorContaining(
-                    autoMigrationSchemasMustBeRoomGenerated(1, 2)
+                    invalidAutoMigrationSchema(
+                        1,
+                        dbFolder.absolutePath
+                    )
                 )
             }
         }
@@ -1423,12 +1425,27 @@ class DatabaseProcessorTest {
             import androidx.room.util.SchemaFileResolver;
             import com.google.auto.service.AutoService;
             import java.io.File;
+            import java.io.IOException;
+            import java.io.InputStream;
+            import java.io.OutputStream;
+            import java.nio.file.Files;
             import java.nio.file.Path;
             @AutoService(SchemaFileResolver.class)
             public class TestResolver implements SchemaFileResolver {
                 @Override
-                public File getFile(Path path) {
-                    return Path.of("$tempDirPath").resolve(path).toFile();
+                public InputStream readPath(Path path) throws IOException {
+                    Path resolved = Path.of("$tempDirPath").resolve(path);
+                    if (Files.exists(resolved)) {
+                        return Files.newInputStream(resolved);
+                    } else {
+                        return null;
+                    }
+                }
+                @Override
+                public OutputStream writePath(Path path) throws IOException {
+                    Path resolved = Path.of("$tempDirPath").resolve(path);
+                    Files.createDirectories(resolved.getParent());
+                    return Files.newOutputStream(resolved);
                 }
             }
             """.trimIndent()
@@ -1449,7 +1466,10 @@ class DatabaseProcessorTest {
         )
         runProcessorTest(
             sources = listOf(dbSource, USER),
-            options = mapOf("room.schemaLocation" to "schemas/")
+            options = mapOf(
+                "room.schemaLocation" to "schemas/",
+                "room.generateKotlin" to "false"
+            )
         ) { invocation ->
             val dbAnnotationName = "androidx.room.Database"
             val roundElements = mapOf(
@@ -1521,7 +1541,10 @@ class DatabaseProcessorTest {
                 }
                 """
         )
-        runProcessorTest(sources = listOf(jvmNameInDaoGetter)) { invocation ->
+        runProcessorTest(
+            sources = listOf(jvmNameInDaoGetter),
+            options = mapOf(Context.BooleanProcessorOptions.GENERATE_KOTLIN.argName to "false"),
+        ) { invocation ->
             val element = invocation.processingEnv.requireTypeElement("foo.bar.MyDb")
             DatabaseProcessor(
                 baseContext = invocation.context,
@@ -1536,7 +1559,7 @@ class DatabaseProcessorTest {
     }
 
     @Test
-    fun disallowPropertyDao() {
+    fun allowPropertyDao() {
         val src = Source.kotlin(
             "MyDatabase.kt",
             """
@@ -1570,7 +1593,25 @@ class DatabaseProcessorTest {
                 element = element
             ).process()
             invocation.assertCompilationResult {
-                hasErrorContaining(ProcessorErrors.KOTLIN_PROPERTY_OVERRIDE)
+                hasNoWarnings()
+            }
+        }
+    }
+
+    @Test
+    fun invalidVersion() {
+        singleDb(
+            """
+            @Database(entities = {User.class}, version = 0)
+            public abstract class MyDb extends RoomDatabase {
+                abstract UserDao userDao();
+            }
+            """,
+            USER, USER_DAO
+        ) { _, invocation ->
+            invocation.assertCompilationResult {
+                hasErrorCount(1)
+                hasErrorContaining(ProcessorErrors.INVALID_DATABASE_VERSION)
             }
         }
     }
@@ -1580,7 +1621,8 @@ class DatabaseProcessorTest {
         body: (List<DatabaseView>, XTestInvocation) -> Unit
     ) {
         runProcessorTest(
-            sources = listOf(DB3, BOOK)
+            sources = listOf(DB3, BOOK),
+            options = mapOf(Context.BooleanProcessorOptions.GENERATE_KOTLIN.argName to "false"),
         ) { invocation ->
             val database = invocation.roundEnv
                 .getElementsAnnotatedWith(
@@ -1631,6 +1673,7 @@ class DatabaseProcessorTest {
         )
         runProcessorTest(
             sources = listOf(BOOK, bookDao) + dbs,
+            options = mapOf(Context.BooleanProcessorOptions.GENERATE_KOTLIN.argName to "false"),
             createProcessingSteps = { listOf(DatabaseProcessingStep()) },
         ) {
             onCompilationResult?.invoke(it)
@@ -1651,7 +1694,8 @@ class DatabaseProcessorTest {
                 ),
             classpath = classpath,
             options = mapOf(
-                "room.schemaLocation" to schemaFolder.root.absolutePath
+                "room.schemaLocation" to schemaFolder.root.absolutePath,
+                Context.BooleanProcessorOptions.GENERATE_KOTLIN.argName to "false"
             )
         ) { invocation ->
             val entity = invocation.roundEnv

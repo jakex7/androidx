@@ -22,7 +22,9 @@ import com.android.build.gradle.LibraryExtension
 import com.android.build.gradle.TestedExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.UnknownTaskException
 import org.gradle.api.tasks.StopExecutionException
+import org.gradle.api.tasks.TaskContainer
 
 private const val ADDITIONAL_TEST_OUTPUT_KEY = "android.enableAdditionalTestOutput"
 
@@ -103,13 +105,16 @@ class BenchmarkPlugin : Plugin<Project> {
 
         val adbPathProvider = componentsExtension.sdkComponents.adb.map { it.asFile.absolutePath }
 
-        if (project.rootProject.tasks.findByName("lockClocks") == null) {
+        if (!project.rootProject.tasks.exists("lockClocks")) {
             project.rootProject.tasks.register("lockClocks", LockClocksTask::class.java).configure {
                 it.adbPath.set(adbPathProvider)
+                it.coresArg.set(
+                    project.findProperty("androidx.benchmark.lockClocks.cores")?.toString() ?: ""
+                )
             }
         }
 
-        if (project.rootProject.tasks.findByName("unlockClocks") == null) {
+        if (!project.rootProject.tasks.exists("unlockClocks")) {
             project.rootProject.tasks.register("unlockClocks", UnlockClocksTask::class.java)
                 .configure {
                     it.adbPath.set(adbPathProvider)
@@ -130,20 +135,25 @@ class BenchmarkPlugin : Plugin<Project> {
             )
         }
 
-        // NOTE: .all here is a Gradle API, which will run the callback passed to it after the
-        // extension variants have been resolved.
+        // NOTE: .configureEach here is a Gradle API, which will run the callback passed to it after
+        // the extension variants have been resolved.
         var applied = false
-        extensionVariants.all {
+        extensionVariants.configureEach {
             if (!applied) {
                 applied = true
 
+                // Note, this directory is hard-coded in AGP
+                val outputDir = project.layout.buildDirectory.dir(
+                    "outputs/connected_android_test_additional_output"
+                )
                 if (!project.properties[ADDITIONAL_TEST_OUTPUT_KEY].toString().toBoolean()) {
                     // Only enable pulling benchmark data through this plugin on older versions of
                     // AGP that do not yet enable this flag.
                     project.tasks.register("benchmarkReport", BenchmarkReportTask::class.java)
-                        .configure {
-                            it.adbPath.set(adbPathProvider)
-                            it.dependsOn(project.tasks.named("connectedAndroidTest"))
+                        .configure { reportTask ->
+                            reportTask.benchmarkReportDir.set(outputDir)
+                            reportTask.adbPath.set(adbPathProvider)
+                            reportTask.dependsOn(project.tasks.named("connectedAndroidTest"))
                         }
 
                     project.tasks.named("connectedAndroidTest").configure {
@@ -153,13 +163,12 @@ class BenchmarkPlugin : Plugin<Project> {
                         it.finalizedBy("benchmarkReport")
                     }
                 } else {
-                    val projectBuildDir = project.buildDir.path
                     project.tasks.named("connectedAndroidTest").configure {
                         it.doLast {
                             it.logger.info(
                                 "Benchmark",
-                                "Benchmark report files generated at $projectBuildDir" +
-                                    "/outputs/connected_android_test_additional_output"
+                                "Benchmark report files generated at " +
+                                    outputDir.get().asFile.absolutePath
                             )
                         }
                     }
@@ -179,5 +188,12 @@ class BenchmarkPlugin : Plugin<Project> {
                 }
             }
         }
+    }
+
+    private fun TaskContainer.exists(taskName: String) = try {
+        named(taskName)
+        true
+    } catch (e: UnknownTaskException) {
+        false
     }
 }

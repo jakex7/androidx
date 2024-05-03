@@ -26,14 +26,12 @@ import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
 import android.graphics.Rect;
-import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
-import androidx.core.os.BuildCompat;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
@@ -93,11 +91,6 @@ public class ChangeBoundsTest extends BaseTransitionTest {
 
     @Test
     public void testSuppressLayoutWhileAnimating() throws Throwable {
-        if (Build.VERSION.SDK_INT < 18) {
-            // prior Android 4.3 suppressLayout port has another implementation which is
-            // harder to test
-            return;
-        }
         final TestSuppressLayout suppressLayout = new TestSuppressLayout(rule.getActivity());
         final View testView = new View(rule.getActivity());
         rule.runOnUiThread(new Runnable() {
@@ -123,12 +116,9 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         suppressLayout.ensureExpectedValueApplied();
     }
 
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @SdkSuppress(minSdkVersion = 34)
     @Test
     public void seekingChangeBoundsNoClip() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
-            return; // only supported on U+
-        }
         final TransitionActivity activity = rule.getActivity();
         TransitionSeekController[] seekControllerArr = new TransitionSeekController[1];
 
@@ -222,12 +212,9 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         });
     }
 
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @SdkSuppress(minSdkVersion = 34)
     @Test
     public void seekingChangeBoundsWithClip() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
-            return; // only supported on U+
-        }
         final TransitionActivity activity = rule.getActivity();
         TransitionSeekController[] seekControllerArr = new TransitionSeekController[1];
 
@@ -335,12 +322,9 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         });
     }
 
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @SdkSuppress(minSdkVersion = 34)
     @Test
     public void interruptedBeforeStartNoClip() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
-            return; // only supported on U+
-        }
         final TransitionActivity activity = rule.getActivity();
         TransitionSeekController[] seekControllerArr = new TransitionSeekController[1];
 
@@ -396,12 +380,9 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         });
     }
 
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @SdkSuppress(minSdkVersion = 34)
     @Test
     public void interruptedBeforeStartWithClip() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
-            return; // only supported on U+
-        }
         final TransitionActivity activity = rule.getActivity();
         TransitionSeekController[] seekControllerArr = new TransitionSeekController[1];
 
@@ -462,12 +443,9 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         });
     }
 
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @SdkSuppress(minSdkVersion = 34)
     @Test
     public void interruptedAfterEndNoClip() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
-            return; // only supported on U+
-        }
         final TransitionActivity activity = rule.getActivity();
         TransitionSeekController[] seekControllerArr = new TransitionSeekController[1];
 
@@ -526,12 +504,9 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         });
     }
 
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @SdkSuppress(minSdkVersion = 34)
     @Test
     public void interruptedAfterEndWithClip() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
-            return; // only supported on U+
-        }
         final TransitionActivity activity = rule.getActivity();
         TransitionSeekController[] seekControllerArr = new TransitionSeekController[1];
 
@@ -595,13 +570,9 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         });
     }
 
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @SdkSuppress(minSdkVersion = 34)
     @Test
     public void startTransitionAfterSeeking() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
-            return; // only supported on U+
-        }
-
         final TransitionActivity activity = rule.getActivity();
         TransitionSeekController[] seekControllerArr = new TransitionSeekController[1];
 
@@ -651,13 +622,9 @@ public class ChangeBoundsTest extends BaseTransitionTest {
         });
     }
 
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @SdkSuppress(minSdkVersion = 34)
     @Test
     public void seekNoChange() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
-            return; // only supported on U+
-        }
-
         final TransitionActivity activity = rule.getActivity();
         TransitionSeekController[] seekControllerArr = new TransitionSeekController[1];
 

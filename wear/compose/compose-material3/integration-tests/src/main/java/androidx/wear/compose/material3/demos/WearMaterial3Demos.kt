@@ -16,24 +16,17 @@
 
 package androidx.wear.compose.material3.demos
 
-import androidx.compose.ui.Alignment
-import androidx.wear.compose.foundation.lazy.AutoCenteringParams
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.integration.demos.common.Centralize
 import androidx.wear.compose.integration.demos.common.ComposableDemo
 import androidx.wear.compose.integration.demos.common.DemoCategory
-import androidx.wear.compose.material3.samples.AppCardSample
-import androidx.wear.compose.material3.samples.AppCardWithIconSample
-import androidx.wear.compose.material3.samples.CardSample
+import androidx.wear.compose.material3.samples.EdgeSwipeForSwipeToDismiss
 import androidx.wear.compose.material3.samples.FixedFontSize
-import androidx.wear.compose.material3.samples.OutlinedAppCardSample
-import androidx.wear.compose.material3.samples.OutlinedCardSample
-import androidx.wear.compose.material3.samples.OutlinedTitleCardSample
+import androidx.wear.compose.material3.samples.HorizontalPageIndicatorSample
+import androidx.wear.compose.material3.samples.SimpleSwipeToDismissBox
+import androidx.wear.compose.material3.samples.StatefulSwipeToDismissBox
 import androidx.wear.compose.material3.samples.StepperSample
 import androidx.wear.compose.material3.samples.StepperWithIntegerSample
 import androidx.wear.compose.material3.samples.StepperWithRangeSemanticsSample
-import androidx.wear.compose.material3.samples.TitleCardSample
-import androidx.wear.compose.material3.samples.TitleCardWithImageSample
 
 val WearMaterial3Demos = DemoCategory(
     "Material 3",
@@ -52,34 +45,62 @@ val WearMaterial3Demos = DemoCategory(
                 },
                 ComposableDemo("Child Button") {
                     ChildButtonDemo()
-                }
+                },
+                ComposableDemo("Compact Button") {
+                    CompactButtonDemo()
+                },
+                ComposableDemo("Multiline Button") {
+                    MultilineButtonDemo()
+                },
+                ComposableDemo("Avatar Button") {
+                    AvatarButtonDemo()
+                },
             )
         ),
+        ComposableDemo("List Header") {
+            Centralize {
+                ListHeaderDemo()
+            }
+        },
         DemoCategory(
-            "Card",
-            listOf(
-                ComposableDemo("Samples") {
-                    ScalingLazyColumn(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        autoCentering = AutoCenteringParams(itemIndex = 0)
-                    ) {
-                        item { CardSample() }
-                        item { AppCardSample() }
-                        item { AppCardWithIconSample() }
-                        item { TitleCardSample() }
-                        item { TitleCardWithImageSample() }
-                        item { OutlinedCardSample() }
-                        item { OutlinedAppCardSample() }
-                        item { OutlinedTitleCardSample() }
-                    }
-                }
-            )
+            "Time Text",
+            TimeTextDemos
         ),
+        ComposableDemo("Card") {
+            CardDemo()
+        },
         ComposableDemo("Text Button") {
             TextButtonDemo()
         },
         ComposableDemo("Icon Button") {
             IconButtonDemo()
+        },
+        ComposableDemo("Text Toggle Button") {
+            TextToggleButtonDemo()
+        },
+        ComposableDemo("Icon Toggle Button") {
+            IconToggleButtonDemo()
+        },
+        ComposableDemo("Checkbox") {
+            CheckboxDemos()
+        },
+        ComposableDemo("Switch") {
+            SwitchDemos()
+        },
+        ComposableDemo("Radio") {
+            RadioDemos()
+        },
+        ComposableDemo("Radio Button") {
+            RadioButtonDemo()
+        },
+        ComposableDemo("Split Radio Button") {
+            SplitRadioButtonDemo()
+        },
+        ComposableDemo("Toggle Button") {
+            ToggleButtonDemo()
+        },
+        ComposableDemo("Split Toggle Button") {
+            SplitToggleButtonDemo()
         },
         DemoCategory(
             "Stepper",
@@ -104,10 +125,26 @@ val WearMaterial3Demos = DemoCategory(
             "Slider",
             SliderDemos
         ),
+        DemoCategory(
+            "Progress Indicator",
+            ProgressIndicatorDemos
+        ),
         ComposableDemo(
             title = "Fixed Font Size"
         ) {
             Centralize { FixedFontSize() }
-        }
+        },
+        DemoCategory(
+            title = "Swipe To Dismiss",
+            listOf(
+                ComposableDemo("Simple") { SimpleSwipeToDismissBox(it.navigateBack) },
+                ComposableDemo("Stateful") { StatefulSwipeToDismissBox() },
+                ComposableDemo("Edge swipe") { EdgeSwipeForSwipeToDismiss(it.navigateBack) },
+            )
+        ),
+        ComposableDemo("HorizontalPageIndicator") {
+            Centralize { HorizontalPageIndicatorSample() }
+        },
+        ComposableDemo("Settings Demo") { SettingsDemo() }
     )
 )

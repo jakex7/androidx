@@ -37,13 +37,10 @@ import androidx.annotation.DoNotInline;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RequiresPermission;
 import androidx.annotation.RestrictTo;
-import androidx.core.app.BundleCompat;
 import androidx.core.app.NotificationBuilderWithBuilderAccessor;
-import androidx.core.os.BuildCompat;
 import androidx.media.R;
 
 /**
@@ -119,7 +116,7 @@ public class NotificationCompat {
                         return MediaSessionCompat.Token.fromToken(tokenInner);
                     }
                 } else {
-                    IBinder tokenInner = BundleCompat.getBinder(extras,
+                    IBinder tokenInner = extras.getBinder(
                             androidx.core.app.NotificationCompat.EXTRA_MEDIA_SESSION);
                     if (tokenInner != null) {
                         Parcel p = Parcel.obtain();
@@ -248,11 +245,10 @@ public class NotificationCompat {
 
         /**
          */
-        @OptIn(markerClass = BuildCompat.PrereleaseSdkCheck.class)
         @RestrictTo(LIBRARY)
         @Override
         public void apply(NotificationBuilderWithBuilderAccessor builder) {
-            if (BuildCompat.isAtLeastU()) {
+            if (Build.VERSION.SDK_INT >= 34) {
                 Api21Impl.setMediaStyle(builder.getBuilder(),
                         Api21Impl.fillInMediaStyle(Api34Impl.setRemotePlaybackInfo(
                                 Api21Impl.createMediaStyle(), mDeviceName, mDeviceIcon,
@@ -324,9 +320,8 @@ public class NotificationCompat {
             if (!tombstone) {
                 button.setOnClickPendingIntent(R.id.action0, action.getActionIntent());
             }
-            if (Build.VERSION.SDK_INT >= 15) {
-                Api15Impl.setContentDescription(button, R.id.action0, action.getTitle());
-            }
+            CharSequence contentDescription = action.getTitle();
+            button.setContentDescription(R.id.action0, contentDescription);
             return button;
         }
 
@@ -420,11 +415,10 @@ public class NotificationCompat {
 
         /**
          */
-        @OptIn(markerClass = BuildCompat.PrereleaseSdkCheck.class)
         @RestrictTo(LIBRARY)
         @Override
         public void apply(NotificationBuilderWithBuilderAccessor builder) {
-            if (BuildCompat.isAtLeastU()) {
+            if (Build.VERSION.SDK_INT >= 34) {
                 Api21Impl.setMediaStyle(builder.getBuilder(), Api21Impl.fillInMediaStyle(
                         Api34Impl.setRemotePlaybackInfo(
                                 Api24Impl.createDecoratedMediaCustomViewStyle(), mDeviceName,
@@ -541,17 +535,6 @@ public class NotificationCompat {
                     : mBuilder.mContext.getResources().getColor(
                             R.color.notification_material_background_media_default_color);
             views.setInt(R.id.status_bar_latest_event_content, "setBackgroundColor", color);
-        }
-    }
-
-    @RequiresApi(15)
-    private static class Api15Impl {
-        private Api15Impl() {}
-
-        @DoNotInline
-        static void setContentDescription(RemoteViews remoteViews, int viewId,
-                CharSequence contentDescription) {
-            remoteViews.setContentDescription(viewId, contentDescription);
         }
     }
 

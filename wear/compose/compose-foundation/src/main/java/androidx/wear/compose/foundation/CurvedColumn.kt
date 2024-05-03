@@ -18,6 +18,12 @@ package androidx.wear.compose.foundation
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.util.fastFold
+import androidx.compose.ui.util.fastForEach
+import androidx.compose.ui.util.fastForEachIndexed
+import androidx.compose.ui.util.fastMap
+import androidx.compose.ui.util.fastMapIndexed
+import androidx.compose.ui.util.fastMaxOfOrNull
 
 /**
  * A curved layout composable that places its children stacked as part of an arc (the first child
@@ -38,6 +44,7 @@ import androidx.compose.ui.geometry.Offset
  * than the curved column, either at the [CurvedAlignment.Angular.Start] of the layout,
  * at the [CurvedAlignment.Angular.End], or [CurvedAlignment.Angular.Center].
  * If unspecified or null, they can choose for themselves.
+ * @param contentBuilder Scope used to provide the content for this column.
  */
 public fun CurvedScope.curvedColumn(
     modifier: CurvedModifier = CurvedModifier,
@@ -59,7 +66,7 @@ internal class CurvedColumnChild(
     contentBuilder: CurvedScope.() -> Unit
 ) : ContainerChild(curvedLayoutDirection, !curvedLayoutDirection.outsideIn(), contentBuilder) {
     override fun doEstimateThickness(maxRadius: Float): Float =
-        maxRadius - children.fold(maxRadius) { currentMaxRadius, node ->
+        maxRadius - children.fastFold(maxRadius) { currentMaxRadius, node ->
             currentMaxRadius - node.estimateThickness(currentMaxRadius)
         }
 
@@ -68,11 +75,11 @@ internal class CurvedColumnChild(
         parentThickness: Float,
     ): PartialLayoutInfo {
         // Compute space used by weighted children and space left
-        val weights = childrenInLayoutOrder.map { node ->
+        val weights = childrenInLayoutOrder.fastMap { node ->
             (node.computeParentData() as? CurvedScopeParentData)?.weight ?: 0f
         }
         val sumWeights = weights.sum()
-        val extraSpace = parentThickness - childrenInLayoutOrder.mapIndexed { ix, node ->
+        val extraSpace = parentThickness - childrenInLayoutOrder.fastMapIndexed { ix, node ->
             if (weights[ix] == 0f) {
                 node.estimatedThickness
             } else {
@@ -82,7 +89,7 @@ internal class CurvedColumnChild(
 
         // position children
         var outerRadius = parentOuterRadius
-        childrenInLayoutOrder.forEachIndexed { ix, node ->
+        childrenInLayoutOrder.fastForEachIndexed { ix, node ->
             val actualThickness = if (weights[ix] > 0f) {
                     extraSpace * weights[ix] / sumWeights
                 } else {
@@ -95,7 +102,7 @@ internal class CurvedColumnChild(
             )
             outerRadius -= actualThickness
         }
-        var maxSweep = childrenInLayoutOrder.maxOfOrNull { it.sweepRadians } ?: 0f
+        var maxSweep = childrenInLayoutOrder.fastMaxOfOrNull { it.sweepRadians } ?: 0f
 
         return PartialLayoutInfo(
             maxSweep,
@@ -110,7 +117,7 @@ internal class CurvedColumnChild(
         parentSweepRadians: Float,
         centerOffset: Offset
     ): Float {
-        children.forEach { child ->
+        children.fastForEach { child ->
             var childAngularPosition = parentStartAngleRadians
             var childSweep = parentSweepRadians
             if (angularAlignment != null) {

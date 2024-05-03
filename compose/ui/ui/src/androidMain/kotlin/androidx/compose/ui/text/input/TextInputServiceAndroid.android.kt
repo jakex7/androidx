@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-@file:OptIn(ExperimentalTextApi::class)
+@file:Suppress("DEPRECATION")
 
 package androidx.compose.ui.text.input
 
@@ -28,9 +28,9 @@ import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import androidx.compose.runtime.collection.mutableVectorOf
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.input.pointer.PositionCalculator
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextInputServiceAndroid.TextInputCommand.HideKeyboard
@@ -51,8 +51,13 @@ private const val DEBUG_CLASS = "TextInputServiceAndroid"
  * @param inputCommandProcessorExecutor [Executor] used to schedule the [processInputCommands]
  * function when a input command is first requested for a frame.
  */
+@Deprecated(
+    "Only exists to support the legacy TextInputService APIs. It is not used by any Compose " +
+        "code. A copy of this class in foundation is used by the legacy BasicTextField."
+)
 internal class TextInputServiceAndroid(
     val view: View,
+    rootPositionCalculator: PositionCalculator,
     private val inputMethodManager: InputMethodManager,
     private val inputCommandProcessorExecutor: Executor = Choreographer.getInstance().asExecutor(),
 ) : PlatformTextInputService {
@@ -99,7 +104,8 @@ internal class TextInputServiceAndroid(
 
     private var focusedRect: AndroidRect? = null
 
-    private val cursorAnchorInfoController = CursorAnchorInfoController(inputMethodManager)
+    private val cursorAnchorInfoController =
+        CursorAnchorInfoController(rootPositionCalculator, inputMethodManager)
 
     /**
      * A channel that is used to debounce rapid operations such as showing/hiding the keyboard and
@@ -110,8 +116,9 @@ internal class TextInputServiceAndroid(
     private val textInputCommandQueue = mutableVectorOf<TextInputCommand>()
     private var frameCallback: Runnable? = null
 
-    constructor(view: View) : this(
+    constructor(view: View, positionCalculator: PositionCalculator) : this(
         view,
+        positionCalculator,
         InputMethodManagerImpl(view),
     )
 
@@ -166,9 +173,9 @@ internal class TextInputServiceAndroid(
                     )
                 }
 
-                override fun onConnectionClosed(ic: RecordingInputConnection) {
+                override fun onConnectionClosed(inputConnection: RecordingInputConnection) {
                     for (i in 0 until ics.size) {
-                        if (ics[i].get() == ic) {
+                        if (ics[i].get() == inputConnection) {
                             ics.removeAt(i)
                             return // No duplicated instances should be in the list.
                         }
@@ -260,19 +267,6 @@ internal class TextInputServiceAndroid(
     }
 
     private fun processInputCommands() {
-        // When focus changes to a non-Compose view, the system will take care of managing the
-        // keyboard (via ImeFocusController) so we don't need to do anything. This can happen
-        // when a Compose text field is focused, then the user taps on an EditText view.
-        // And any commands that come in while we're not focused should also just be ignored,
-        // since no unfocused view should be messing with the keyboard.
-        // TODO(b/215761849) When focus moves to a different ComposeView than this one, this
-        //  logic doesn't work and the keyboard is not hidden.
-        if (!view.isFocused) {
-            // All queued commands should be ignored.
-            textInputCommandQueue.clear()
-            return
-        }
-
         // Multiple commands may have been queued up in the channel while this function was
         // waiting to be resumed. We don't execute the commands as they come in because making a
         // bunch of calls to change the actual IME quickly can result in flickers. Instead, we
@@ -436,7 +430,7 @@ internal class TextInputServiceAndroid(
         textFieldValue: TextFieldValue,
         offsetMapping: OffsetMapping,
         textLayoutResult: TextLayoutResult,
-        textLayoutPositionInWindow: Offset,
+        textFieldToRootTransform: (Matrix) -> Unit,
         innerTextFieldBounds: Rect,
         decorationBoxBounds: Rect
     ) {
@@ -444,7 +438,7 @@ internal class TextInputServiceAndroid(
             textFieldValue,
             offsetMapping,
             textLayoutResult,
-            textLayoutPositionInWindow,
+            textFieldToRootTransform,
             innerTextFieldBounds,
             decorationBoxBounds
         )
@@ -499,6 +493,9 @@ internal fun EditorInfo.update(imeOptions: ImeOptions, textFieldValue: TextField
         ImeAction.Send -> EditorInfo.IME_ACTION_SEND
         ImeAction.Done -> EditorInfo.IME_ACTION_DONE
         else -> error("invalid ImeAction")
+    }
+    imeOptions.platformImeOptions?.privateImeOptions?.let {
+        privateImeOptions = it
     }
     when (imeOptions.keyboardType) {
         KeyboardType.Text -> this.inputType = InputType.TYPE_CLASS_TEXT

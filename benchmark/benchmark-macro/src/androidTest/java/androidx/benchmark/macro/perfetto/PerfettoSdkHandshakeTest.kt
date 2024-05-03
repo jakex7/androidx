@@ -26,6 +26,8 @@ import androidx.benchmark.macro.Packages
 import androidx.benchmark.macro.perfetto.PerfettoSdkHandshakeTest.SdkDelivery.MISSING
 import androidx.benchmark.macro.perfetto.PerfettoSdkHandshakeTest.SdkDelivery.PROVIDED_BY_BENCHMARK
 import androidx.benchmark.perfetto.PerfettoCapture
+import androidx.benchmark.perfetto.PerfettoCapture.PerfettoSdkConfig
+import androidx.benchmark.perfetto.PerfettoCapture.PerfettoSdkConfig.InitialProcessState
 import androidx.benchmark.perfetto.PerfettoHelper.Companion.isAbiSupported
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.tracing.perfetto.handshake.PerfettoSdkHandshake
@@ -41,13 +43,12 @@ import java.util.regex.Pattern
 import org.junit.After
 import org.junit.Assume.assumeTrue
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 
-private const val tracingPerfettoVersion = "1.0.0-alpha17" // TODO(224510255): get by 'reflection'
+private const val tracingPerfettoVersion = "1.0.0" // TODO(224510255): get by 'reflection'
 private const val minSupportedSdk = Build.VERSION_CODES.R // TODO(234351579): Support API < 30
 
 @RunWith(Parameterized::class)
@@ -104,7 +105,9 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
 
         // issue an 'enable' broadcast
         perfettoCapture.enableAndroidxTracingPerfetto(
-            targetPackage, shouldProvideBinaries(testConfig.sdkDelivery)
+            targetPackage,
+            shouldProvideBinaries(testConfig.sdkDelivery),
+            isColdStartupTracing = false
         ).let { response: String? ->
             when (testConfig.sdkDelivery) {
                 PROVIDED_BY_BENCHMARK -> assertThat(response).isNull()
@@ -114,7 +117,9 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
 
         // issue an 'enable' broadcast again
         perfettoCapture.enableAndroidxTracingPerfetto(
-            targetPackage, shouldProvideBinaries(testConfig.sdkDelivery)
+            targetPackage,
+            shouldProvideBinaries(testConfig.sdkDelivery),
+            isColdStartupTracing = false
         ).let { response: String? ->
             when (testConfig.sdkDelivery) {
                 PROVIDED_BY_BENCHMARK -> assertAlreadyEnabledResponse(response)
@@ -136,7 +141,8 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
         try {
             perfettoCapture.enableAndroidxTracingPerfetto(
                 targetPackage,
-                shouldProvideBinaries(testConfig.sdkDelivery)
+                shouldProvideBinaries(testConfig.sdkDelivery),
+                isColdStartupTracing = false
             )
         } catch (e: IllegalStateException) {
             assertThat(e.message).ignoringCase().contains("Unsupported ABI")
@@ -153,7 +159,8 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
         val response =
             perfettoCapture.enableAndroidxTracingPerfetto(
                 targetPackage,
-                shouldProvideBinaries(testConfig.sdkDelivery)
+                shouldProvideBinaries(testConfig.sdkDelivery),
+                isColdStartupTracing = false
             )
 
         assertThat(response).ignoringCase().contains("SDK version not supported")
@@ -208,14 +215,10 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
         }
     }
 
-    // TODO(283953019): enable alongside StartupTracingInitializer (pending performance testing)
-    @Ignore
     @Test
     fun test_handshake_framework_cold_start_persistent() =
         test_handshake_framework_cold_start(persistent = true)
 
-    // TODO(283953019): enable alongside StartupTracingInitializer (pending performance testing)
-    @Ignore
     @Test
     fun test_handshake_framework_cold_start_non_persistent() =
         test_handshake_framework_cold_start(persistent = false)
@@ -269,14 +272,57 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
         }
     }
 
-    // TODO(283953019): enable alongside StartupTracingInitializer (pending performance testing)
-    @Ignore
+    /**
+     * Tests [androidx.benchmark.perfetto.PerfettoCapture.enableAndroidxTracingPerfetto] as
+     * opposed to [androidx.tracing.perfetto.handshake.PerfettoSdkHandshake.enableTracingColdStart]
+     */
+    @Test
+    fun test_handshake_cold_start() {
+        assumeTrue(isAbiSupported())
+        assumeTrue(Build.VERSION.SDK_INT >= minSupportedSdk)
+        assumeTrue(testConfig.sdkDelivery == PROVIDED_BY_BENCHMARK)
+
+        // perform a handshake setting up cold start tracing
+        killProcess()
+        assertPackageAlive(false)
+
+        perfettoCapture.enableAndroidxTracingPerfetto(
+            targetPackage,
+            shouldProvideBinaries(testConfig.sdkDelivery),
+            isColdStartupTracing = true
+        ).let {
+            assertThat(it).isNull()
+        }
+        assertPackageAlive(false)
+
+        // start the app
+        // verify that tracing was enabled at app startup (once)
+        enablePackage()
+        perfettoCapture.enableAndroidxTracingPerfetto(
+            targetPackage,
+            shouldProvideBinaries(testConfig.sdkDelivery),
+            isColdStartupTracing = false
+        ).let {
+            assertAlreadyEnabledResponse(it)
+        }
+
+        // verify that tracing was enabled at app startup (more than once)
+        killProcess()
+        enablePackage()
+        perfettoCapture.enableAndroidxTracingPerfetto(
+            targetPackage,
+            shouldProvideBinaries(testConfig.sdkDelivery),
+            isColdStartupTracing = false
+        ).let {
+            // in non-persistent mode, cold startup tracing should expire after one run
+            assertThat(it).isNull()
+        }
+    }
+
     @Test
     fun test_handshake_framework_cold_start_disable_persistent() =
         test_handshake_framework_cold_start_disable(persistent = true)
 
-    // TODO(283953019): enable alongside StartupTracingInitializer (pending performance testing)
-    @Ignore
     @Test
     fun test_handshake_framework_cold_start_disable_non_persistent() =
         test_handshake_framework_cold_start_disable(persistent = true)
@@ -314,6 +360,22 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
         assertThat(enableWarmTracingResponse.resultCode).isEqualTo(RESULT_CODE_SUCCESS)
     }
 
+    @Test
+    fun test_handshake_framework_cold_start_app_terminated_on_error() {
+        assumeTrue(isAbiSupported())
+        assumeTrue(Build.VERSION.SDK_INT >= minSupportedSdk)
+        assumeTrue(testConfig.sdkDelivery == MISSING)
+
+        // perform a handshake setting up cold start tracing
+        val handshake = constructPerfettoHandshake()
+        val enableColdTracingResponse = handshake.enableTracingColdStart()
+        assertThat(enableColdTracingResponse.resultCode).isEqualTo(RESULT_CODE_ERROR_BINARY_MISSING)
+
+        // verify that the app process has been terminated
+        // in the non-error case we already have these verifications in other tests
+        assertPackageAlive(false)
+    }
+
     private fun killProcess() {
         scope.killProcess()
         assertPackageAlive(false)
@@ -326,7 +388,8 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
 
         val response = perfettoCapture.enableAndroidxTracingPerfetto(
             "package.does.not.exist.89e51176_bc28_41f1_ac73_ca717454b517",
-            shouldProvideBinaries(testConfig.sdkDelivery)
+            shouldProvideBinaries(testConfig.sdkDelivery),
+            isColdStartupTracing = false
         )
 
         assertThat(response).ignoringCase()
@@ -492,5 +555,21 @@ class PerfettoSdkHandshakeTest(private val testConfig: TestConfig) {
 
         /** Remain unresolved */
         MISSING
+    }
+
+    private fun PerfettoCapture.enableAndroidxTracingPerfetto(
+        targetPackage: String,
+        provideBinariesIfMissing: Boolean,
+        isColdStartupTracing: Boolean
+    ): String? = this.enableAndroidxTracingPerfetto(
+        PerfettoSdkConfig(
+            targetPackage,
+            if (isColdStartupTracing) InitialProcessState.NotAlive else InitialProcessState.Alive,
+            provideBinariesIfMissing
+        )
+    ).let { (resultCode, message) ->
+        // Maps the response into the old contract of [enableAndroidxTracingPerfetto], where for
+        // success we get a [null] response; otherwise an error message
+        if (resultCode == RESULT_CODE_SUCCESS) null else message
     }
 }

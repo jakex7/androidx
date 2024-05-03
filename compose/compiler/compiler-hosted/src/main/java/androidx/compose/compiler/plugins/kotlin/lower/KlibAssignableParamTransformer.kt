@@ -16,7 +16,9 @@
 
 package androidx.compose.compiler.plugins.kotlin.lower
 
+import androidx.compose.compiler.plugins.kotlin.FeatureFlags
 import androidx.compose.compiler.plugins.kotlin.ModuleMetrics
+import androidx.compose.compiler.plugins.kotlin.analysis.StabilityInferencer
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
@@ -60,7 +62,15 @@ class KlibAssignableParamTransformer(
     context: IrPluginContext,
     symbolRemapper: DeepCopySymbolRemapper,
     metrics: ModuleMetrics,
-) : AbstractComposeLowering(context, symbolRemapper, metrics), ModuleLoweringPass {
+    stabilityInferencer: StabilityInferencer,
+    featureFlags: FeatureFlags,
+) : AbstractComposeLowering(
+    context,
+    symbolRemapper,
+    metrics,
+    stabilityInferencer,
+    featureFlags
+), ModuleLoweringPass {
     override fun lower(module: IrModuleFragment) {
         module.transformChildrenVoid(this)
     }
@@ -99,7 +109,7 @@ class KlibAssignableParamTransformer(
             IrBlockBodyImpl(
                 body.startOffset,
                 body.endOffset
-            ) {
+            ).apply {
                 statements.addAll(variables)
 
                 val updatedBody = body.statements.map {

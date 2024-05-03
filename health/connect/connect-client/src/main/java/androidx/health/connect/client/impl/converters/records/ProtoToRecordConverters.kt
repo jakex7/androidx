@@ -35,6 +35,7 @@ import androidx.health.connect.client.records.CyclingPedalingCadenceRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ElevationGainedRecord
 import androidx.health.connect.client.records.ExerciseRoute
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
@@ -55,7 +56,6 @@ import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SexualActivityRecord
 import androidx.health.connect.client.records.SleepSessionRecord
-import androidx.health.connect.client.records.SleepStageRecord
 import androidx.health.connect.client.records.SpeedRecord
 import androidx.health.connect.client.records.StepsCadenceRecord
 import androidx.health.connect.client.records.StepsRecord
@@ -421,13 +421,13 @@ fun toRecord(proto: DataProto.DataPoint): Record =
                     metadata = metadata,
                     segments = subTypeDataListsMap["segments"]?.toSegmentList() ?: emptyList(),
                     laps = subTypeDataListsMap["laps"]?.toLapList() ?: emptyList(),
-                    exerciseRoute =
+                    exerciseRouteResult =
                         subTypeDataListsMap["route"]?.let {
-                            ExerciseRoute.Data(route = it.toLocationList())
+                            ExerciseRouteResult.Data(ExerciseRoute(route = it.toLocationList()))
                         }
                             ?: if (valuesMap["hasRoute"]?.booleanVal == true)
-                                ExerciseRoute.ConsentRequired()
-                            else ExerciseRoute.NoData(),
+                                ExerciseRouteResult.ConsentRequired()
+                            else ExerciseRouteResult.NoData(),
                 )
             }
             "Distance" ->
@@ -534,20 +534,6 @@ fun toRecord(proto: DataProto.DataPoint): Record =
                     stages = subTypeDataListsMap["stages"]?.toStageList() ?: emptyList(),
                     metadata = metadata
                 )
-            "SleepStage" ->
-                SleepStageRecord(
-                    stage =
-                        mapEnum(
-                            "stage",
-                            SleepStageRecord.STAGE_TYPE_STRING_TO_INT_MAP,
-                            SleepStageRecord.STAGE_TYPE_UNKNOWN
-                        ),
-                    startTime = startTime,
-                    startZoneOffset = startZoneOffset,
-                    endTime = endTime,
-                    endZoneOffset = endZoneOffset,
-                    metadata = metadata
-                )
             "IntermenstrualBleeding" ->
                 IntermenstrualBleedingRecord(
                     time = time,
@@ -587,8 +573,8 @@ fun toRecord(proto: DataProto.DataPoint): Record =
 
 fun toExerciseRouteData(
     protoWrapper: androidx.health.platform.client.exerciseroute.ExerciseRoute
-): ExerciseRoute.Data {
-    return ExerciseRoute.Data(
+): ExerciseRoute {
+    return ExerciseRoute(
         protoWrapper.proto.valuesList.map { value ->
             ExerciseRoute.Location(
                 time = Instant.ofEpochMilli(value.startTimeMillis),

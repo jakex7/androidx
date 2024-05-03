@@ -26,7 +26,6 @@ import android.util.Log
 import androidx.annotation.DoNotInline
 import androidx.annotation.RequiresApi
 import androidx.core.telecom.CallAttributesCompat
-import androidx.core.telecom.CallException
 import androidx.core.telecom.CallsManager
 
 internal class Utils {
@@ -72,37 +71,48 @@ internal class Utils {
 
         fun verifyBuildVersion() {
             if (mBuildVersion.hasInvalidBuildVersion()) {
-                throw UnsupportedOperationException(CallException.ERROR_BUILD_VERSION)
+                throw UnsupportedOperationException("Core-Telecom only supports builds from" +
+                    " Oreo (Android 8) and above.  In order to utilize Core-Telecom, your device" +
+                    " must be updated.")
             }
         }
 
-        fun remapJetpackCapabilitiesToPlatformCapabilities(
+        @RequiresApi(VERSION_CODES.O)
+        fun remapJetpackCapsToPlatformCaps(
             @CallsManager.Companion.Capability clientBitmapSelection: Int
         ): Int {
-            var remappedCapabilities = 0
+            // start to build the PhoneAccount that will be registered via the platform API
+            var platformCapabilities: Int = PhoneAccount.CAPABILITY_SELF_MANAGED
+            // append additional capabilities if the device is on a U build or above
+            if (hasPlatformV2Apis()) {
+                platformCapabilities = PhoneAccount.CAPABILITY_SUPPORTS_TRANSACTIONAL_OPERATIONS or
+                    platformCapabilities
+            }
 
             if (hasJetpackVideoCallingCapability(clientBitmapSelection)) {
-                remappedCapabilities =
-                    PhoneAccount.CAPABILITY_SUPPORTS_VIDEO_CALLING or
-                        remappedCapabilities
+                platformCapabilities =
+                    PhoneAccount.CAPABILITY_VIDEO_CALLING or
+                    PhoneAccount.CAPABILITY_SUPPORTS_VIDEO_CALLING or platformCapabilities
             }
 
             if (hasJetpackSteamingCapability(clientBitmapSelection)) {
-                remappedCapabilities =
-                    PhoneAccount.CAPABILITY_SUPPORTS_CALL_STREAMING or
-                        remappedCapabilities
+                platformCapabilities =
+                    PhoneAccount.CAPABILITY_SUPPORTS_CALL_STREAMING or platformCapabilities
             }
-            return remappedCapabilities
+
+            return platformCapabilities
         }
 
         fun hasCapability(targetCapability: Int, bitMap: Int): Boolean {
             return (bitMap.and(targetCapability)) == targetCapability
         }
 
+        @RequiresApi(VERSION_CODES.O)
         private fun hasJetpackVideoCallingCapability(bitMap: Int): Boolean {
             return hasCapability(CallsManager.CAPABILITY_SUPPORTS_VIDEO_CALLING, bitMap)
         }
 
+        @RequiresApi(VERSION_CODES.O)
         private fun hasJetpackSteamingCapability(bitMap: Int): Boolean {
             return hasCapability(CallsManager.CAPABILITY_SUPPORTS_CALL_STREAMING, bitMap)
         }

@@ -34,7 +34,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.content.res.ResourcesCompat;
@@ -125,6 +124,34 @@ public class FontsContractCompat {
     }
 
     /**
+     * Create a typeface object given a font request. The font will be asynchronously fetched,
+     * therefore the result is delivered to the given callback. See {@link FontRequest}.
+     * Only one of the methods in callback will be invoked, depending on whether the request
+     * succeeds or fails. These calls will happen on the caller thread.
+     * @param context A context to be used for fetching from font provider.
+     * @param request A {@link FontRequest} object that identifies the provider and query for the
+     *                request. May not be null.
+     * @param style Typeface Style such as {@link Typeface#NORMAL}, {@link Typeface#BOLD}
+     *              {@link Typeface#ITALIC}, {@link Typeface#BOLD_ITALIC}.
+     * @param callback A callback that will be triggered when results are obtained. May not be null.
+     * @param handler A handler to be processed the font fetching.
+     */
+    // maintain consistency with legacy call signature above, just adding style
+    @SuppressWarnings("ExecutorRegistration")
+    public static void requestFont(
+            final @NonNull Context context,
+            final @NonNull FontRequest request,
+            int style,
+            final @NonNull FontRequestCallback callback,
+            @SuppressWarnings("ListenerLast") final @NonNull Handler handler
+    ) {
+        CallbackWithHandler callbackWrapper = new CallbackWithHandler(callback);
+        Executor executor = RequestExecutor.createHandlerExecutor(handler);
+        FontRequestWorker.requestFontAsync(context.getApplicationContext(), request, style,
+                executor, callbackWrapper);
+    }
+
+    /**
      * Loads a Typeface. Based on the parameters isBlockingFetch, and timeoutInMillis, the fetch
      * is either sync or async.
      * - If timeoutInMillis is infinite, and isBlockingFetch is true -> sync
@@ -147,7 +174,8 @@ public class FontsContractCompat {
      * sync request.
      *
      */
-    @RestrictTo(LIBRARY)
+    // called by Compose Fonts, never binary change
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP_PREFIX)
     @Nullable
     public static Typeface requestFont(
             @NonNull final Context context,
@@ -377,7 +405,7 @@ public class FontsContractCompat {
         /**
          * @deprecated Not being used by any cross library, and should not be used, internal
          * implementation detail.
-         **/
+         */
         // TODO after removing from public API make package private.
         @Deprecated
         @RestrictTo(LIBRARY_GROUP_PREFIX)
@@ -508,7 +536,7 @@ public class FontsContractCompat {
     /**
      * @deprecated Not being used by any cross library, and should not be used, internal
      * implementation detail.
-     **/
+     */
     @Deprecated // unused
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     static final int RESULT_CODE_PROVIDER_NOT_FOUND = -1;
@@ -516,7 +544,7 @@ public class FontsContractCompat {
     /**
      * @deprecated Not being used by any cross library, and should not be used, internal
      * implementation detail.
-     **/
+     */
     @Deprecated // unused
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     static final int RESULT_CODE_WRONG_CERTIFICATES = -2;
@@ -525,7 +553,7 @@ public class FontsContractCompat {
     /**
      * @deprecated Not being used by any cross library, and should not be used, internal
      * implementation detail.
-     **/
+     */
     @Deprecated // unused
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     public static Typeface getFontSync(
@@ -547,7 +575,7 @@ public class FontsContractCompat {
     /**
      * @deprecated Not being used by any cross library, and should not be used, internal
      * implementation detail.
-     **/
+     */
     @Deprecated // unused
     @RestrictTo(LIBRARY_GROUP_PREFIX)
     public static void resetCache() {
@@ -570,7 +598,6 @@ public class FontsContractCompat {
      */
     @Deprecated // unused
     @RestrictTo(LIBRARY_GROUP_PREFIX)
-    @RequiresApi(19)
     public static Map<Uri, ByteBuffer> prepareFontData(
             Context context,
             FontInfo[] fonts,
@@ -582,7 +609,7 @@ public class FontsContractCompat {
     /**
      * @deprecated Not being used by any cross library, and should not be used, internal
      * implementation detail.
-     **/
+     */
     @Deprecated // unused
     @VisibleForTesting
     @RestrictTo(LIBRARY_GROUP_PREFIX)

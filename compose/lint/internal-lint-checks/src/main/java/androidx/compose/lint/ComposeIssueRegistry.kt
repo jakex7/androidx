@@ -28,12 +28,16 @@ class ComposeIssueRegistry : IssueRegistry() {
     override val api = 14
     override val issues get(): List<Issue> {
         return listOf(
+            AsCollectionDetector.ISSUE,
             ExceptionMessageDetector.ISSUE,
             ListIteratorDetector.ISSUE,
             SteppedForLoopDetector.ISSUE,
             UnnecessaryLambdaCreationDetector.ISSUE,
-            PlatformImportInCommonModuleDetector.ISSUE,
-            PrimitiveInLambdaDetector.ISSUE,
+            CommonModuleIncompatibilityDetector.IMPORT_ISSUE,
+            CommonModuleIncompatibilityDetector.REFERENCE_ISSUE,
+            CommonModuleIncompatibilityDetector.EXTENDS_LAMBDA_ISSUE,
+            PrimitiveInCollectionDetector.ISSUE,
+            LambdaStructuralEqualityDetector.ISSUE
         )
     }
     override val vendor = Vendor(

@@ -76,6 +76,8 @@ public class PerfettoSdkHandshake(
     /**
      * Attempts to prepare cold startup tracing in the app.
      *
+     * Leaves the app process in a terminated state.
+     *
      * @param persistent if set to true, cold start tracing mode is persisted between app runs and
      * must be cleared using [disableTracingColdStart]. Otherwise, cold start tracing is enabled
      * only for the first app start since enabling.
@@ -113,10 +115,12 @@ public class PerfettoSdkHandshake(
             libPath,
             persistent = persistent
         )
-        if (response.resultCode == ResponseResultCodes.RESULT_CODE_SUCCESS) {
-            // terminate the app process (that we woke up by issuing a broadcast earlier)
-            killAppProcess()
-        }
+
+        // Terminate the app process regardless of the response:
+        // - if enabling tracing is successful, the process needs to be terminated for cold tracing
+        // - if enabling tracing is unsuccessful, we still want to terminate the app process to
+        // achieve deterministic behaviour of this method
+        killAppProcess()
 
         response
     }
@@ -245,7 +249,7 @@ public class PerfettoSdkHandshake(
              * Provides means to sideload Perfetto SDK native binaries with a library AAR used as
              * a source
              *
-             * @param aarFile either an AAR or an APK containing `libtracing_perfetto.so`
+             * @param aarFile an AAR file containing `libtracing_perfetto.so`
              * @param tempDirectory a directory directly accessible to the caller process (used for
              * extraction of the binaries from the zip)
              * @param moveLibFileFromTmpDirToAppDir a function capable of moving the binary file
@@ -264,7 +268,7 @@ public class PerfettoSdkHandshake(
              * Provides means to sideload Perfetto SDK native binaries with an APK containing
              * the library used as a source
              *
-             * @param apkFile either an AAR or an APK containing `libtracing_perfetto.so`
+             * @param apkFile an APK file containing `libtracing_perfetto.so`
              * @param tempDirectory a directory directly accessible to the caller process (used for
              * extraction of the binaries from the zip)
              * @param moveLibFileFromTmpDirToAppDir a function capable of moving the binary file

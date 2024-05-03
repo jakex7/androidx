@@ -16,6 +16,8 @@
 
 package androidx.wear.compose.integration.demos
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.wear.compose.foundation.samples.CurvedAndNormalText
 import androidx.wear.compose.foundation.samples.CurvedBackground
 import androidx.wear.compose.foundation.samples.CurvedBottomLayout
@@ -24,18 +26,64 @@ import androidx.wear.compose.foundation.samples.CurvedFontWeight
 import androidx.wear.compose.foundation.samples.CurvedFonts
 import androidx.wear.compose.foundation.samples.CurvedRowAndColumn
 import androidx.wear.compose.foundation.samples.CurvedWeight
+import androidx.wear.compose.foundation.samples.EdgeSwipeForSwipeToDismiss
 import androidx.wear.compose.foundation.samples.ExpandableTextSample
 import androidx.wear.compose.foundation.samples.ExpandableWithItemsSample
 import androidx.wear.compose.foundation.samples.HierarchicalFocusCoordinatorSample
 import androidx.wear.compose.foundation.samples.OversizeComposable
+import androidx.wear.compose.foundation.samples.RotaryScrollSample
+import androidx.wear.compose.foundation.samples.RotarySnapSample
 import androidx.wear.compose.foundation.samples.ScalingLazyColumnEdgeAnchoredAndAnimatedScrollTo
 import androidx.wear.compose.foundation.samples.SimpleCurvedWorld
 import androidx.wear.compose.foundation.samples.SimpleScalingLazyColumn
 import androidx.wear.compose.foundation.samples.SimpleScalingLazyColumnWithContentPadding
 import androidx.wear.compose.foundation.samples.SimpleScalingLazyColumnWithSnap
-import androidx.wear.compose.foundation.samples.SwipeToRevealWithExpandables
+import androidx.wear.compose.foundation.samples.SimpleSwipeToDismissBox
+import androidx.wear.compose.foundation.samples.StatefulSwipeToDismissBox
+import androidx.wear.compose.integration.demos.common.Centralize
 import androidx.wear.compose.integration.demos.common.ComposableDemo
 import androidx.wear.compose.integration.demos.common.DemoCategory
+import androidx.wear.compose.material.samples.SwipeToRevealCardSample
+import androidx.wear.compose.material.samples.SwipeToRevealChipSample
+
+// Declare the swipe to dismiss demos so that we can use this variable as the background composable
+// for the SwipeToDismissDemo itself.
+internal val SwipeToDismissDemos =
+    DemoCategory(
+        "Swipe to Dismiss",
+        listOf(
+            DemoCategory(
+                "Samples",
+                listOf(
+                    ComposableDemo("Simple") { params ->
+                        SimpleSwipeToDismissBox(params.navigateBack)
+                    },
+                    ComposableDemo("Stateful") { StatefulSwipeToDismissBox() },
+                    ComposableDemo("Edge swipe") { params ->
+                        EdgeSwipeForSwipeToDismiss(params.navigateBack)
+                    },
+                )
+            ),
+            DemoCategory(
+                "Demos",
+                listOf(
+                    ComposableDemo("Demo") { params ->
+                        val state = remember { mutableStateOf(SwipeDismissDemoState.List) }
+                        SwipeToDismissDemo(navigateBack = params.navigateBack, demoState = state)
+                    },
+                    ComposableDemo("Stateful Demo") { params ->
+                        SwipeToDismissBoxWithState(params.navigateBack)
+                    },
+                    ComposableDemo("EdgeSwipeToDismiss modifier") { params ->
+                        EdgeSwipeDemo(params.swipeToDismissBoxState)
+                    },
+                    ComposableDemo("Nested SwipeToDismissBox") {
+                        NestedSwipeToDismissDemo()
+                    }
+                )
+            )
+        )
+    )
 
 val WearFoundationDemos = DemoCategory(
     "Foundation",
@@ -44,6 +92,7 @@ val WearFoundationDemos = DemoCategory(
             "Expandables",
             listOf(
                 ComposableDemo("Items in SLC") { ExpandableListItems() },
+                ComposableDemo("Multiple Items") { ExpandableMultipleItems() },
                 ComposableDemo("Expandable Text") { ExpandableText() },
                 ComposableDemo("Items Sample") { ExpandableWithItemsSample() },
                 ComposableDemo("Text Sample") { ExpandableTextSample() },
@@ -69,7 +118,15 @@ val WearFoundationDemos = DemoCategory(
         )),
         ComposableDemo("Scrollable Column") { ScrollableColumnDemo() },
         ComposableDemo("Scrollable Row") { ScrollableRowDemo() },
-        DemoCategory("Rotary Input", RotaryInputDemos),
+        DemoCategory("Rotary Input", listOf(
+            DemoCategory("Samples", listOf(
+                ComposableDemo(".rotary with scroll") { RotaryScrollSample() },
+                ComposableDemo(".rotary with snap") { RotarySnapSample() },
+                ComposableDemo("RotaryEvent") { ScrollUsingRotatingCrownDemo() },
+                ComposableDemo("PreRotaryEvent") { InterceptScrollDemo() }
+            )),
+            DemoCategory("Demos", listOf())
+        )),
         ComposableDemo("Focus Sample") { HierarchicalFocusCoordinatorSample() },
         DemoCategory("Scaling Lazy Column", listOf(
                 ComposableDemo(
@@ -101,24 +158,45 @@ val WearFoundationDemos = DemoCategory(
                 },
             ),
         ),
+        SwipeToDismissDemos,
         DemoCategory(
             "Swipe To Reveal",
             listOf(
-                ComposableDemo("Swipe To Reveal Chip") {
-                    SwipeToRevealChips()
-                },
-                ComposableDemo("Swipe To Reveal Card") {
-                    SwipeToRevealCards()
-                },
-                ComposableDemo("Swipe To Reveal - Custom") {
-                    SwipeToRevealWithSingleAction()
-                },
-                ComposableDemo("Swipe To Reveal - RTL") {
-                    SwipeToRevealInRtl()
-                },
-                ComposableDemo("Swipe To Reveal - Expandable") {
-                    SwipeToRevealWithExpandables()
-                }
+                DemoCategory(
+                    "Samples",
+                    listOf(
+                        ComposableDemo("Material S2R Chip") { params ->
+                            Centralize {
+                                SwipeToRevealChipSample(params.swipeToDismissBoxState)
+                            }
+                        },
+                        ComposableDemo("Material S2R Card") { params ->
+                            Centralize {
+                                SwipeToRevealCardSample(params.swipeToDismissBoxState)
+                            }
+                        },
+                    )
+                ),
+                DemoCategory(
+                    "Demos",
+                    listOf(
+                        ComposableDemo("S2R Chip, 2 actions") { params ->
+                            SwipeToRevealChips(
+                                params.swipeToDismissBoxState,
+                                includeSecondaryAction = true
+                            )
+                        },
+                        ComposableDemo("S2R Chip, 1 action") { params ->
+                            SwipeToRevealChips(
+                                params.swipeToDismissBoxState,
+                                includeSecondaryAction = false
+                            )
+                        },
+                        ComposableDemo("S2R Card") { params ->
+                            SwipeToRevealCards(params.swipeToDismissBoxState)
+                        },
+                    )
+                )
             )
         )
     ),

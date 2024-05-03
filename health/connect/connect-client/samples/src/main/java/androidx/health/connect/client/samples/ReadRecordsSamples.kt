@@ -22,11 +22,13 @@ import androidx.activity.result.ActivityResultCaller
 import androidx.annotation.Sampled
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.contracts.ExerciseRouteRequestContract
+import androidx.health.connect.client.permission.HealthPermission.Companion.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND
+import androidx.health.connect.client.readRecord
 import androidx.health.connect.client.records.ExerciseRoute
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
-import androidx.health.connect.client.records.SleepStageRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -40,8 +42,7 @@ suspend fun ReadStepsRange(
 ) {
     val response =
         healthConnectClient.readRecords(
-            ReadRecordsRequest(
-                StepsRecord::class,
+            ReadRecordsRequest<StepsRecord>(
                 timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
             )
         )
@@ -58,8 +59,7 @@ suspend fun ReadExerciseSessions(
 ) {
     val response =
         healthConnectClient.readRecords(
-            ReadRecordsRequest(
-                ExerciseSessionRecord::class,
+            ReadRecordsRequest<ExerciseSessionRecord>(
                 timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
             )
         )
@@ -69,8 +69,7 @@ suspend fun ReadExerciseSessions(
         val heartRateRecords =
             healthConnectClient
                 .readRecords(
-                    ReadRecordsRequest(
-                        HeartRateRecord::class,
+                    ReadRecordsRequest<HeartRateRecord>(
                         timeRangeFilter =
                             TimeRangeFilter.between(
                                 exerciseRecord.startTime,
@@ -86,14 +85,14 @@ suspend fun ReadExerciseSessions(
 suspend fun ReadExerciseRoute(
     activityResultCaller: ActivityResultCaller,
     healthConnectClient: HealthConnectClient,
-    displayExerciseRoute: (ExerciseRoute.Data) -> Unit,
+    displayExerciseRoute: (ExerciseRoute) -> Unit,
     recordId: String
 ) {
     // See https://developer.android.com/training/basics/intents/result#launch for appropriately
     // handling ActivityResultContract.
     val requestExerciseRoute =
         activityResultCaller.registerForActivityResult(ExerciseRouteRequestContract()) {
-            exerciseRoute: ExerciseRoute.Data? ->
+            exerciseRoute: ExerciseRoute? ->
             if (exerciseRoute != null) {
                 displayExerciseRoute(exerciseRoute)
             } else {
@@ -103,12 +102,12 @@ suspend fun ReadExerciseRoute(
 
     // Show exercise route, based on user action
     val exerciseSessionRecord =
-        healthConnectClient.readRecord(ExerciseSessionRecord::class, recordId).record
+        healthConnectClient.readRecord<ExerciseSessionRecord>(recordId).record
 
-    when (val exerciseRoute = exerciseSessionRecord.exerciseRoute) {
-        is ExerciseRoute.Data -> displayExerciseRoute(exerciseRoute)
-        is ExerciseRoute.ConsentRequired -> requestExerciseRoute.launch(recordId)
-        is ExerciseRoute.NoData -> Unit // No exercise route to show
+    when (val exerciseRouteResult = exerciseSessionRecord.exerciseRouteResult) {
+        is ExerciseRouteResult.Data -> displayExerciseRoute(exerciseRouteResult.exerciseRoute)
+        is ExerciseRouteResult.ConsentRequired -> requestExerciseRoute.launch(recordId)
+        is ExerciseRouteResult.NoData -> Unit // No exercise route to show
         else -> Unit
     }
 }
@@ -121,23 +120,36 @@ suspend fun ReadSleepSessions(
 ) {
     val response =
         healthConnectClient.readRecords(
-            ReadRecordsRequest(
-                SleepSessionRecord::class,
+            ReadRecordsRequest<SleepSessionRecord>(
                 timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
             )
         )
     for (sleepRecord in response.records) {
-        // Process each exercise record
-        // Optionally pull in sleep stages of the same time range
-        val sleepStageRecords =
-            healthConnectClient
-                .readRecords(
-                    ReadRecordsRequest(
-                        SleepStageRecord::class,
-                        timeRangeFilter =
-                            TimeRangeFilter.between(sleepRecord.startTime, sleepRecord.endTime)
-                    )
-                )
-                .records
+        // Process each sleep record
+    }
+}
+
+@Sampled
+suspend fun ReadRecordsInBackground(
+    healthConnectClient: HealthConnectClient,
+    startTime: Instant,
+    endTime: Instant,
+) {
+    val grantedPermissions = healthConnectClient.permissionController.getGrantedPermissions()
+
+    // The permission should be requested and granted beforehand when the app is in foreground
+    if (PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND !in grantedPermissions) {
+        return
+    }
+
+    val response =
+        healthConnectClient.readRecords(
+            ReadRecordsRequest<StepsRecord>(
+                timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+            )
+        )
+
+    for (stepsRecord in response.records) {
+        // Process each record
     }
 }

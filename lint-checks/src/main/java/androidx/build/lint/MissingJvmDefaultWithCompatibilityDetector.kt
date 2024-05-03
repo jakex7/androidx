@@ -59,7 +59,7 @@ class MissingJvmDefaultWithCompatibilityDetector : Detector(), SourceCodeScanner
                 return
             }
 
-            if (!isKotlin(node)) return
+            if (!isKotlin(node.language)) return
             if (!node.isInterface) return
             if (node.annotatedWithAnyOf(
                     // If the interface is not stable, it doesn't need the annotation
@@ -97,18 +97,16 @@ class MissingJvmDefaultWithCompatibilityDetector : Detector(), SourceCodeScanner
         }
 
         private fun reportIncident(node: UClass, reason: String) {
-            val location = context.getLocation(node, LocationType.ALL)
             val fix = fix()
                 .name("Annotate with @JvmDefaultWithCompatibility")
-                .annotate(JVM_DEFAULT_WITH_COMPATIBILITY)
-                .range(location)
+                .annotate(JVM_DEFAULT_WITH_COMPATIBILITY, context, node)
                 .autoFix()
                 .build()
 
             val incident = Incident(context)
                 .fix(fix)
                 .issue(ISSUE)
-                .location(location)
+                .location(context.getLocation(node, LocationType.ALL))
                 .message(reason)
                 .scope(node)
 

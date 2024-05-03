@@ -60,8 +60,10 @@ class CreateEntry internal constructor(
      *
      * @param accountName the name of the account where the credential will be saved
      * @param pendingIntent the [PendingIntent] that will get invoked when the user selects this
-     * entry, must be created with flag [PendingIntent.FLAG_MUTABLE] to allow the Android
-     * system to attach the final request
+     * entry, must be created with a unique request code per entry,
+     * with flag [PendingIntent.FLAG_MUTABLE] to allow the Android system to attach the
+     * final request, and NOT with flag [PendingIntent.FLAG_ONE_SHOT] as it can be invoked multiple
+     * times
      * @param description the localized description shown on UI about where the credential is stored
      * @param icon the icon to be displayed with this entry on the UI, must be created using
      * [Icon.createWithResource] when possible, and especially not with [Icon.createWithBitmap] as
@@ -146,8 +148,11 @@ class CreateEntry internal constructor(
      * @constructor constructs an instance of [CreateEntry.Builder]
      *
      * @param accountName the name of the account where the credential will be registered
-     * @param pendingIntent the [PendingIntent] that will be fired when the user selects
-     * this entry
+     * @param pendingIntent the [PendingIntent] that will get invoked when the user selects this
+     * entry, must be created with a unique request code per entry,
+     * with flag [PendingIntent.FLAG_MUTABLE] to allow the Android system to attach the
+     * final request, and NOT with flag [PendingIntent.FLAG_ONE_SHOT] as it can be invoked multiple
+     * times
      */
     class Builder constructor(
         private val accountName: CharSequence,
@@ -254,6 +259,15 @@ class CreateEntry internal constructor(
                 accountName, pendingIntent, icon, description, lastUsedTime,
                 credentialCountInformationMap, autoSelectAllowed
             )
+        }
+    }
+
+    @RequiresApi(34)
+    private object Api34Impl {
+        @JvmStatic
+        fun fromCreateEntry(createEntry: android.service.credentials.CreateEntry): CreateEntry? {
+            val slice = createEntry.slice
+            return fromSlice(slice)
         }
     }
 
@@ -409,7 +423,7 @@ class CreateEntry internal constructor(
         }
     }
 
-    internal companion object {
+    companion object {
         private const val TAG = "CreateEntry"
         private const val DESCRIPTION_MAX_CHAR_LIMIT = 300
 
@@ -444,8 +458,15 @@ class CreateEntry internal constructor(
 
         private const val REVISION_ID = 1
 
-        @RestrictTo(RestrictTo.Scope.LIBRARY)
+        /**
+         * Converts an instance of [CreateEntry] to a [Slice].
+         *
+         * This method is only expected to be called on an API > 28
+         * impl, hence returning null for other levels as the
+         * visibility is only restricted to the library.
+         */
         @JvmStatic
+        @RestrictTo(RestrictTo.Scope.LIBRARY)
         fun toSlice(
             createEntry: CreateEntry
         ): Slice? {
@@ -460,13 +481,32 @@ class CreateEntry internal constructor(
          *
          * @param slice the [Slice] object constructed through [toSlice]
          */
-        @RestrictTo(RestrictTo.Scope.LIBRARY)
         @JvmStatic
+        @RestrictTo(RestrictTo.Scope.LIBRARY)
         fun fromSlice(
             slice: Slice
         ): CreateEntry? {
             if (Build.VERSION.SDK_INT >= 28) {
                 return Api28Impl.fromSlice(slice)
+            }
+            return null
+        }
+
+        /**
+         * Converts a framework [android.service.credentials.CreateEntry] class to a Jetpack
+         * [CreateEntry] class
+         *
+         * Note that this API is not needed in a general credential creation
+         * flow that is implemented using this jetpack library, where you are
+         * only required to construct an instance of [CreateEntry]
+         * to populate the [BeginCreateCredentialResponse].
+         *
+         * @param createEntry the instance of framework class to be converted
+         */
+        @JvmStatic
+        fun fromCreateEntry(createEntry: android.service.credentials.CreateEntry): CreateEntry? {
+            if (Build.VERSION.SDK_INT >= 34) {
+                return Api34Impl.fromCreateEntry(createEntry)
             }
             return null
         }

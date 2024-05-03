@@ -39,7 +39,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.wear.watchface.ComplicationHelperActivity
-import androidx.wear.watchface.ComplicationSlotBoundsTypes
+import androidx.wear.watchface.ComplicationSlotBoundsType
 import androidx.wear.watchface.DrawMode
 import androidx.wear.watchface.RenderParameters
 import androidx.wear.watchface.WatchFace
@@ -48,6 +48,7 @@ import androidx.wear.watchface.client.EditorListener
 import androidx.wear.watchface.client.EditorServiceClient
 import androidx.wear.watchface.client.EditorState
 import androidx.wear.watchface.client.HeadlessWatchFaceClient
+import androidx.wear.watchface.client.InteractiveWatchFaceClient
 import androidx.wear.watchface.client.WatchFaceId
 import androidx.wear.watchface.complications.ComplicationDataSourceInfo
 import androidx.wear.watchface.complications.ComplicationDataSourceInfoRetriever
@@ -189,7 +190,7 @@ public interface EditorSession : AutoCloseable {
 
     /**
      * Returns the ID of the complication at the given coordinates or `null` if there isn't one.
-     * Only [androidx.wear.watchface.ComplicationSlot]s with [ComplicationSlotBoundsTypes.ROUND_RECT]
+     * Only [androidx.wear.watchface.ComplicationSlot]s with [ComplicationSlotBoundsType.ROUND_RECT]
      * are supported by this function.
      */
     @SuppressWarnings("AutoBoxing")
@@ -197,12 +198,35 @@ public interface EditorSession : AutoCloseable {
     public fun getComplicationSlotIdAt(@Px x: Int, @Px y: Int): Int?
 
     /**
+     * For the duration of the editor session, applies an override to complications rendered via
+     * [renderWatchFaceToBitmap]. If you need to render multiple times with the same
+     * [slotIdToComplicationData] it's more efficient to use this API and call
+     * [renderWatchFaceToBitmap] with null slotIdToComplicationData. When the editor session ends
+     * this override will be removed.
+     *
+     * Note if after this call updated complications are sent via
+     * [InteractiveWatchFaceClient.updateComplicationData], they will only be applied once the
+     * editor session has ended.
+     *
+     * @param slotIdToComplicationData The complications you wish to set. Any slots not covered by
+     * this map will be unchanged.
+     */
+    public fun setOverrideComplications(slotIdToComplicationData: Map<Int, ComplicationData>) {
+        // We expect this to be overridden.
+        throw UnsupportedOperationException()
+    }
+
+    /**
      * Renders the watch face to a [Bitmap] using the current [userStyle].
      *
      * @param renderParameters The [RenderParameters] to render with. Must be [DrawMode.INTERACTIVE]
      * @param instant The [Instant] to render with
-     * @param slotIdToComplicationData The [ComplicationData] for each
-     *   [androidx.wear.watchface.ComplicationSlot] to render with
+     * @param slotIdToComplicationData Override [ComplicationData] for each
+     *   [androidx.wear.watchface.ComplicationSlot] to render with. Note using this feature is
+     *   somewhat computationally expensive because under the hood it saves and restores the backing
+     *   watch face instance's complications. If you need to render multiple times with the same
+     *   slotIdToComplicationData, consider using [renderWatchFaceToBitmap] for a more efficient
+     *   alternative.
      * @return A [Bitmap] containing the screen shot with the specified parameters
      */
     @UiThread
@@ -427,6 +451,7 @@ internal constructor(
 ) : EditorSession {
     protected var closed: Boolean = false
     protected var forceClosed: Boolean = false
+    protected open var editorObscuresWatchFace = false
 
     private val editorSessionTraceEvent = AsyncTraceEvent("EditorSession")
     private val closeCallback =
@@ -522,6 +547,10 @@ internal constructor(
                 "Can't configure fixed complication ID $complicationSlotId"
             }
 
+            // Don't animate the watch face while the provider is running, because that makes
+            // hardware rendering of the complication preview images very much slower.
+            editorObscuresWatchFace = true
+
             val deferredResult = CompletableDeferred<ComplicationDataSourceChooserResult?>()
 
             synchronized(this) {
@@ -552,6 +581,8 @@ internal constructor(
                     synchronized(this) { pendingComplicationDataSourceChooserResult = null }
                 }
 
+            editorObscuresWatchFace = false
+
             // If deferredResult was null then the user canceled so return null.
             if (complicationDataSourceChooserResult == null) {
                 return null
@@ -563,6 +594,8 @@ internal constructor(
 
             try {
                 deferredComplicationPreviewDataAvailable.await()
+                val previousDataSourceInfo: ComplicationDataSourceInfo? =
+                    complicationsDataSourceInfo.value[complicationSlotId]
 
                 // Emit an updated complicationsDataSourceInfoMap.
                 complicationsDataSourceInfo.value =
@@ -582,6 +615,11 @@ internal constructor(
                     HashMap(complicationsPreviewData.value).apply {
                         this[complicationSlotId] = previewData ?: EmptyComplicationData()
                     }
+                onComplicationUpdated(
+                    complicationSlotId,
+                    from = previousDataSourceInfo,
+                    to = complicationDataSourceChooserResult.dataSourceInfo,
+                )
 
                 return ChosenComplicationDataSource(
                     complicationSlotId,
@@ -604,7 +642,7 @@ internal constructor(
     override val backgroundComplicationSlotId: Int? by lazy {
         requireNotClosed()
         complicationSlotsState.value.entries
-            .firstOrNull { it.value.boundsType == ComplicationSlotBoundsTypes.BACKGROUND }
+            .firstOrNull { it.value.boundsType == ComplicationSlotBoundsType.BACKGROUND }
             ?.key
     }
 
@@ -772,6 +810,12 @@ internal constructor(
     protected open val showComplicationDeniedDialogIntent: Intent? = null
 
     protected open val showComplicationRationaleDialogIntent: Intent? = null
+
+    protected open fun onComplicationUpdated(
+        complicationSlotId: Int,
+        from: ComplicationDataSourceInfo?,
+        to: ComplicationDataSourceInfo?,
+    ) {}
 }
 
 /**
@@ -844,6 +888,12 @@ internal class OnWatchFaceEditorSessionImpl(
 
     internal val wrappedUserStyle by lazy { MutableStateFlow(editorDelegate.userStyle) }
 
+    override var editorObscuresWatchFace: Boolean
+        get() = editorDelegate.editorObscuresWatchFace
+        set(value) {
+            editorDelegate.editorObscuresWatchFace = value
+        }
+
     // Unfortunately a dynamic proxy is the only way we can reasonably validate the UserStyle,
     // exceptions thrown within a coroutine are lost and the MutableStateFlow interface includes
     // internal unstable methods so we can't use a static proxy...
@@ -915,6 +965,10 @@ internal class OnWatchFaceEditorSessionImpl(
         )
     }
 
+    override fun setOverrideComplications(slotIdToComplicationData: Map<Int, ComplicationData>) {
+        editorDelegate.setOverrideComplications(slotIdToComplicationData)
+    }
+
     override fun releaseResources() {
         // If commitChangesOnClose is true, the userStyle is not restored which for non-headless
         // watch faces meaning the style is applied immediately. It's possible for the System to
@@ -922,6 +976,11 @@ internal class OnWatchFaceEditorSessionImpl(
         // eventuality.
         if (!commitChangesOnClose && this::previousWatchFaceUserStyle.isInitialized) {
             userStyle.value = previousWatchFaceUserStyle
+        }
+        if (this::editorDelegate.isInitialized) {
+            editorDelegate.complicationSlotsManager.unfreezeAllSlotsForEdit(
+                clearData = commitChangesOnClose
+            )
         }
 
         if (this::fetchComplicationsDataJob.isInitialized) {
@@ -982,6 +1041,18 @@ internal class OnWatchFaceEditorSessionImpl(
         requireNotClosed()
         return editorDelegate.complicationSlotsManager.getComplicationSlotAt(x, y)?.id
     }
+
+    override fun onComplicationUpdated(
+        complicationSlotId: Int,
+        from: ComplicationDataSourceInfo?,
+        to: ComplicationDataSourceInfo?,
+    ) {
+        editorDelegate.complicationSlotsManager.freezeSlotForEdit(
+            complicationSlotId,
+            from = from,
+            to = to,
+        )
+    }
 }
 
 @RequiresApi(27)
@@ -1005,6 +1076,8 @@ internal class HeadlessEditorSession(
     override val userStyleSchema = headlessWatchFaceClient.userStyleSchema
 
     override val userStyle = MutableStateFlow(UserStyle(initialUserStyle, userStyleSchema))
+
+    private val overrideComplicationData = HashMap<Int, ComplicationData>()
 
     init {
         coroutineScope.launch {
@@ -1032,6 +1105,17 @@ internal class HeadlessEditorSession(
         slotIdToComplicationData: Map<Int, ComplicationData>?
     ): Bitmap {
         requireNotClosed()
+
+        var complications = slotIdToComplicationData
+        if (overrideComplicationData.isNotEmpty() && complications != null) {
+            // Merge overrideComplicationData with slotIdToComplicationData
+            val merged = HashMap<Int, ComplicationData>(overrideComplicationData)
+            for (pair in complications) {
+                merged[pair.key] = pair.value
+            }
+            complications = merged
+        }
+
         return headlessWatchFaceClient.renderWatchFaceToBitmap(
             renderParameters,
             if (instant == EditorSession.DEFAULT_PREVIEW_INSTANT) {
@@ -1040,8 +1124,16 @@ internal class HeadlessEditorSession(
                 instant
             },
             userStyle.value,
-            slotIdToComplicationData
+            complications
         )
+    }
+
+    override fun setOverrideComplications(slotIdToComplicationData: Map<Int, ComplicationData>) {
+        // This isn't actually an optimization, however HeadlessEditorSession is not commonly used
+        // and this is just here for compatibility.
+        for (pair in slotIdToComplicationData) {
+            overrideComplicationData[pair.key] = pair.value
+        }
     }
 
     override fun releaseResources() {
@@ -1058,9 +1150,9 @@ internal class HeadlessEditorSession(
             .firstOrNull {
                 it.value.isEnabled &&
                     when (it.value.boundsType) {
-                        ComplicationSlotBoundsTypes.ROUND_RECT -> it.value.bounds.contains(x, y)
-                        ComplicationSlotBoundsTypes.BACKGROUND -> false
-                        ComplicationSlotBoundsTypes.EDGE -> false
+                        ComplicationSlotBoundsType.ROUND_RECT -> it.value.bounds.contains(x, y)
+                        ComplicationSlotBoundsType.BACKGROUND -> false
+                        ComplicationSlotBoundsType.EDGE -> false
                         else -> false
                     }
             }
@@ -1117,6 +1209,7 @@ internal class ComplicationDataSourceChooserContract :
                 input.instanceId,
                 input.showComplicationDeniedDialogIntent,
                 input.showComplicationRationaleDialogIntent,
+                input.editorSession.userStyle.value.toUserStyleData()
             )
         val complicationState = complicationSlotsState[input.complicationSlotId]!!
         intent.replaceExtras(

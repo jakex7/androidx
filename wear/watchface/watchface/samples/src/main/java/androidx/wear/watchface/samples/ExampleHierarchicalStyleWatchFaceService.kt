@@ -26,15 +26,14 @@ import android.graphics.drawable.Icon
 import android.view.SurfaceHolder
 import androidx.annotation.Px
 import androidx.wear.watchface.CanvasComplicationFactory
-import androidx.wear.watchface.CanvasTypes
+import androidx.wear.watchface.CanvasType
 import androidx.wear.watchface.ComplicationSlot
 import androidx.wear.watchface.ComplicationSlotsManager
 import androidx.wear.watchface.DrawMode
 import androidx.wear.watchface.RenderParameters
 import androidx.wear.watchface.Renderer
 import androidx.wear.watchface.WatchFace
-import androidx.wear.watchface.WatchFaceService
-import androidx.wear.watchface.WatchFaceTypes
+import androidx.wear.watchface.WatchFaceType
 import androidx.wear.watchface.WatchState
 import androidx.wear.watchface.complications.ComplicationSlotBounds
 import androidx.wear.watchface.complications.DefaultComplicationDataSourcePolicy
@@ -56,7 +55,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-open class ExampleHierarchicalStyleWatchFaceService : WatchFaceService() {
+open class ExampleHierarchicalStyleWatchFaceService : SampleWatchFaceService() {
 
     internal val twelveHourClockOption by lazy {
         ListOption(
@@ -385,14 +384,14 @@ open class ExampleHierarchicalStyleWatchFaceService : WatchFaceService() {
         currentUserStyleRepository: CurrentUserStyleRepository
     ) =
         WatchFace(
-            WatchFaceTypes.ANALOG,
+            WatchFaceType.ANALOG,
             @Suppress("Deprecation")
             object :
                 Renderer.CanvasRenderer(
                     surfaceHolder,
                     currentUserStyleRepository,
                     watchState,
-                    CanvasTypes.HARDWARE,
+                    CanvasType.HARDWARE,
                     16L
                 ) {
                 val renderer = ExampleHierarchicalStyleWatchFaceRenderer()

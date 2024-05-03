@@ -14,6 +14,13 @@
  * limitations under the License.
  */
 
+/**
+ * This file was created using the `create_project.py` script located in the
+ * `<AndroidX root>/development/project-creator` directory.
+ *
+ * Please use that script when creating a new project, rather than copying an existing project and
+ * modifying its settings.
+ */
 import androidx.build.LibraryType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -74,7 +81,6 @@ dependencies {
     shadowed(libs.kotlinMetadataJvm) {
         exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib"
     }
-    implementation(libs.intellijAnnotations)
     implementation(libs.kspApi)
     implementation(libs.kotlinStdlibJdk8) // KSP defines older version as dependency, force update.
 
@@ -84,9 +90,10 @@ dependencies {
     testImplementation(libs.jsr250)
     testImplementation(libs.ksp)
     testImplementation(libs.kotlinMetadataJvm)
+    testImplementation(libs.testParameterInjector)
     testImplementation(project(":room:room-compiler-processing-testing"))
     testImplementation(project(":internal-testutils-common"))
-    testImplementation(project(":internal-testutils-kmp"))
+    testImplementation(project(":kruth:kruth"))
 }
 
 tasks.withType(KotlinCompile).configureEach {

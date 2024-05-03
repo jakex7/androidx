@@ -23,6 +23,7 @@ import androidx.lifecycle.LifecycleRegistry
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * Create a [LifecycleOwner] that allows changing the state via the
@@ -35,6 +36,7 @@ import kotlinx.coroutines.runBlocking
  * matter what thread you mutate the state from.
  *
  * @param initialState The initial [Lifecycle.State].
+ * @param coroutineDispatcher A [CoroutineDispatcher] to use when dispatching work from this class.
  */
 public class TestLifecycleOwner @JvmOverloads constructor(
     initialState: Lifecycle.State = Lifecycle.State.STARTED,
@@ -51,15 +53,18 @@ public class TestLifecycleOwner @JvmOverloads constructor(
 
     /**
      * Update the [currentState] by moving it to the state directly after the given [event].
-     * This is safe to call on any thread.
+     * This is safe to mutate on any thread, but will block that thread during execution.
      */
     public fun handleLifecycleEvent(event: Lifecycle.Event) {
         runBlocking(coroutineDispatcher) {
             lifecycleRegistry.handleLifecycleEvent(event)
         }
     }
+
     /**
-     * The current [Lifecycle.State] of this owner. This is safe to mutate on any thread.
+     * The current [Lifecycle.State] of this owner.
+     * This is safe to call on any thread but is thread-blocking and should not be
+     * called from within a coroutine (use [setCurrentState] instead).
      */
     public var currentState: Lifecycle.State
         get() = runBlocking(coroutineDispatcher) {
@@ -70,6 +75,18 @@ public class TestLifecycleOwner @JvmOverloads constructor(
                 lifecycleRegistry.currentState = value
             }
         }
+
+    /**
+     * Updates the [currentState].
+     * This suspending function is safe to call on any thread and will not block that thread.
+     * If the state should be updated from outside of a suspending function, use [currentState]
+     * property syntax instead.
+     */
+    suspend fun setCurrentState(state: Lifecycle.State) {
+        withContext(coroutineDispatcher) {
+            lifecycleRegistry.currentState = state
+        }
+    }
 
     /**
      * Get the number of observers.

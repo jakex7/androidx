@@ -18,13 +18,13 @@
 
 package androidx.camera.camera2.pipe.testing
 
-import android.hardware.camera2.CaptureFailure
 import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraTimestamp
 import androidx.camera.camera2.pipe.FrameInfo
 import androidx.camera.camera2.pipe.FrameMetadata
 import androidx.camera.camera2.pipe.FrameNumber
 import androidx.camera.camera2.pipe.Request
+import androidx.camera.camera2.pipe.RequestFailure
 import androidx.camera.camera2.pipe.RequestMetadata
 import androidx.camera.camera2.pipe.StreamId
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -72,7 +72,6 @@ class FakeRequestListener(private val replayBuffer: Int = 10) : Request.Listener
         timestamp: CameraTimestamp
     ) = check(
         _onStartedFlow.tryEmit(
-            @Suppress("SyntheticAccessor")
             OnStarted(requestMetadata, frameNumber, timestamp)
         )
     ) {
@@ -86,7 +85,6 @@ class FakeRequestListener(private val replayBuffer: Int = 10) : Request.Listener
         captureResult: FrameMetadata
     ) = check(
         _onPartialCaptureResultFlow.tryEmit(
-            @Suppress("SyntheticAccessor")
             OnPartialCaptureResult(requestMetadata, frameNumber, captureResult)
         )
     ) {
@@ -100,7 +98,6 @@ class FakeRequestListener(private val replayBuffer: Int = 10) : Request.Listener
         totalCaptureResult: FrameInfo
     ) = check(
         _onTotalCaptureResultFlow.tryEmit(
-            @Suppress("SyntheticAccessor")
             OnTotalCaptureResult(requestMetadata, frameNumber, totalCaptureResult)
         )
     ) {
@@ -114,7 +111,6 @@ class FakeRequestListener(private val replayBuffer: Int = 10) : Request.Listener
         result: FrameInfo
     ) = check(
         _onCompleteFlow.tryEmit(
-            @Suppress("SyntheticAccessor")
             OnComplete(requestMetadata, frameNumber, result)
         )
     ) {
@@ -126,7 +122,6 @@ class FakeRequestListener(private val replayBuffer: Int = 10) : Request.Listener
         request: Request
     ) = check(
         _onAbortedFlow.tryEmit(
-            @Suppress("SyntheticAccessor")
             OnAborted(request)
         )
     ) {
@@ -140,7 +135,6 @@ class FakeRequestListener(private val replayBuffer: Int = 10) : Request.Listener
         stream: StreamId
     ) = check(
         _onBufferLostFlow.tryEmit(
-            @Suppress("SyntheticAccessor")
             OnBufferLost(requestMetadata, frameNumber, stream)
         )
     ) {
@@ -148,18 +142,13 @@ class FakeRequestListener(private val replayBuffer: Int = 10) : Request.Listener
             "($replayBuffer) may need to be increased."
     }
 
-    @Deprecated(
-        message = "Migrating to using RequestFailureWrapper instead of CaptureFailure",
-        level = DeprecationLevel.WARNING
-    )
     override fun onFailed(
         requestMetadata: RequestMetadata,
         frameNumber: FrameNumber,
-        captureFailure: CaptureFailure
+        requestFailure: RequestFailure
     ) = check(
         _onFailedFlow.tryEmit(
-            @Suppress("SyntheticAccessor")
-            OnFailed(requestMetadata, frameNumber, captureFailure)
+            OnFailed(requestMetadata, frameNumber, requestFailure)
         )
     ) {
         "Failed to emit OnFailed event! The size of the replay buffer" +
@@ -205,5 +194,5 @@ class OnBufferLost(
 class OnFailed(
     val requestMetadata: RequestMetadata,
     val frameNumber: FrameNumber,
-    val captureFailure: CaptureFailure
+    val requestFailure: RequestFailure
 ) : RequestListenerEvent()

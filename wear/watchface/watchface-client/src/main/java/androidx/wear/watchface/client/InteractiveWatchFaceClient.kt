@@ -32,12 +32,12 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RestrictTo
 import androidx.core.util.Consumer
 import androidx.wear.watchface.ComplicationSlot
-import androidx.wear.watchface.ComplicationSlotBoundsTypes
+import androidx.wear.watchface.ComplicationSlotBoundsType
 import androidx.wear.watchface.ComplicationSlotsManager
 import androidx.wear.watchface.ContentDescriptionLabel
 import androidx.wear.watchface.RenderParameters
 import androidx.wear.watchface.Renderer
-import androidx.wear.watchface.TapType
+import androidx.wear.watchface.TapTypeIntDef
 import androidx.wear.watchface.WatchFaceColors
 import androidx.wear.watchface.WatchFaceExperimental
 import androidx.wear.watchface.complications.data.ComplicationData
@@ -52,6 +52,7 @@ import androidx.wear.watchface.data.WatchFaceColorsWireFormat
 import androidx.wear.watchface.data.WatchUiState
 import androidx.wear.watchface.style.UserStyle
 import androidx.wear.watchface.style.UserStyleData
+import androidx.wear.watchface.style.UserStyleFlavors
 import androidx.wear.watchface.style.UserStyleSchema
 import androidx.wear.watchface.style.UserStyleSetting.ComplicationSlotsUserStyleSetting
 import androidx.wear.watchface.toApiFormat
@@ -140,6 +141,23 @@ public interface InteractiveWatchFaceClient : AutoCloseable {
     public fun updateComplicationData(slotIdToComplicationData: Map<Int, ComplicationData>)
 
     /**
+     * Sets override complications which are displayed until [clearComplicationDataOverride] is
+     * called. For editors this is more efficient than repeatedly calling [renderWatchFaceToBitmap]
+     * with complication data.
+     *
+     * While there are overrides [updateComplicationData] has no effect until
+     * [clearComplicationDataOverride] is called.
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun overrideComplicationData(slotIdToComplicationData: Map<Int, ComplicationData>) {}
+
+    /**
+     * Clears any overrides set by [overrideComplicationData].
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public fun clearComplicationDataOverride() {}
+
+    /**
      * Renders the watchface to a shared memory backed [Bitmap] with the given settings. Note this
      * will be fairly slow since either software canvas or glReadPixels will be invoked.
      *
@@ -161,8 +179,7 @@ public interface InteractiveWatchFaceClient : AutoCloseable {
     ): Bitmap
 
     /** Whether or not the watch face supports [RemoteWatchFaceViewHost]. */
-    public val isRemoteWatchFaceViewHostSupported: Boolean
-        @get:JvmName("isRemoteWatchFaceViewHostSupported") get() = false
+    public val isRemoteWatchFaceViewHostSupported: Boolean get() = false
 
     /**
      * Constructs a [RemoteWatchFaceViewHost] whose [RemoteWatchFaceViewHost.surfacePackage] can be
@@ -257,9 +274,9 @@ public interface InteractiveWatchFaceClient : AutoCloseable {
             .firstOrNull {
                 it.value.isEnabled &&
                     when (it.value.boundsType) {
-                        ComplicationSlotBoundsTypes.ROUND_RECT -> it.value.bounds.contains(x, y)
-                        ComplicationSlotBoundsTypes.BACKGROUND -> false
-                        ComplicationSlotBoundsTypes.EDGE -> false
+                        ComplicationSlotBoundsType.ROUND_RECT -> it.value.bounds.contains(x, y)
+                        ComplicationSlotBoundsType.BACKGROUND -> false
+                        ComplicationSlotBoundsType.EDGE -> false
                         else -> false
                     }
             }
@@ -288,10 +305,10 @@ public interface InteractiveWatchFaceClient : AutoCloseable {
      *
      * @param xPosition The x-coordinate of the tap in pixels
      * @param yPosition The y-coordinate of the tap in pixels
-     * @param tapType The [TapType] of the event
+     * @param tapType The [TapTypeIntDef] of the event
      */
     @Throws(RemoteException::class)
-    public fun sendTouchEvent(@Px xPosition: Int, @Px yPosition: Int, @TapType tapType: Int)
+    public fun sendTouchEvent(@Px xPosition: Int, @Px yPosition: Int, @TapTypeIntDef tapType: Int)
 
     /**
      * Returns the [ContentDescriptionLabel]s describing the watch face, for the use by screen
@@ -402,6 +419,15 @@ public interface InteractiveWatchFaceClient : AutoCloseable {
      * becomes unlocked for affected complications.
      */
     public fun isComplicationDisplayPolicySupported() = false
+
+    /**
+     * Returns the watch face's [UserStyleFlavors].
+     *
+     * @throws [RuntimeException] if the watch face threw an exception while trying to service the
+     *   request or there was a communication problem with watch face process.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public fun getUserStyleFlavors(): UserStyleFlavors = UserStyleFlavors()
 }
 
 /** Controls a stateful remote interactive watch face. */
@@ -424,6 +450,7 @@ internal constructor(
     private var lastWatchFaceColors: WatchFaceColors? = null
     private var disconnectReason: Int? = null
     private var closed = false
+    private var overrideSlotIdToComplicationData = HashMap<Int, ComplicationData>()
 
     private val iWatchFaceListener =
         object : IWatchfaceListener.Stub() {
@@ -496,6 +523,31 @@ internal constructor(
             )
         }
 
+    override fun overrideComplicationData(slotIdToComplicationData: Map<Int, ComplicationData>) {
+        if (iInteractiveWatchFace.apiVersion >= 11) {
+            iInteractiveWatchFace.overrideComplicationData(
+                slotIdToComplicationData.map {
+                    IdAndComplicationDataWireFormat(
+                        it.key,
+                        it.value.asWireComplicationData()
+                    )
+                }
+            )
+        } else {
+            for ((id, complicationData) in slotIdToComplicationData) {
+                overrideSlotIdToComplicationData[id] = complicationData
+            }
+        }
+    }
+
+    override fun clearComplicationDataOverride() {
+        if (iInteractiveWatchFace.apiVersion >= 11) {
+            iInteractiveWatchFace.clearComplicationDataOverride()
+        } else {
+            overrideSlotIdToComplicationData.clear()
+        }
+    }
+
     @RequiresApi(27)
     override fun renderWatchFaceToBitmap(
         renderParameters: RenderParameters,
@@ -510,7 +562,11 @@ internal constructor(
                         renderParameters.toWireFormat(),
                         instant.toEpochMilli(),
                         userStyle?.toWireFormat(),
-                        idAndComplicationData?.map {
+                        if (iInteractiveWatchFace.apiVersion >= 11) {
+                            idAndComplicationData
+                        } else {
+                            mergeWithOverrideComplicationData(idAndComplicationData)
+                        }?.map {
                             IdAndComplicationDataWireFormat(
                                 it.key,
                                 it.value.asWireComplicationData()
@@ -520,6 +576,27 @@ internal constructor(
                 )
             )
         }
+
+    private fun mergeWithOverrideComplicationData(
+        idAndComplicationData: Map<Int, ComplicationData>?
+    ): Map<Int, ComplicationData>? {
+        if (overrideSlotIdToComplicationData.isEmpty()) {
+            return idAndComplicationData
+        }
+
+        if (idAndComplicationData.isNullOrEmpty()) {
+            return overrideSlotIdToComplicationData
+        }
+
+        val merged = HashMap(overrideSlotIdToComplicationData)
+        for ((id, complicationData) in idAndComplicationData) {
+            if (merged.contains(id)) {
+                continue
+            }
+            merged[id] = complicationData
+        }
+        return merged
+    }
 
     override val isRemoteWatchFaceViewHostSupported = iInteractiveWatchFace.apiVersion >= 9
 
@@ -565,8 +642,9 @@ internal constructor(
         }
     }
 
-    override val previewReferenceInstant: Instant
-        get() = Instant.ofEpochMilli(iInteractiveWatchFace.previewReferenceTimeMillis)
+    override val previewReferenceInstant: Instant by lazy {
+        Instant.ofEpochMilli(iInteractiveWatchFace.previewReferenceTimeMillis)
+    }
 
     @Suppress("Deprecation")
     @Deprecated("OverlayStyle will be removed in a future release.")
@@ -612,7 +690,7 @@ internal constructor(
             synchronized(lock) { closed = true }
         }
 
-    override fun sendTouchEvent(xPosition: Int, yPosition: Int, @TapType tapType: Int) =
+    override fun sendTouchEvent(xPosition: Int, yPosition: Int, @TapTypeIntDef tapType: Int) =
         TraceEvent("InteractiveWatchFaceClientImpl.sendTouchEvent").use {
             iInteractiveWatchFace.sendTouchEvent(xPosition, yPosition, tapType)
         }
@@ -648,7 +726,7 @@ internal constructor(
                 disconnectListeners.put(listener, executor)
                 disconnectReason
             }
-        disconnectReasonCopy?.let { listener.onClientDisconnected(it) }
+        disconnectReasonCopy?.let { executor.execute { listener.onClientDisconnected(it) } }
     }
 
     override fun removeClientDisconnectListener(
@@ -750,7 +828,7 @@ internal constructor(
                 lastWatchFaceColors
             }
 
-        listener.accept(colors)
+        executor.execute { listener.accept(colors) }
     }
 
     @WatchFaceClientExperimental
@@ -773,16 +851,24 @@ internal constructor(
                     .firstOrNull {
                         it.value.isEnabled &&
                             when (it.value.boundsType) {
-                                ComplicationSlotBoundsTypes.ROUND_RECT ->
+                                ComplicationSlotBoundsType.ROUND_RECT ->
                                     it.value.bounds.contains(x, y)
-                                ComplicationSlotBoundsTypes.BACKGROUND -> false
-                                ComplicationSlotBoundsTypes.EDGE -> false
+                                ComplicationSlotBoundsType.BACKGROUND -> false
+                                ComplicationSlotBoundsType.EDGE -> false
                                 else -> false
                             }
                     }
                     ?.key
             }
         }
+
+    override fun getUserStyleFlavors(): UserStyleFlavors = callRemote {
+        if (iInteractiveWatchFace.apiVersion >= 10) {
+            UserStyleFlavors(iInteractiveWatchFace.userStyleFlavors)
+        } else {
+            UserStyleFlavors()
+        }
+    }
 
     override fun isComplicationDisplayPolicySupported() = iInteractiveWatchFace.apiVersion >= 8
 

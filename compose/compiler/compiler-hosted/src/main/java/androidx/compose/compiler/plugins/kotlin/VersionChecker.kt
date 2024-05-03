@@ -112,9 +112,31 @@ class VersionChecker(val context: IrPluginContext) {
             9701 to "1.5.0-alpha01",
             9801 to "1.5.0-alpha02",
             9901 to "1.5.0-alpha03",
-            10001 to "1.5.0-alpha04",
-            10101 to "1.5.0-alpha05",
-            10200 to "1.6.0-alpha01",
+            10000 to "1.5.0-alpha04",
+            10100 to "1.5.0-alpha05",
+            10200 to "1.5.0-beta01",
+            10300 to "1.5.0-beta02",
+            10400 to "1.5.0-beta03",
+            10401 to "1.5.0-rc01",
+            10402 to "1.5.0",
+            10403 to "1.5.1",
+            11000 to "1.6.0-alpha01",
+            11100 to "1.6.0-alpha02",
+            11200 to "1.6.0-alpha03",
+            11300 to "1.6.0-alpha04",
+            11400 to "1.6.0-alpha05",
+            11500 to "1.6.0-alpha06",
+            11600 to "1.6.0-alpha07",
+            11700 to "1.6.0-alpha08",
+            11800 to "1.6.0-beta01",
+            12000 to "1.7.0-alpha01",
+            12100 to "1.7.0-alpha02",
+            12200 to "1.7.0-alpha03",
+            12300 to "1.7.0-alpha04",
+            12400 to "1.7.0-alpha05",
+            12500 to "1.7.0-alpha06",
+            12600 to "1.7.0-alpha07",
+            12700 to "1.7.0-alpha08",
         )
 
         /**
@@ -127,15 +149,12 @@ class VersionChecker(val context: IrPluginContext) {
          * The maven version string of this compiler. This string should be updated before/after every
          * release.
          */
-        const val compilerVersion: String = "1.4.8"
+        const val compilerVersion: String = "1.5.14"
         private val minimumRuntimeVersion: String
             get() = runtimeVersionToMavenVersionTable[minimumRuntimeVersionInt] ?: "unknown"
     }
 
     fun check() {
-        // version checker accesses bodies of the functions that are not deserialized in KLIB
-        if (!context.platform.isJvm()) return
-
         val versionClass = context.referenceClass(ComposeClassIds.ComposeVersion)
         if (versionClass == null) {
             // If the version class isn't present, it likely means that compose runtime isn't on the
@@ -149,6 +168,10 @@ class VersionChecker(val context: IrPluginContext) {
                 noRuntimeOnClasspathError()
             }
         }
+
+        // The check accesses bodies of the functions that are not deserialized in KLIB
+        if (!context.platform.isJvm()) return
+
         val versionExpr = versionClass
             .owner
             .declarations

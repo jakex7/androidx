@@ -17,14 +17,15 @@
 package androidx.room.writer
 
 import COMMON
-import androidx.kruth.StringSubject
 import androidx.room.compiler.codegen.CodeLanguage
+import androidx.room.compiler.processing.XProcessingEnv
 import androidx.room.compiler.processing.XTypeElement
 import androidx.room.compiler.processing.util.Source
-import androidx.room.compiler.processing.util.runKaptTest
+import androidx.room.compiler.processing.util.runProcessorTest
 import androidx.room.ext.RoomTypeNames.ROOM_DB
 import androidx.room.processor.DaoProcessor
 import androidx.room.testing.context
+import com.google.common.truth.StringSubject
 import createVerifierFromEntitiesAndViews
 import org.jetbrains.kotlin.config.JvmDefaultMode
 import org.junit.Test
@@ -170,8 +171,7 @@ class DefaultsInDaoTest(
         jvmTarget: String = "1.8",
         handler: (StringSubject) -> Unit
     ) {
-        // TODO should run these with KSP as well. https://github.com/google/ksp/issues/627
-        runKaptTest(
+        runProcessorTest(
             sources = listOf(source, COMMON.COROUTINES_ROOM, COMMON.ROOM_DATABASE_KTX),
             javacArguments = listOf(
                 "-source", jvmTarget
@@ -196,8 +196,15 @@ class DefaultsInDaoTest(
                         dbVerifier = createVerifierFromEntitiesAndViews(invocation)
                     )
                     val parsedDao = parser.process()
-                    DaoWriter(parsedDao, db, CodeLanguage.JAVA)
-                        .write(invocation.processingEnv)
+                    DaoWriter(
+                        dao = parsedDao,
+                        dbElement = db,
+                        writerContext = TypeWriter.WriterContext(
+                            codeLanguage = CodeLanguage.JAVA,
+                            javaLambdaSyntaxAvailable = true,
+                            targetPlatforms = setOf(XProcessingEnv.Platform.JVM)
+                        )
+                    ).write(invocation.processingEnv)
                     invocation.assertCompilationResult {
                         val relativePath =
                             parsedDao.implTypeName.canonicalName + ".java"

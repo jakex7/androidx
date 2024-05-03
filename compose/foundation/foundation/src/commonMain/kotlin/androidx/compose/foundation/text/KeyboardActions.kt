@@ -74,12 +74,12 @@ class KeyboardActions(
         if (this === other) return true
         if (other !is KeyboardActions) return false
 
-        return onDone == other.onDone &&
-            onGo == other.onGo &&
-            onNext == other.onNext &&
-            onPrevious == other.onPrevious &&
-            onSearch == other.onSearch &&
-            onSend == other.onSend
+        return onDone === other.onDone &&
+            onGo === other.onGo &&
+            onNext === other.onNext &&
+            onPrevious === other.onPrevious &&
+            onSearch === other.onSearch &&
+            onSend === other.onSend
     }
 
     override fun hashCode(): Int {
@@ -94,7 +94,7 @@ class KeyboardActions(
 
     companion object {
         /**
-         * Use this default value if you don't want to specify any action but want to use use the
+         * Use this default value if you don't want to specify any action but want to use the
          * default action implementations.
          */
         @Stable

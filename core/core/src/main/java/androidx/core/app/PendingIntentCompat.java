@@ -76,12 +76,8 @@ public final class PendingIntentCompat {
             @Flags int flags,
             @Nullable Bundle options,
             boolean isMutable) {
-        if (VERSION.SDK_INT >= 16) {
-            return Api16Impl.getActivities(
-                    context, requestCode, intents, addMutabilityFlags(isMutable, flags), options);
-        } else {
-            return PendingIntent.getActivities(context, requestCode, intents, flags);
-        }
+        return PendingIntent.getActivities(context, requestCode, intents,
+                addMutabilityFlags(isMutable, flags), options);
     }
 
     /**
@@ -103,10 +99,13 @@ public final class PendingIntentCompat {
     /**
      * Retrieves a {@link PendingIntent} with mandatory mutability flag set on supported platform
      * versions. The caller provides the flag as combination of all the other values except
-     * mutability flag. This method combines mutability flag when necessary. See {@link
-     * PendingIntent#getActivity(Context, int, Intent, int)}.
+     * mutability flag. This method combines mutability flag when necessary.
+     *
+     * @return Returns an existing or new PendingIntent matching the given parameters. May return
+     *         {@code null} only if {@link PendingIntent#FLAG_NO_CREATE} has been supplied.
+     * @see PendingIntent#getActivity(Context, int, Intent, int)
      */
-    public static @NonNull PendingIntent getActivity(
+    public static @Nullable PendingIntent getActivity(
             @NonNull Context context,
             int requestCode,
             @NonNull Intent intent,
@@ -119,22 +118,21 @@ public final class PendingIntentCompat {
     /**
      * Retrieves a {@link PendingIntent} with mandatory mutability flag set on supported platform
      * versions. The caller provides the flag as combination of all the other values except
-     * mutability flag. This method combines mutability flag when necessary. See {@link
-     * PendingIntent#getActivity(Context, int, Intent, int, Bundle)}.
+     * mutability flag. This method combines mutability flag when necessary.
+     *
+     * @return Returns an existing or new PendingIntent matching the given parameters. May return
+     *         {@code null} only if {@link PendingIntent#FLAG_NO_CREATE} has been supplied.
+     * @see PendingIntent#getActivity(Context, int, Intent, int, Bundle)
      */
-    public static @NonNull PendingIntent getActivity(
+    public static @Nullable PendingIntent getActivity(
             @NonNull Context context,
             int requestCode,
             @NonNull Intent intent,
             @Flags int flags,
             @Nullable Bundle options,
             boolean isMutable) {
-        if (VERSION.SDK_INT >= 16) {
-            return Api16Impl.getActivity(
-                    context, requestCode, intent, addMutabilityFlags(isMutable, flags), options);
-        } else {
-            return PendingIntent.getActivity(context, requestCode, intent, flags);
-        }
+        return PendingIntent.getActivity(context, requestCode, intent,
+                addMutabilityFlags(isMutable, flags), options);
     }
 
     /**
@@ -176,10 +174,13 @@ public final class PendingIntentCompat {
     /**
      * Retrieves a {@link PendingIntent} with mandatory mutability flag set on supported platform
      * versions. The caller provides the flag as combination of all the other values except
-     * mutability flag. This method combines mutability flag when necessary. See {@link
-     * PendingIntent#getService(Context, int, Intent, int)}.
+     * mutability flag. This method combines mutability flag when necessary.
+     *
+     * @return Returns an existing or new PendingIntent matching the given parameters. May return
+     *         {@code null} only if {@link PendingIntent#FLAG_NO_CREATE} has been supplied.
+     * @see PendingIntent#getService(Context, int, Intent, int)
      */
-    public static @NonNull PendingIntent getService(
+    public static @Nullable PendingIntent getService(
             @NonNull Context context,
             int requestCode,
             @NonNull Intent intent,
@@ -289,31 +290,6 @@ public final class PendingIntentCompat {
     }
 
     private PendingIntentCompat() {}
-
-    @RequiresApi(16)
-    private static class Api16Impl {
-        private Api16Impl() {}
-
-        @DoNotInline
-        public static @NonNull PendingIntent getActivities(
-                @NonNull Context context,
-                int requestCode,
-                @NonNull @SuppressLint("ArrayReturn") Intent[] intents,
-                @Flags int flags,
-                @Nullable Bundle options) {
-            return PendingIntent.getActivities(context, requestCode, intents, flags, options);
-        }
-
-        @DoNotInline
-        public static @NonNull PendingIntent getActivity(
-                @NonNull Context context,
-                int requestCode,
-                @NonNull Intent intent,
-                @Flags int flags,
-                @Nullable Bundle options) {
-            return PendingIntent.getActivity(context, requestCode, intent, flags, options);
-        }
-    }
 
     @RequiresApi(23)
     private static class Api23Impl {

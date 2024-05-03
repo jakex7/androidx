@@ -22,8 +22,10 @@ import androidx.compose.ui.input.rotary.RotaryScrollEvent
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.semantics.AccessibilityAction
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.ScrollAxisRange
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsActions.CustomActions
 import androidx.compose.ui.semantics.SemanticsActions.ScrollBy
 import androidx.compose.ui.semantics.SemanticsActions.ScrollToIndex
 import androidx.compose.ui.semantics.SemanticsNode
@@ -46,8 +48,8 @@ internal expect fun SemanticsNodeInteraction.performClickImpl(): SemanticsNodeIn
  *
  * @return The [SemanticsNodeInteraction] that is the receiver of this method
  */
-@OptIn(ExperimentalTestApi::class)
 fun SemanticsNodeInteraction.performClick(): SemanticsNodeInteraction {
+    @OptIn(ExperimentalTestApi::class)
     return this.invokeGlobalAssertions().performClickImpl()
 }
 
@@ -66,6 +68,8 @@ fun SemanticsNodeInteraction.performClick(): SemanticsNodeInteraction {
  * @return The [SemanticsNodeInteraction] that is the receiver of this method
  */
 fun SemanticsNodeInteraction.performScrollTo(): SemanticsNodeInteraction {
+    @OptIn(ExperimentalTestApi::class)
+    invokeGlobalAssertions()
     @OptIn(InternalTestApi::class)
     fetchSemanticsNode("Action performScrollTo() failed.").scrollToNode(testContext.testOwner)
     return this
@@ -130,6 +134,8 @@ private fun SemanticsNode.scrollToNode(testOwner: TestOwner) {
  * @see hasScrollToIndexAction
  */
 fun SemanticsNodeInteraction.performScrollToIndex(index: Int): SemanticsNodeInteraction {
+    @OptIn(ExperimentalTestApi::class)
+    invokeGlobalAssertions()
     fetchSemanticsNode("Failed: performScrollToIndex($index)").scrollToIndex(index, this)
     return this
 }
@@ -164,6 +170,8 @@ private fun SemanticsNode.scrollToIndex(index: Int, nodeInteraction: SemanticsNo
  * @see hasScrollToKeyAction
  */
 fun SemanticsNodeInteraction.performScrollToKey(key: Any): SemanticsNodeInteraction {
+    @OptIn(ExperimentalTestApi::class)
+    invokeGlobalAssertions()
     val node = fetchSemanticsNode("Failed: performScrollToKey(\"$key\")")
     requireSemantics(node, IndexForKey, ScrollToIndex) {
         "Failed to scroll to the item identified by \"$key\""
@@ -214,6 +222,8 @@ fun SemanticsNodeInteraction.performScrollToKey(key: Any): SemanticsNodeInteract
 fun SemanticsNodeInteraction.performScrollToNode(
     matcher: SemanticsMatcher
 ): SemanticsNodeInteraction {
+    @OptIn(ExperimentalTestApi::class)
+    invokeGlobalAssertions()
     var node = fetchSemanticsNode("Failed: performScrollToNode(${matcher.description})")
     matcher.findMatchInDescendants(node)?.also {
         @OptIn(InternalTestApi::class)
@@ -355,6 +365,8 @@ fun SemanticsNodeInteraction.performGesture(
 fun SemanticsNodeInteraction.performTouchInput(
     block: TouchInjectionScope.() -> Unit
 ): SemanticsNodeInteraction {
+    @OptIn(ExperimentalTestApi::class)
+    invokeGlobalAssertions()
     val node = fetchSemanticsNode("Failed to inject touch input.")
     with(MultiModalInjectionScopeImpl(node, testContext)) {
         try {
@@ -404,6 +416,8 @@ fun SemanticsNodeInteraction.performTouchInput(
 fun SemanticsNodeInteraction.performMouseInput(
     block: MouseInjectionScope.() -> Unit
 ): SemanticsNodeInteraction {
+    @OptIn(ExperimentalTestApi::class)
+    invokeGlobalAssertions()
     val node = fetchSemanticsNode("Failed to inject mouse input.")
     with(MultiModalInjectionScopeImpl(node, testContext)) {
         try {
@@ -443,6 +457,8 @@ fun SemanticsNodeInteraction.performMouseInput(
 fun SemanticsNodeInteraction.performKeyInput(
     block: KeyInjectionScope.() -> Unit
 ): SemanticsNodeInteraction {
+    @OptIn(ExperimentalTestApi::class)
+    invokeGlobalAssertions()
     val node = fetchSemanticsNode("Failed to inject key input.")
     with(MultiModalInjectionScopeImpl(node, testContext)) {
         try {
@@ -598,6 +614,8 @@ fun SemanticsNodeInteraction.performSemanticsAction(
 fun SemanticsNodeInteraction.performRotaryScrollInput(
     block: RotaryInjectionScope.() -> Unit
 ): SemanticsNodeInteraction {
+    @OptIn(ExperimentalTestApi::class)
+    invokeGlobalAssertions()
     val node = fetchSemanticsNode("Failed to send rotary Event")
     with(MultiModalInjectionScopeImpl(node, testContext)) {
         try {
@@ -606,6 +624,70 @@ fun SemanticsNodeInteraction.performRotaryScrollInput(
             dispose()
         }
     }
+    return this
+}
+
+/**
+ * Finds the [CustomAccessibilityAction] in the node's [CustomActions] list whose label is equal
+ * to [label] and then invokes it.
+ *
+ * To use your own logic to find the action to perform instead of matching on the full label, use
+ * [performCustomAccessibilityActionWhere].
+ *
+ * @param label The exact label of the [CustomAccessibilityAction] to perform.
+ *
+ * @throws AssertionError If no [SemanticsNode] is found, or no [CustomAccessibilityAction] has
+ * [label], or more than one [CustomAccessibilityAction] has [label].
+ *
+ * @see performCustomAccessibilityActionWhere
+ */
+@ExperimentalTestApi
+fun SemanticsNodeInteraction.performCustomAccessibilityActionLabelled(
+    label: String
+): SemanticsNodeInteraction =
+    performCustomAccessibilityActionWhere("label is \"$label\"") { it == label }
+
+/**
+ * Finds the [CustomAccessibilityAction] in the node's [CustomActions] list whose label satisfies a
+ * predicate function and then invokes it.
+ *
+ * @param predicateDescription A description of [labelPredicate] that will be included in the error
+ * message if zero or >1 actions match.
+ * @param labelPredicate A predicate function used to select the [CustomAccessibilityAction] to
+ * perform.
+ *
+ * @throws AssertionError If no [SemanticsNode] is found, or no [CustomAccessibilityAction] matches
+ * [labelPredicate], or more than one [CustomAccessibilityAction] matches [labelPredicate].
+ *
+ * @see performCustomAccessibilityActionLabelled
+ */
+@ExperimentalTestApi
+fun SemanticsNodeInteraction.performCustomAccessibilityActionWhere(
+    predicateDescription: String? = null,
+    labelPredicate: (label: String) -> Boolean
+): SemanticsNodeInteraction {
+    val node = fetchSemanticsNode()
+    val actions = node.config[CustomActions]
+    val matchingActions = actions.filter { labelPredicate(it.label) }
+    if (matchingActions.isEmpty()) {
+        throw AssertionError(
+            buildGeneralErrorMessage(
+                "No custom accessibility actions matched [$predicateDescription].",
+                selector,
+                node
+            )
+        )
+    } else if (matchingActions.size > 1) {
+        throw AssertionError(
+            buildGeneralErrorMessage(
+                "Expected exactly one custom accessibility action to match" +
+                    " [$predicateDescription], but found ${matchingActions.size}.",
+                selector,
+                node
+            )
+        )
+    }
+    matchingActions[0].action()
     return this
 }
 

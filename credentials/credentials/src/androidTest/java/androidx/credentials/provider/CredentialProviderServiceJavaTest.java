@@ -23,7 +23,6 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.OutcomeReceiver;
 
-import androidx.core.os.BuildCompat;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
@@ -32,18 +31,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
-@SdkSuppress(minSdkVersion = 34, codeName = "UpsideDownCake")
+@SdkSuppress(minSdkVersion = 34)
 public class CredentialProviderServiceJavaTest {
 
     @Test
     public void test_createRequest() {
-        if (!BuildCompat.isAtLeastU()) {
-            return;
-        }
-
         CredentialProviderServiceTestImpl service = new CredentialProviderServiceTestImpl();
         service.setTestMode(true);
 
@@ -72,60 +68,57 @@ public class CredentialProviderServiceJavaTest {
 
     @Test
     public void test_getRequest() {
-        if (!BuildCompat.isAtLeastU()) {
-            return;
-        }
-
         CredentialProviderServiceTestImpl service = new CredentialProviderServiceTestImpl();
         service.setTestMode(true);
 
-        BeginGetCredentialRequest request =
-                new BeginGetCredentialRequest(new ArrayList<BeginGetCredentialOption>());
-        OutcomeReceiver<
-                        androidx.credentials.provider.BeginGetCredentialResponse,
-                        androidx.credentials.exceptions.GetCredentialException>
-                outcome =
-                        new OutcomeReceiver<
-                                androidx.credentials.provider.BeginGetCredentialResponse,
-                                androidx.credentials.exceptions.GetCredentialException>() {
-                    public void onResult(
-                                    androidx.credentials.provider.BeginGetCredentialResponse
-                                            response) {}
+        android.service.credentials.BeginGetCredentialOption option =
+                new android.service.credentials.BeginGetCredentialOption(
+                        "id", "type", new Bundle());
+        List<android.service.credentials.BeginGetCredentialOption> options = new ArrayList<>();
+        options.add(option);
 
-                    public void onError(
-                                    androidx.credentials.exceptions.GetCredentialException error) {}
+        android.service.credentials.BeginGetCredentialRequest request =
+                        new android.service.credentials.BeginGetCredentialRequest.Builder()
+                .setBeginGetCredentialOptions(options).build();
+        OutcomeReceiver<
+                        android.service.credentials.BeginGetCredentialResponse,
+                        android.credentials.GetCredentialException>
+                outcome = new OutcomeReceiver<
+                        android.service.credentials.BeginGetCredentialResponse,
+                                android.credentials.GetCredentialException>() {
+                        public void onResult(
+                                android.service.credentials.BeginGetCredentialResponse response) {}
+
+                        public void onError(android.credentials.GetCredentialException error) {}
                 };
 
         // Call the service.
         assertThat(service.getLastGetRequest()).isNull();
-        service.onBeginGetCredentialRequest(request, new CancellationSignal(), outcome);
+        service.onBeginGetCredential(request, new CancellationSignal(), outcome);
         assertThat(service.getLastGetRequest()).isNotNull();
     }
 
     @Test
     public void test_clearRequest() {
-        if (!BuildCompat.isAtLeastU()) {
-            return;
-        }
-
         CredentialProviderServiceTestImpl service = new CredentialProviderServiceTestImpl();
         service.setTestMode(true);
 
-        ProviderClearCredentialStateRequest request =
-                new ProviderClearCredentialStateRequest(
-                        new CallingAppInfo("name", new SigningInfo()));
-        OutcomeReceiver<Void, androidx.credentials.exceptions.ClearCredentialException> outcome =
+        android.service.credentials.ClearCredentialStateRequest request =
+                new android.service.credentials.ClearCredentialStateRequest(
+                        new android.service.credentials.CallingAppInfo(
+                                "name", new SigningInfo()), new Bundle());
+        OutcomeReceiver<Void, android.credentials.ClearCredentialStateException> outcome =
                 new OutcomeReceiver<
-                        Void, androidx.credentials.exceptions.ClearCredentialException>() {
+                        Void, android.credentials.ClearCredentialStateException>() {
                     public void onResult(Void response) {}
 
                     public void onError(
-                            androidx.credentials.exceptions.ClearCredentialException error) {}
+                            android.credentials.ClearCredentialStateException error) {}
                 };
 
         // Call the service.
         assertThat(service.getLastClearRequest()).isNull();
-        service.onClearCredentialStateRequest(request, new CancellationSignal(), outcome);
+        service.onClearCredentialState(request, new CancellationSignal(), outcome);
         assertThat(service.getLastClearRequest()).isNotNull();
     }
 }

@@ -16,8 +16,10 @@
 
 package androidx.wear.watchface.complications.data
 
+import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.icu.util.TimeZone
+import android.os.Build
 import android.support.wearable.complications.ComplicationData as WireComplicationData
 import android.support.wearable.complications.ComplicationText as WireComplicationText
 import android.support.wearable.complications.ComplicationText.TimeDifferenceBuilder as WireComplicationTextTimeDifferenceBuilder
@@ -32,6 +34,7 @@ import android.text.style.SubscriptSpan
 import android.text.style.SuperscriptSpan
 import android.text.style.TypefaceSpan
 import android.text.style.UnderlineSpan
+import androidx.annotation.RequiresApi
 import androidx.annotation.RestrictTo
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicString
 import java.time.Instant
@@ -542,6 +545,7 @@ private class DelegatingComplicationText(private val delegate: WireComplicationT
 }
 
 /** Converts a [WireComplicationText] into an equivalent [ComplicationText] instead. */
+@SuppressLint("NewApi") // This is what's in the wire format, regardless of whether it's supported.
 internal fun WireComplicationText.toApiComplicationText(
     placeholderAware: Boolean = false
 ): ComplicationText =
@@ -608,16 +612,27 @@ public fun WireTimeDependentText.toApiComplicationText(): ComplicationText =
  * watch face's Renderer, it'll have been converted to a plain ComplicationText.
  *
  * @param dynamicValue The [DynamicString] which will be evaluated into a value dynamically.
- * @param fallbackValue Used when the system does not support dynamic values.
+ * @param fallbackValue Used when the system does not support [dynamicValue].
  *
- *   IMPORTANT: This is only used when the system does not support dynamic values _at all_. See
- *   [ComplicationData.BaseBuilder.setDynamicValueInvalidationFallback] for the situation where the
- *   dynamic value has been invalidated.
+ *   This is only relevant before [Build.VERSION_CODES.UPSIDE_DOWN_CAKE], use the no-fallback
+ *   constructor if you target an equal or higher API level.
+ *
+ *   IMPORTANT: This is only used when the system does not support [dynamicValue] _at all_. See
+ *   [ComplicationData.dynamicValueInvalidationFallback] for the situation where the [dynamicValue]
+ *   cannot be evaluated, e.g. when a data source is not available.
  */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 public class DynamicComplicationText(
     public val dynamicValue: DynamicString,
     public val fallbackValue: CharSequence,
 ) : ComplicationText {
+    /**
+     * Creates a [DynamicComplicationText] with no [fallbackValue] for API levels that are known to
+     * support dynamic values.
+     */
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public constructor(dynamicValue: DynamicString) : this(dynamicValue, "")
+
     private val delegate =
         DelegatingComplicationText(WireComplicationText(fallbackValue, dynamicValue))
 

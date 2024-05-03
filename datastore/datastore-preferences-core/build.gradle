@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
-
-import androidx.build.BundleInsideHelper
-import androidx.build.KmpPlatformsKt
+/**
+ * This file was created using the `create_project.py` script located in the
+ * `<AndroidX root>/development/project-creator` directory.
+ *
+ * Please use that script when creating a new project, rather than copying an existing project and
+ * modifying its settings.
+ */
 import androidx.build.LibraryType
 import androidx.build.PlatformIdentifier
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 plugins {
     id("AndroidXPlugin")
     alias(libs.plugins.kotlinSerialization)
 }
-
-def enableNative = KmpPlatformsKt.enableNative(project)
 
 androidXMultiplatform {
     jvm() {
@@ -36,6 +37,7 @@ androidXMultiplatform {
     mac()
     linux()
     ios()
+    // NOTE, if you add android target here, make sure to add the proguard file as well.
 
     defaultPlatform(PlatformIdentifier.JVM)
 
@@ -58,12 +60,15 @@ androidXMultiplatform {
                 implementation(libs.kotlinTestAnnotationsCommon)
                 implementation(libs.kotlinCoroutinesTest)
                 implementation(project(":datastore:datastore-core"))
-                implementation(project(":internal-testutils-kmp"))
+                implementation(project(":kruth:kruth"))
                 implementation(project(":internal-testutils-datastore"))
             }
         }
         jvmMain {
             dependsOn(commonMain)
+            dependencies {
+                implementation(project(":datastore:datastore-preferences-proto"))
+            }
         }
         jvmTest {
             dependsOn(commonTest)
@@ -71,33 +76,26 @@ androidXMultiplatform {
                 implementation(libs.junit)
                 implementation(libs.kotlinTest)
                 implementation(project(":internal-testutils-datastore"))
-                implementation(project(":internal-testutils-kmp"))
+                implementation(project(":kruth:kruth"))
             }
         }
-        if (enableNative) {
-            nativeMain {
-                dependsOn(commonMain)
-                dependencies {
-                    implementation(libs.kotlinSerializationCore)
-                    implementation(libs.kotlinSerializationProtobuf)
-                }
-            }
-
-            nativeTest {
-                dependsOn(commonTest)
-                dependencies {
-                    implementation(libs.kotlinTest)
-                    implementation(project(":internal-testutils-datastore"))
-                    implementation(project(":internal-testutils-kmp"))
-                }
+        nativeMain {
+            dependsOn(commonMain)
+            dependencies {
+                implementation(libs.kotlinSerializationCore)
+                implementation(libs.kotlinSerializationProtobuf)
             }
         }
 
-        targets.withType(KotlinNativeTarget).configureEach {
-            binaries.all {
-                binaryOptions["memoryModel"] = "experimental"
+        nativeTest {
+            dependsOn(commonTest)
+            dependencies {
+                implementation(libs.kotlinTest)
+                implementation(project(":internal-testutils-datastore"))
+                implementation(project(":kruth:kruth"))
             }
         }
+
         targets.all { target ->
             if (target.platformType == KotlinPlatformType.native) {
                 target.compilations["main"].defaultSourceSet {
@@ -109,16 +107,6 @@ androidXMultiplatform {
             }
         }
     }
-}
-
-BundleInsideHelper.forInsideJarKmp(
-        project,
-        /* from = */ "com.google.protobuf",
-        /* to =   */ "androidx.datastore.preferences.protobuf"
-)
-
-dependencies {
-    bundleInside(project(path: ":datastore:datastore-preferences-proto", configuration: "export"))
 }
 
 androidx {

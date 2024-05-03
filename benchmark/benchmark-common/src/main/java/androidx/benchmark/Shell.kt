@@ -37,7 +37,6 @@ import java.nio.charset.Charset
  * Wrappers for UiAutomation.executeShellCommand to handle compat behavior, and add additional
  * features like script execution (with piping), stdin/stderr.
  *
- * @suppress
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 object Shell {
@@ -144,14 +143,30 @@ object Shell {
     fun waitForFileFlush(
         path: String,
         stableIterations: Int,
-        maxIterations: Int,
-        pollDurationMs: Long
+        maxInitialFlushWaitIterations: Int,
+        maxStableFlushWaitIterations: Int,
+        pollDurationMs: Long,
+        triggerFileFlush: () -> Unit
     ) {
+        var lastKnownSize = getFileSizeUnsafe(path)
+
+        triggerFileFlush()
+
+        // first, wait for initial dump from flush, which can be a long amount of time
+        var currentSize = getFileSizeUnsafe(path)
         var iteration = 0
+        while (iteration < maxInitialFlushWaitIterations && currentSize == lastKnownSize) {
+            Thread.sleep(pollDurationMs)
+            currentSize = getFileSizeUnsafe(path)
+            iteration++
+        }
+
+        // wait for stabilization, which should take much less time and happen quickly
+        iteration = 0
+        lastKnownSize = 0
         var stable = 0
-        var lastKnownSize = 0L
-        while (iteration < maxIterations) {
-            val currentSize = getFileSizeUnsafe(path)
+        while (iteration < maxStableFlushWaitIterations) {
+            currentSize = getFileSizeUnsafe(path)
             if (currentSize > 0) {
                 if (currentSize == lastKnownSize) {
                     stable += 1
@@ -589,7 +604,7 @@ object Shell {
             if (runningProcesses.isEmpty()) {
                 return
             }
-            userspaceTrace("wait for $runningProcesses to die") {
+            inMemoryTrace("wait for $runningProcesses to die") {
                 SystemClock.sleep(waitPollPeriodMs)
             }
             Log.d(BenchmarkState.TAG, "Waiting $waitPollPeriodMs ms for $runningProcesses to die")
@@ -609,6 +624,38 @@ object Shell {
             .substringAfter("Broadcast completed: result=")
             .trim()
             .toIntOrNull()
+    }
+
+    @RequiresApi(21)
+    fun disablePackages(appPackages: List<String>) {
+        // Additionally use `am force-stop` to force JobScheduler to drop all jobs.
+        val command = appPackages.joinToString(separator = "\n") { appPackage ->
+            """
+                am force-stop $appPackage
+                pm disable-user $appPackage
+            """".trimIndent()
+        }
+        executeScriptCaptureStdoutStderr(command)
+    }
+
+    @RequiresApi(21)
+    fun enablePackages(appPackages: List<String>) {
+        val command = appPackages.joinToString(separator = "\n") { appPackage ->
+            "pm enable $appPackage"
+        }
+        executeScriptCaptureStdoutStderr(command)
+    }
+
+    @RequiresApi(24)
+    fun disableBackgroundDexOpt() {
+        // Cancels the active job if any
+        ShellImpl.executeCommandUnsafe("cmd package bg-dexopt-job --cancel")
+        ShellImpl.executeCommandUnsafe("cmd package bg-dexopt-job --disable")
+    }
+
+    @RequiresApi(24)
+    fun enableBackgroundDexOpt() {
+        ShellImpl.executeCommandUnsafe("cmd package bg-dexopt-job --enable")
     }
 
     @RequiresApi(21)

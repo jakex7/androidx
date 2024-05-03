@@ -16,15 +16,19 @@
 
 package androidx.work.datatransfer
 
+import android.content.Intent
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.IBinder
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -49,7 +53,7 @@ class UserInitiatedTaskRequestTest {
     @Test
     fun testCustomNetworkConstraints() {
         val request = UserInitiatedTaskRequest(MyTask::class.java,
-            Constraints(NetworkRequest.Builder()
+            _constraints = Constraints(NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
                 .build()
             )
@@ -72,7 +76,8 @@ class UserInitiatedTaskRequestTest {
         assertEquals(1, request.tags.size)
         assertEquals(taskClassName, request.tags.get(0))
 
-        request = UserInitiatedTaskRequest(MyTask::class.java, _tags = mutableListOf("test"))
+        request = UserInitiatedTaskRequest(MyTask::class.java,
+                                           _tags = mutableListOf("test"))
         assertEquals(2, request.tags.size)
         assertTrue(request.tags.contains("test"))
 
@@ -109,12 +114,55 @@ class UserInitiatedTaskRequestTest {
         assertEquals(request.transferInfo, transferInfo3)
     }
 
+    @Test
+    fun testDefaultFallbackPolicy(): Unit = runBlocking {
+        // Default policy FALLBACK_NONE should allow enqueue
+        val request = UserInitiatedTaskRequest(MyTask::class.java)
+        request.enqueue(ApplicationProvider.getApplicationContext())
+    }
+
+    @Test
+    fun testCustomFallbackPolicy(): Unit = runBlocking {
+        val request = UserInitiatedTaskRequest(MyTask::class.java,
+            fallbackPolicy = UserInitiatedTaskRequest.FallbackPolicy.FALLBACK_TO_FOREGROUND_SERVICE)
+        try {
+            request.enqueue(ApplicationProvider.getApplicationContext())
+            fail("Expected enqueue to fail without setting a foreground service")
+        } catch (_: IllegalArgumentException) {
+            // expected
+        }
+
+        request.setForegroundService(MyFgs::class.java,
+            UserInitiatedTaskRequest.ForegroundServiceOnTaskFinishPolicy.FOREGROUND_SERVICE_DETACH)
+        request.enqueue(ApplicationProvider.getApplicationContext())
+    }
+
     private class MyTask : UserInitiatedTask(
         "test_task",
         ApplicationProvider.getApplicationContext()
     ) {
         override suspend fun performTask() {
             // test stub
+        }
+
+        override suspend fun createForegroundInfo(): UitForegroundInfo {
+            // test stub
+            TODO()
+        }
+    }
+
+    private class MyFgs : AbstractUitService() {
+        override fun handleOnStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+            // test stub
+            return START_STICKY
+        }
+
+        override fun handleOnDestroyCommand() {
+            // test stub
+        }
+
+        override fun onBind(p0: Intent?): IBinder? {
+            return null
         }
     }
 }

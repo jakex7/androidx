@@ -113,7 +113,7 @@ class PrepareGetCredentialResponse private constructor(
      * [CredentialManager.getCredential] or [CredentialManager.getCredentialAsync] to perform the
      * remaining flows to officially retrieve a credential.
      *
-     * @property frameworkHandle the framework handle representing this pending operation. Must not
+     * @param frameworkHandle the framework handle representing this pending operation. Must not
      * be null at API level >= 34.
      * @throws NullPointerException If [frameworkHandle] is null at API level >= 34.
      */
@@ -174,7 +174,6 @@ class PrepareGetCredentialResponse private constructor(
         /**
          * Builds a [PrepareGetCredentialResponse].
          */
-        @SuppressLint("SyntheticAccessor")
         fun build(): androidx.credentials.PrepareGetCredentialResponse {
             return androidx.credentials.PrepareGetCredentialResponse(
                 pendingGetCredentialHandle,
@@ -194,18 +193,21 @@ class PrepareGetCredentialResponse private constructor(
         private var hasCredentialResultsDelegate: HasCredentialResultsDelegate? = null
 
         /** Sets the credential type handler. */
+        @VisibleForTesting
         fun setCredentialTypeDelegate(handler: HasCredentialResultsDelegate): TestBuilder {
             this.hasCredentialResultsDelegate = handler
             return this
         }
 
         /** Sets the has authentication results bit. */
+        @VisibleForTesting
         fun setHasAuthResultsDelegate(handler: HasAuthenticationResultsDelegate): TestBuilder {
             this.hasAuthResultsDelegate = handler
             return this
         }
 
         /** Sets the has remote results bit. */
+        @VisibleForTesting
         fun setHasRemoteResultsDelegate(handler: HasRemoteResultsDelegate): TestBuilder {
             this.hasRemoteResultsDelegate = handler
             return this
@@ -214,7 +216,6 @@ class PrepareGetCredentialResponse private constructor(
         /**
          * Builds a [PrepareGetCredentialResponse].
          */
-        @SuppressLint("SyntheticAccessor")
         fun build(): androidx.credentials.PrepareGetCredentialResponse {
             return androidx.credentials.PrepareGetCredentialResponse(
                 null,

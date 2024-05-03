@@ -59,8 +59,12 @@ internal constructor(
      */
     val laps: List<ExerciseLap> = emptyList(),
 
-    /** [ExerciseRoute] [ExerciseRoute] of the session. */
-    val exerciseRoute: ExerciseRoute = ExerciseRoute.NoData(),
+    /**
+     * [ExerciseRouteResult] [ExerciseRouteResult] of the session. Location data points of
+     * [ExerciseRoute] should be within the parent session, and should be before the end time of the
+     * session.
+     */
+    val exerciseRouteResult: ExerciseRouteResult = ExerciseRouteResult.NoData(),
 ) : IntervalRecord {
 
     @JvmOverloads
@@ -78,7 +82,7 @@ internal constructor(
         metadata: Metadata = Metadata.EMPTY,
         segments: List<ExerciseSegment> = emptyList(),
         laps: List<ExerciseLap> = emptyList(),
-        exerciseRouteData: ExerciseRoute.Data? = null,
+        exerciseRoute: ExerciseRoute? = null,
     ) : this(
         startTime,
         startZoneOffset,
@@ -90,7 +94,7 @@ internal constructor(
         metadata,
         segments,
         laps,
-        exerciseRouteData ?: ExerciseRoute.NoData()
+        exerciseRoute?.let { ExerciseRouteResult.Data(it) } ?: ExerciseRouteResult.NoData()
     )
 
     init {
@@ -130,8 +134,14 @@ internal constructor(
                 "laps can not be out of parent time range."
             }
         }
-        if (exerciseRoute is ExerciseRoute.Data) {
-            require(exerciseRoute.isWithin(startTime, endTime)) {
+        if (
+            exerciseRouteResult is ExerciseRouteResult.Data &&
+                exerciseRouteResult.exerciseRoute.route.isNotEmpty()
+        ) {
+            val route = exerciseRouteResult.exerciseRoute.route
+            val minTime = route.minBy { it.time }.time
+            val maxTime = route.maxBy { it.time }.time
+            require(!minTime.isBefore(startTime) && maxTime.isBefore(endTime)) {
                 "route can not be out of parent time range."
             }
         }
@@ -151,7 +161,7 @@ internal constructor(
         if (metadata != other.metadata) return false
         if (segments != other.segments) return false
         if (laps != other.laps) return false
-        if (exerciseRoute != other.exerciseRoute) return false
+        if (exerciseRouteResult != other.exerciseRouteResult) return false
 
         return true
     }
@@ -164,7 +174,7 @@ internal constructor(
         result = 31 * result + endTime.hashCode()
         result = 31 * result + (endZoneOffset?.hashCode() ?: 0)
         result = 31 * result + metadata.hashCode()
-        result = 31 * result + exerciseRoute.hashCode()
+        result = 31 * result + exerciseRouteResult.hashCode()
         return result
     }
 
@@ -351,11 +361,7 @@ internal constructor(
             EXERCISE_TYPE_STRING_TO_INT_MAP.entries.associateBy({ it.value }, { it.key })
     }
 
-    /**
-     * List of supported activities on Health Platform.
-     *
-     * @suppress
-     */
+    /** List of supported activities on Health Platform. */
     @Retention(AnnotationRetention.SOURCE)
     @RestrictTo(RestrictTo.Scope.LIBRARY)
     @IntDef(

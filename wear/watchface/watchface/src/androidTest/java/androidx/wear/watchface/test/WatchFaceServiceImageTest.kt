@@ -46,7 +46,7 @@ import androidx.wear.watchface.DrawMode
 import androidx.wear.watchface.RenderParameters
 import androidx.wear.watchface.SYSTEM_SUPPORTS_CONSISTENT_IDS_PREFIX
 import androidx.wear.watchface.TapEvent
-import androidx.wear.watchface.TapTypes
+import androidx.wear.watchface.TapType
 import androidx.wear.watchface.WatchFaceService
 import androidx.wear.watchface.complications.SystemDataSources
 import androidx.wear.watchface.complications.data.ComplicationText
@@ -92,7 +92,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito
-import org.mockito.MockitoAnnotations
+import org.mockito.junit.MockitoJUnit
 
 private const val BITMAP_WIDTH = 400
 private const val BITMAP_HEIGHT = 400
@@ -132,6 +132,9 @@ public class ComplicationTapActivity : Activity() {
 @MediumTest
 @RequiresApi(Build.VERSION_CODES.O_MR1)
 public class WatchFaceServiceImageTest {
+
+    @get:Rule
+    val mocks = MockitoJUnit.rule()
 
     @Mock private lateinit var surfaceHolder: SurfaceHolder
 
@@ -194,11 +197,9 @@ public class WatchFaceServiceImageTest {
     private lateinit var engineWrapper: WatchFaceService.EngineWrapper
     private lateinit var interactiveWatchFaceInstance: IInteractiveWatchFace
 
-    @Suppress("DEPRECATION") // b/251211092
     @Before
     public fun setUp() {
         Assume.assumeTrue("This test suite assumes API 27", Build.VERSION.SDK_INT >= 27)
-        MockitoAnnotations.initMocks(this)
 
         pretendBinderThread.start()
         pretendBinderHandler = Handler(pretendBinderThread.looper)
@@ -864,7 +865,7 @@ public class WatchFaceServiceImageTest {
                 interactiveWatchFaceInstance.instanceId
             )!!
         try {
-            interactiveWatchFaceInstance.sendTouchEvent(85, 165, TapTypes.UP)
+            interactiveWatchFaceInstance.sendTouchEvent(85, 165, TapType.UP)
 
             assertThat(ComplicationTapActivity.awaitIntent()).isNotNull()
         } finally {

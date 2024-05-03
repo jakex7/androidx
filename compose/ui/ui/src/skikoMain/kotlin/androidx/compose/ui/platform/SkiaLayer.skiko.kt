@@ -26,17 +26,18 @@ import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.DefaultShadowColor
+import androidx.compose.ui.graphics.Fields
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.RenderEffect
-import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.ReusableGraphicsLayerScope
 import androidx.compose.ui.graphics.SkiaBackedCanvas
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.graphics.asSkiaPath
+import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toSkiaRRect
@@ -45,7 +46,6 @@ import androidx.compose.ui.node.OwnedLayer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import org.jetbrains.skia.ClipMode
@@ -57,13 +57,12 @@ import org.jetbrains.skia.ShadowUtils
 internal class SkiaLayer(
     private var density: Density,
     private val invalidateParentLayer: () -> Unit,
-    private val drawBlock: (Canvas) -> Unit,
+    private val drawBlock: (Canvas, GraphicsLayer?) -> Unit,
     private val onDestroy: () -> Unit = {}
 ) : OwnedLayer {
     private var size = IntSize.Zero
     private var position = IntOffset.Zero
-    private var outlineCache =
-        OutlineCache(density, size, RectangleShape, LayoutDirection.Ltr)
+    private var outline: Outline? = null
     // Internal for testing
     internal val matrix = Matrix()
     private val pictureRecorder = PictureRecorder()
@@ -93,14 +92,16 @@ internal class SkiaLayer(
         onDestroy()
     }
 
-    override fun reuseLayer(drawBlock: (Canvas) -> Unit, invalidateParentLayer: () -> Unit) {
+    override fun reuseLayer(
+        drawBlock: (Canvas, GraphicsLayer?) -> Unit,
+        invalidateParentLayer: () -> Unit
+    ) {
         // TODO: in destroy, call recycle, and reconfigure this layer to be ready to use here.
     }
 
     override fun resize(size: IntSize) {
         if (size != this.size) {
             this.size = size
-            outlineCache.size = size
             updateMatrix()
             invalidate()
         }
@@ -128,11 +129,10 @@ internal class SkiaLayer(
 
         val x = position.x
         val y = position.y
-        if (outlineCache.shape === RectangleShape) {
-            return 0f <= x && x < size.width && 0f <= y && y < size.height
-        }
 
-        return isInOutline(outlineCache.outline, x, y)
+        val outline = outline ?: return true
+
+        return isInOutline(outline, x, y)
     }
 
     private fun getMatrix(inverse: Boolean): Matrix {
@@ -145,49 +145,32 @@ internal class SkiaLayer(
             matrix
         }
     }
+    private var mutatedFields: Int = 0
 
-    override fun updateLayerProperties(
-        scaleX: Float,
-        scaleY: Float,
-        alpha: Float,
-        translationX: Float,
-        translationY: Float,
-        shadowElevation: Float,
-        rotationX: Float,
-        rotationY: Float,
-        rotationZ: Float,
-        cameraDistance: Float,
-        transformOrigin: TransformOrigin,
-        shape: Shape,
-        clip: Boolean,
-        renderEffect: RenderEffect?,
-        ambientShadowColor: Color,
-        spotShadowColor: Color,
-        compositingStrategy: CompositingStrategy,
-        layoutDirection: LayoutDirection,
-        density: Density
-    ) {
-        this.transformOrigin = transformOrigin
-        this.translationX = translationX
-        this.translationY = translationY
-        this.rotationX = rotationX
-        this.rotationY = rotationY
-        this.rotationZ = rotationZ
-        this.scaleX = scaleX
-        this.scaleY = scaleY
-        this.alpha = alpha
-        this.clip = clip
-        this.shadowElevation = shadowElevation
-        this.density = density
-        this.renderEffect = renderEffect
-        this.ambientShadowColor = ambientShadowColor
-        this.spotShadowColor = spotShadowColor
-        this.compositingStrategy = compositingStrategy
-        outlineCache.shape = shape
-        outlineCache.layoutDirection = layoutDirection
-        outlineCache.density = density
-        updateMatrix()
+    override fun updateLayerProperties(scope: ReusableGraphicsLayerScope) {
+        val maybeChangedFields = scope.mutatedFields or mutatedFields
+        this.transformOrigin = scope.transformOrigin
+        this.translationX = scope.translationX
+        this.translationY = scope.translationY
+        this.rotationX = scope.rotationX
+        this.rotationY = scope.rotationY
+        this.rotationZ = scope.rotationZ
+        this.scaleX = scope.scaleX
+        this.scaleY = scope.scaleY
+        this.alpha = scope.alpha
+        this.clip = scope.clip
+        this.shadowElevation = scope.shadowElevation
+        this.density = scope.graphicsDensity
+        this.renderEffect = scope.renderEffect
+        this.ambientShadowColor = scope.ambientShadowColor
+        this.spotShadowColor = scope.spotShadowColor
+        this.compositingStrategy = scope.compositingStrategy
+        this.outline = scope.outline
+        if (maybeChangedFields and Fields.MatrixAffectingFields != 0) {
+            updateMatrix()
+        }
         invalidate()
+        mutatedFields = scope.mutatedFields
     }
 
     // TODO(demin): support perspective projection for rotationX/rotationY (as in Android)
@@ -222,7 +205,7 @@ internal class SkiaLayer(
         }
     }
 
-    override fun drawLayer(canvas: Canvas) {
+    override fun drawLayer(canvas: Canvas, parentLayer: GraphicsLayer?) {
         if (picture == null) {
             val bounds = size.toSize().toRect()
             val pictureCanvas = pictureRecorder.beginRecording(bounds.toSkiaRect())
@@ -251,13 +234,17 @@ internal class SkiaLayer(
                 drawShadow(canvas)
             }
 
-            if (clip) {
+            val outline = outline
+            val isClipping = if (clip && outline != null) {
                 canvas.save()
-                when (val outline = outlineCache.outline) {
+                when (outline) {
                     is Outline.Rectangle -> canvas.clipRect(outline.rect)
                     is Outline.Rounded -> canvas.clipRoundRect(outline.roundRect)
                     is Outline.Generic -> canvas.clipPath(outline.path)
                 }
+                true
+            } else {
+                false
             }
 
             val currentRenderEffect = renderEffect
@@ -283,9 +270,9 @@ internal class SkiaLayer(
                 skiaCanvas.alphaMultiplier = 1.0f
             }
 
-            drawBlock(canvas)
+            drawBlock(canvas, null)
             canvas.restore()
-            if (clip) {
+            if (isClipping) {
                 canvas.restore()
             }
         }
@@ -305,7 +292,7 @@ internal class SkiaLayer(
     override fun updateDisplayList() = Unit
 
     fun drawShadow(canvas: Canvas) = with(density) {
-        val path = when (val outline = outlineCache.outline) {
+        val path = when (val outline = outline) {
             is Outline.Rectangle -> Path().apply { addRect(outline.rect) }
             is Outline.Rounded -> Path().apply { addRoundRect(outline.roundRect) }
             is Outline.Generic -> outline.path

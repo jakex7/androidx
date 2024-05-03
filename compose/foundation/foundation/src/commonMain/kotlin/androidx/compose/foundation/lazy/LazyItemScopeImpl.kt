@@ -17,23 +17,19 @@
 package androidx.compose.foundation.lazy
 
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.lazy.layout.LazyLayoutAnimateItemModifierNode
+import androidx.compose.foundation.lazy.layout.LazyLayoutAnimateItemElement
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
 import androidx.compose.ui.layout.MeasureScope
-import androidx.compose.ui.node.DelegatingNode
 import androidx.compose.ui.node.LayoutModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
-import androidx.compose.ui.node.ParentDataModifierNode
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
-import kotlin.math.roundToInt
+import androidx.compose.ui.util.fastRoundToInt
 
 internal class LazyItemScopeImpl : LazyItemScope {
 
@@ -70,9 +66,20 @@ internal class LazyItemScopeImpl : LazyItemScope {
         )
     )
 
-    @ExperimentalFoundationApi
-    override fun Modifier.animateItemPlacement(animationSpec: FiniteAnimationSpec<IntOffset>) =
-        this then AnimateItemPlacementElement(animationSpec)
+    override fun Modifier.animateItem(
+        fadeInSpec: FiniteAnimationSpec<Float>?,
+        placementSpec: FiniteAnimationSpec<IntOffset>?,
+        fadeOutSpec: FiniteAnimationSpec<Float>?
+    ): Modifier =
+        if (fadeInSpec == null && placementSpec == null && fadeOutSpec == null) {
+            this
+        } else {
+            this then LazyLayoutAnimateItemElement(
+                fadeInSpec,
+                placementSpec,
+                fadeOutSpec
+            )
+        }
 }
 
 private class ParentSizeElement(
@@ -97,7 +104,7 @@ private class ParentSizeElement(
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other !is ParentSizeNode) return false
+        if (other !is ParentSizeElement) return false
         return fraction == other.fraction &&
             widthState == other.widthState &&
             heightState == other.heightState
@@ -128,7 +135,7 @@ private class ParentSizeNode(
     ): MeasureResult {
         val width = widthState?.let {
             if (it.value != Constraints.Infinity) {
-                (it.value * fraction).roundToInt()
+                (it.value * fraction).fastRoundToInt()
             } else {
                 Constraints.Infinity
             }
@@ -136,7 +143,7 @@ private class ParentSizeNode(
 
         val height = heightState?.let {
             if (it.value != Constraints.Infinity) {
-                (it.value * fraction).roundToInt()
+                (it.value * fraction).fastRoundToInt()
             } else {
                 Constraints.Infinity
             }
@@ -152,39 +159,4 @@ private class ParentSizeNode(
             placeable.place(0, 0)
         }
     }
-}
-
-private class AnimateItemPlacementElement(
-    val animationSpec: FiniteAnimationSpec<IntOffset>
-) : ModifierNodeElement<AnimateItemPlacementNode>() {
-
-    override fun create(): AnimateItemPlacementNode = AnimateItemPlacementNode(animationSpec)
-
-    override fun update(node: AnimateItemPlacementNode) {
-        node.delegatingNode.placementAnimationSpec = animationSpec
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is AnimateItemPlacementElement) return false
-        return animationSpec != other.animationSpec
-    }
-
-    override fun hashCode(): Int {
-        return animationSpec.hashCode()
-    }
-
-    override fun InspectorInfo.inspectableProperties() {
-        name = "animateItemPlacement"
-        value = animationSpec
-    }
-}
-
-private class AnimateItemPlacementNode(
-    animationSpec: FiniteAnimationSpec<IntOffset>
-) : DelegatingNode(), ParentDataModifierNode {
-
-    val delegatingNode = delegate(LazyLayoutAnimateItemModifierNode(animationSpec))
-
-    override fun Density.modifyParentData(parentData: Any?): Any = delegatingNode
 }
