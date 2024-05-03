@@ -49,6 +49,8 @@ import kotlin.reflect.KClass
 internal abstract class KspType(
     env: KspProcessingEnv,
     val ksType: KSType,
+    // This is needed as a workaround until https://github.com/google/ksp/issues/1376 is fixed.
+    val originalKSAnnotations: Sequence<KSAnnotation>,
     /** Type resolver to convert KSType into its JVM representation. */
     val scope: KSTypeVarianceResolverScope?,
     /** The `typealias` that was resolved to get the [ksType], or null if none exists. */
@@ -70,8 +72,20 @@ internal abstract class KspType(
      */
     private val xTypeName: XTypeName by lazy {
         val jvmWildcardType = env.resolveWildcards(typeAlias ?: ksType, scope).let {
-            if (it == ksType) {
-                this
+            if (ksType == it) {
+                if (ksType.arguments != it.arguments) {
+                    // Replacing the type arguments to retain the variances resolved in
+                    // `resolveWildcards`. See https://github.com/google/ksp/issues/1778.
+                    copy(
+                        env = env,
+                        ksType = ksType.replace(it.arguments),
+                        originalKSAnnotations = originalKSAnnotations,
+                        scope = scope,
+                        typeAlias = typeAlias
+                    )
+                } else {
+                    this
+                }
             } else {
                 env.wrap(
                     ksType = it,
@@ -122,7 +136,11 @@ internal abstract class KspType(
             // This matches javac's Types#directSupertypes().
             listOf(env.requireType(TypeName.OBJECT)) + superInterfaces
         } else {
-            check(superClasses.size == 1)
+            check(superClasses.size == 1) {
+                "Class ${this.typeName} should have only one super class. Found" +
+                    " ${superClasses.size}" +
+                    " (${superClasses.joinToString { it.typeName.toString() }})."
+            }
             superClasses + superInterfaces
         }
     }
@@ -219,7 +237,7 @@ internal abstract class KspType(
         }
     }
 
-    override fun annotations(): Sequence<KSAnnotation> = ksType.annotations
+    override fun annotations(): Sequence<KSAnnotation> = originalKSAnnotations
 
     override fun isNone(): Boolean {
         // even void is converted to Unit so we don't have none type in KSP
@@ -274,17 +292,21 @@ internal abstract class KspType(
     abstract fun copy(
         env: KspProcessingEnv,
         ksType: KSType,
+        originalKSAnnotations: Sequence<KSAnnotation>,
         scope: KSTypeVarianceResolverScope?,
         typeAlias: KSType?,
     ): KspType
 
-    fun copyWithScope(scope: KSTypeVarianceResolverScope) = copy(env, ksType, scope, typeAlias)
+    fun copyWithScope(scope: KSTypeVarianceResolverScope) =
+        copy(env, ksType, originalKSAnnotations, scope, typeAlias)
 
-    fun copyWithTypeAlias(typeAlias: KSType) = copy(env, ksType, scope, typeAlias)
+    fun copyWithTypeAlias(typeAlias: KSType) =
+        copy(env, ksType, originalKSAnnotations, scope, typeAlias)
 
     private fun copyWithNullability(nullability: XNullability): KspType = boxed().copy(
         env = env,
         ksType = ksType.withNullability(nullability),
+        originalKSAnnotations = originalKSAnnotations,
         scope = scope,
         typeAlias = typeAlias,
     )

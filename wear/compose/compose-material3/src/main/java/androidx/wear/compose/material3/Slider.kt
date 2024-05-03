@@ -28,9 +28,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.wear.compose.material3.tokens.MotionTokens
 import androidx.wear.compose.materialcore.InlineSliderButton
 import androidx.wear.compose.materialcore.RangeDefaults.calculateCurrentStepValue
 import androidx.wear.compose.materialcore.RangeDefaults.snapValueToStep
@@ -98,10 +99,10 @@ import kotlin.math.roundToInt
  * @param colors [InlineSliderColors] that will be used to resolve the background and content color
  * for this slider in different states.
  */
+@ExperimentalWearMaterial3Api
 @Composable
 fun InlineSlider(
     value: Float,
-    @Suppress("PrimitiveInLambda")
     onValueChange: (Float) -> Unit,
     steps: Int,
     decreaseIcon: @Composable () -> Unit,
@@ -122,11 +123,10 @@ fun InlineSlider(
                 value, enabled, onValueChange, valueRange, steps
             )
             .height(InlineSliderDefaults.SliderHeight)
-            .clip(MaterialTheme.shapes.full)
+            .clip(CircleShape) // TODO(b/290625297) Replace with tokens
     ) {
         val visibleSegments = if (segmented) steps + 1 else 1
 
-        @Suppress("PrimitiveInLambda")
         val updateValue: (Int) -> Unit = { stepDiff ->
             val newValue = calculateCurrentStepValue(currentStep + stepDiff, steps, valueRange)
             if (newValue != value) onValueChange(newValue)
@@ -136,7 +136,10 @@ fun InlineSlider(
         val containerColor = colors.containerColor(enabled)
         val barSeparatorColor = colors.barSeparatorColor(enabled)
         CompositionLocalProvider(
-            LocalIndication provides rememberRipple(bounded = false, radius = this.maxWidth / 2)
+            LocalIndication provides rippleOrFallbackImplementation(
+                bounded = false,
+                radius = this.maxWidth / 2
+            )
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -165,14 +168,18 @@ fun InlineSlider(
 
                 val valueRatio by animateFloatAsState(
                     targetValue = currentStep.toFloat() / (steps + 1).toFloat(),
-                    animationSpec = tween(SHORT_3, 0, STANDARD_DECELERATE)
+                    animationSpec = tween(
+                        durationMillis = MotionTokens.DurationShort3,
+                        delayMillis = 0,
+                        easing = MotionTokens.EasingStandardDecelerate
+                    )
                 )
 
                 Box(
                     modifier = Modifier
                         .height(InlineSliderDefaults.BarHeight)
                         .weight(1f)
-                        .clip(MaterialTheme.shapes.full)
+                        .clip(CircleShape) // TODO(b/290625297) Replace with token
                         .drawProgressBar(
                             selectedBarColor = selectedBarColor,
                             unselectedBarColor = unselectedBarColor,
@@ -253,10 +260,10 @@ fun InlineSlider(
  * @param colors [InlineSliderColors] that will be used to resolve the background and content color
  * for this slider in different states.
  */
+@ExperimentalWearMaterial3Api
 @Composable
 fun InlineSlider(
     value: Int,
-    @Suppress("PrimitiveInLambda")
     onValueChange: (Int) -> Unit,
     valueProgression: IntProgression,
     decreaseIcon: @Composable () -> Unit,
@@ -281,6 +288,7 @@ fun InlineSlider(
 }
 
 /** Defaults used by slider. */
+@ExperimentalWearMaterial3Api
 object InlineSliderDefaults {
     /**
      * Default slider measurements.
@@ -321,19 +329,19 @@ object InlineSliderDefaults {
      */
     @Composable
     fun colors(
-        containerColor: Color = MaterialTheme.colorScheme.surface,
+        containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
         buttonIconColor: Color = MaterialTheme.colorScheme.secondary,
         selectedBarColor: Color = MaterialTheme.colorScheme.primary,
         unselectedBarColor: Color = MaterialTheme.colorScheme.background.copy(alpha = 0.3f),
         barSeparatorColor: Color = MaterialTheme.colorScheme.primaryDim,
         disabledContainerColor: Color = containerColor.toDisabledColor(
-            disabledAlpha = DisabledBorderAndContainerAlpha
+            disabledAlpha = DisabledContainerAlpha
         ),
         disabledButtonIconColor: Color = buttonIconColor.toDisabledColor(),
         disabledSelectedBarColor: Color = selectedBarColor.toDisabledColor(),
         disabledUnselectedBarColor: Color = unselectedBarColor.toDisabledColor(),
         disabledBarSeparatorColor: Color = barSeparatorColor.toDisabledColor(
-            disabledAlpha = DisabledBorderAndContainerAlpha
+            disabledAlpha = DisabledContainerAlpha
         )
     ): InlineSliderColors = InlineSliderColors(
         containerColor = containerColor,
@@ -373,6 +381,7 @@ object InlineSliderDefaults {
  * @param disabledUnselectedBarColor The background color of the progress bar when disabled.
  * @param disabledBarSeparatorColor The color of separator between visible segments when disabled.
  */
+@ExperimentalWearMaterial3Api
 @Immutable
 class InlineSliderColors constructor(
     val containerColor: Color,
@@ -452,6 +461,7 @@ class InlineSliderColors constructor(
     }
 }
 
+@OptIn(ExperimentalWearMaterial3Api::class)
 internal fun DrawScope.drawSelectedProgressBar(
     color: Color,
     valueRatio: Float,
@@ -469,6 +479,7 @@ internal fun DrawScope.drawSelectedProgressBar(
     )
 }
 
+@OptIn(ExperimentalWearMaterial3Api::class)
 internal fun DrawScope.drawUnselectedProgressBar(
     color: Color,
     valueRatio: Float,
@@ -485,6 +496,7 @@ internal fun DrawScope.drawUnselectedProgressBar(
     )
 }
 
+@OptIn(ExperimentalWearMaterial3Api::class)
 internal fun DrawScope.drawProgressBarSeparator(color: Color, position: Float) {
     drawCircle(
         color = color,
@@ -501,8 +513,5 @@ private fun InlineSliderButtonContent(
     content: @Composable () -> Unit
 ) = CompositionLocalProvider(
     LocalContentColor provides buttonIconColor(enabled).value,
-    LocalContentAlpha provides if (enabled) {
-        LocalContentAlpha.current
-    } else ContentAlpha.disabled,
     content = content
 )

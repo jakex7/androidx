@@ -32,8 +32,6 @@ import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 
-import androidx.core.os.BuildCompat;
-import androidx.core.view.ViewCompat;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
 
@@ -51,7 +49,6 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
         return new ChangeClipBounds();
     }
 
-    @SdkSuppress(minSdkVersion = 18)
     @Test
     public void testChangeClipBounds() throws Throwable {
         final View redSquare = spy(new View(rule.getActivity()));
@@ -68,9 +65,9 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
         rule.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                assertNull(ViewCompat.getClipBounds(redSquare));
+                assertNull(redSquare.getClipBounds());
                 TransitionManager.beginDelayedTransition(mRoot, mTransition);
-                ViewCompat.setClipBounds(redSquare, newClip);
+                redSquare.setClipBounds(newClip);
             }
         });
         waitForStart();
@@ -81,7 +78,7 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
         rule.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                final Rect endRect = ViewCompat.getClipBounds(redSquare);
+                final Rect endRect = redSquare.getClipBounds();
                 assertNotNull(endRect);
                 assertEquals(newClip, endRect);
             }
@@ -93,7 +90,7 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
             @Override
             public void run() {
                 TransitionManager.beginDelayedTransition(mRoot, mTransition);
-                ViewCompat.setClipBounds(redSquare, null);
+                redSquare.setClipBounds(null);
             }
         });
         waitForStart();
@@ -104,7 +101,7 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
         rule.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                assertNull(ViewCompat.getClipBounds(redSquare));
+                assertNull(redSquare.getClipBounds());
             }
         });
 
@@ -113,7 +110,7 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
     @Test
     public void seekingClipToNull() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT < 34) {
             return; // only supported on U+
         }
         final TransitionActivity activity = rule.getActivity();
@@ -191,7 +188,7 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
     @Test
     public void seekingClipFromNull() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT < 34) {
             return; // only supported on U+
         }
         final TransitionActivity activity = rule.getActivity();
@@ -268,7 +265,7 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
     @Test
     public void seekingClips() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT < 34) {
             return; // only supported on U+
         }
         final TransitionActivity activity = rule.getActivity();
@@ -346,7 +343,7 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
     @Test
     public void changeClipBeforeStart() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT < 34) {
             return; // only supported on U+
         }
         final TransitionActivity activity = rule.getActivity();
@@ -399,7 +396,7 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
     @Test
     public void testSeekInterruption() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT < 34) {
             return; // supported on U+
         }
         final View view = new View(rule.getActivity());
@@ -472,7 +469,7 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
     @Test
     public void testSeekNoChange() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT < 34) {
             return; // supported on U+
         }
         final View view = new View(rule.getActivity());

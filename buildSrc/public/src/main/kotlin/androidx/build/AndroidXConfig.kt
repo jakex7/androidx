@@ -18,69 +18,63 @@
 
 package androidx.build
 
+import androidx.build.gradle.extraPropertyOrNull
 import java.io.File
 import org.gradle.api.Project
 import org.gradle.api.file.FileCollection
 
-/**
- * AndroidX configuration backed by Gradle properties.
- */
-abstract class AndroidConfigImpl(
-    private val project: Project
-) : AndroidConfig {
-    override val buildToolsVersion: String = "34.0.0"
+/** AndroidX configuration backed by Gradle properties. */
+abstract class AndroidConfigImpl(private val project: Project) : AndroidConfig {
+    override val buildToolsVersion: String = "35.0.0-rc1"
 
-    override val compileSdk: String by lazy {
-        project.findProperty(COMPILE_SDK_VERSION).toString()
+    override val compileSdk: Int by lazy {
+        val sdkString = project.extraPropertyOrNull(COMPILE_SDK)?.toString()
+        check(sdkString != null) { "$COMPILE_SDK is unset" }
+        sdkString.toInt()
     }
 
-    override val minSdk: Int = 14
-    override val ndkVersion: String = "23.1.7779620"
+    override val minSdk: Int = 21
+    override val ndkVersion: String = "25.2.9519653"
 
     override val targetSdk: Int by lazy {
-        project.findProperty(TARGET_SDK_VERSION).toString().toInt()
+        project.providers.gradleProperty(TARGET_SDK_VERSION).get().toInt()
     }
 
     companion object {
-        private const val COMPILE_SDK_VERSION = "androidx.compileSdkVersion"
+        private const val COMPILE_SDK = "androidx.compileSdk"
         private const val TARGET_SDK_VERSION = "androidx.targetSdkVersion"
 
         /**
          * Implementation detail. This should only be used by AndroidXGradleProperties for property
          * validation.
          */
-        val GRADLE_PROPERTIES = listOf(
-            COMPILE_SDK_VERSION,
-            TARGET_SDK_VERSION,
-        )
+        val GRADLE_PROPERTIES =
+            listOf(
+                COMPILE_SDK,
+                TARGET_SDK_VERSION,
+            )
     }
 }
 
 /**
  * Configuration values for various aspects of the AndroidX plugin, including default values for
- * [com.android.build.gradle.BaseExtension].
+ * [com.android.build.api.dsl.CommonExtension].
  */
 interface AndroidConfig {
-    /**
-     * Build tools version used for AndroidX projects.
-     */
+    /** Build tools version used for AndroidX projects. */
     val buildToolsVersion: String
 
     /**
      * Default compile SDK version used for AndroidX projects.
      *
-     * This may be specified in `gradle.properties` using `androidx.compileSdkVersion`.
+     * This may be specified in `gradle.properties` using `androidx.compileSdk`.
      */
-    val compileSdk: String
+    val compileSdk: Int
 
-    /**
-     * Default minimum SDK version used for AndroidX projects.
-     */
+    /** Default minimum SDK version used for AndroidX projects. */
     val minSdk: Int
 
-    /**
-     * NDK version used for AndroidX projects.
-     */
+    /** NDK version used for AndroidX projects. */
     val ndkVersion: String
 
     /**
@@ -91,15 +85,11 @@ interface AndroidConfig {
     val targetSdk: Int
 }
 
-/**
- * Default configuration values for Android Gradle Plugin.
- */
+/** Default configuration values for Android Gradle Plugin. */
 val Project.defaultAndroidConfig: AndroidConfig
-    get() = extensions.findByType(AndroidConfigImpl::class.java)
-        ?: extensions.create(
-            "androidx.build.AndroidConfigImpl",
-            AndroidConfigImpl::class.java
-        )
+    get() =
+        extensions.findByType(AndroidConfigImpl::class.java)
+            ?: extensions.create("androidx.build.AndroidConfigImpl", AndroidConfigImpl::class.java)
 
 fun Project.getExternalProjectPath(): File {
     return File(rootProject.projectDir, "../../external").canonicalFile
@@ -110,25 +100,17 @@ fun Project.getKeystore(): File {
 }
 
 fun Project.getPrebuiltsRoot(): File {
-    return File(project.rootProject.property("prebuiltsRoot").toString())
+    return File(project.extraPropertyOrNull("prebuiltsRoot").toString())
 }
 
-/**
- * @return the project's Android SDK stub JAR as a File.
- */
+/** @return the project's Android SDK stub JAR as a File. */
 fun Project.getAndroidJar(): FileCollection {
-    val compileSdk = project.defaultAndroidConfig.compileSdk
+    val compileSdk = "android-${project.defaultAndroidConfig.compileSdk}"
     return files(
         arrayOf(
-            File(
-                getSdkPath(),
-                "platforms/$compileSdk/android.jar"
-            ),
+            File(getSdkPath(), "platforms/$compileSdk/android.jar"),
             // Allow using optional android.car APIs
-            File(
-                getSdkPath(),
-                "platforms/$compileSdk/optional/android.car.jar"
-            ),
+            File(getSdkPath(), "platforms/$compileSdk/optional/android.car.jar"),
             // Allow using optional android.test APIs
             File(getSdkPath(), "platforms/$compileSdk/optional/android.test.base.jar"),
             File(getSdkPath(), "platforms/$compileSdk/optional/android.test.mock.jar"),

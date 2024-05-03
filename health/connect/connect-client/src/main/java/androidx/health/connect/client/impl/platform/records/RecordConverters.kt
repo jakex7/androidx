@@ -36,6 +36,7 @@ import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ElevationGainedRecord
 import androidx.health.connect.client.records.ExerciseLap
 import androidx.health.connect.client.records.ExerciseRoute
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.FloorsClimbedRecord
@@ -293,8 +294,10 @@ private fun PlatformExerciseSessionRecord.toSdkExerciseSessionRecord() =
         laps = laps.map { it.toSdkExerciseLap() }.sortedBy { it.startTime },
         segments = segments.map { it.toSdkExerciseSegment() }.sortedBy { it.startTime },
         metadata = metadata.toSdkMetadata(),
-        exerciseRoute = route?.toSdkExerciseRouteData()
-                ?: if (hasRoute()) ExerciseRoute.ConsentRequired() else ExerciseRoute.NoData(),
+        exerciseRouteResult =
+            route?.let { ExerciseRouteResult.Data(it.toSdkExerciseRoute()) }
+                ?: if (hasRoute()) ExerciseRouteResult.ConsentRequired()
+                else ExerciseRouteResult.NoData(),
     )
 
 private fun PlatformFloorsClimbedRecord.toSdkFloorsClimbedRecord() =
@@ -384,48 +387,48 @@ private fun PlatformNutritionRecord.toSdkNutritionRecord() =
         name = mealName,
         mealType = mealType.toSdkMealType(),
         metadata = metadata.toSdkMetadata(),
-        biotin = biotin?.toSdkMass(),
-        caffeine = caffeine?.toSdkMass(),
-        calcium = calcium?.toSdkMass(),
-        energy = energy?.toSdkEnergy(),
-        energyFromFat = energyFromFat?.toSdkEnergy(),
-        chloride = chloride?.toSdkMass(),
-        cholesterol = cholesterol?.toSdkMass(),
-        chromium = chromium?.toSdkMass(),
-        copper = copper?.toSdkMass(),
-        dietaryFiber = dietaryFiber?.toSdkMass(),
-        folate = folate?.toSdkMass(),
-        folicAcid = folicAcid?.toSdkMass(),
-        iodine = iodine?.toSdkMass(),
-        iron = iron?.toSdkMass(),
-        magnesium = magnesium?.toSdkMass(),
-        manganese = manganese?.toSdkMass(),
-        molybdenum = molybdenum?.toSdkMass(),
-        monounsaturatedFat = monounsaturatedFat?.toSdkMass(),
-        niacin = niacin?.toSdkMass(),
-        pantothenicAcid = pantothenicAcid?.toSdkMass(),
-        phosphorus = phosphorus?.toSdkMass(),
-        polyunsaturatedFat = polyunsaturatedFat?.toSdkMass(),
-        potassium = potassium?.toSdkMass(),
-        protein = protein?.toSdkMass(),
-        riboflavin = riboflavin?.toSdkMass(),
-        saturatedFat = saturatedFat?.toSdkMass(),
-        selenium = selenium?.toSdkMass(),
-        sodium = sodium?.toSdkMass(),
-        sugar = sugar?.toSdkMass(),
-        thiamin = thiamin?.toSdkMass(),
-        totalCarbohydrate = totalCarbohydrate?.toSdkMass(),
-        totalFat = totalFat?.toSdkMass(),
-        transFat = transFat?.toSdkMass(),
-        unsaturatedFat = unsaturatedFat?.toSdkMass(),
-        vitaminA = vitaminA?.toSdkMass(),
-        vitaminB12 = vitaminB12?.toSdkMass(),
-        vitaminB6 = vitaminB6?.toSdkMass(),
-        vitaminC = vitaminC?.toSdkMass(),
-        vitaminD = vitaminD?.toSdkMass(),
-        vitaminE = vitaminE?.toSdkMass(),
-        vitaminK = vitaminK?.toSdkMass(),
-        zinc = zinc?.toSdkMass()
+        biotin = biotin?.toNonDefaultSdkMass(),
+        caffeine = caffeine?.toNonDefaultSdkMass(),
+        calcium = calcium?.toNonDefaultSdkMass(),
+        energy = energy?.toNonDefaultSdkEnergy(),
+        energyFromFat = energyFromFat?.toNonDefaultSdkEnergy(),
+        chloride = chloride?.toNonDefaultSdkMass(),
+        cholesterol = cholesterol?.toNonDefaultSdkMass(),
+        chromium = chromium?.toNonDefaultSdkMass(),
+        copper = copper?.toNonDefaultSdkMass(),
+        dietaryFiber = dietaryFiber?.toNonDefaultSdkMass(),
+        folate = folate?.toNonDefaultSdkMass(),
+        folicAcid = folicAcid?.toNonDefaultSdkMass(),
+        iodine = iodine?.toNonDefaultSdkMass(),
+        iron = iron?.toNonDefaultSdkMass(),
+        magnesium = magnesium?.toNonDefaultSdkMass(),
+        manganese = manganese?.toNonDefaultSdkMass(),
+        molybdenum = molybdenum?.toNonDefaultSdkMass(),
+        monounsaturatedFat = monounsaturatedFat?.toNonDefaultSdkMass(),
+        niacin = niacin?.toNonDefaultSdkMass(),
+        pantothenicAcid = pantothenicAcid?.toNonDefaultSdkMass(),
+        phosphorus = phosphorus?.toNonDefaultSdkMass(),
+        polyunsaturatedFat = polyunsaturatedFat?.toNonDefaultSdkMass(),
+        potassium = potassium?.toNonDefaultSdkMass(),
+        protein = protein?.toNonDefaultSdkMass(),
+        riboflavin = riboflavin?.toNonDefaultSdkMass(),
+        saturatedFat = saturatedFat?.toNonDefaultSdkMass(),
+        selenium = selenium?.toNonDefaultSdkMass(),
+        sodium = sodium?.toNonDefaultSdkMass(),
+        sugar = sugar?.toNonDefaultSdkMass(),
+        thiamin = thiamin?.toNonDefaultSdkMass(),
+        totalCarbohydrate = totalCarbohydrate?.toNonDefaultSdkMass(),
+        totalFat = totalFat?.toNonDefaultSdkMass(),
+        transFat = transFat?.toNonDefaultSdkMass(),
+        unsaturatedFat = unsaturatedFat?.toNonDefaultSdkMass(),
+        vitaminA = vitaminA?.toNonDefaultSdkMass(),
+        vitaminB12 = vitaminB12?.toNonDefaultSdkMass(),
+        vitaminB6 = vitaminB6?.toNonDefaultSdkMass(),
+        vitaminC = vitaminC?.toNonDefaultSdkMass(),
+        vitaminD = vitaminD?.toNonDefaultSdkMass(),
+        vitaminE = vitaminE?.toNonDefaultSdkMass(),
+        vitaminK = vitaminK?.toNonDefaultSdkMass(),
+        zinc = zinc?.toNonDefaultSdkMass()
     )
 
 private fun PlatformOvulationTestRecord.toSdkOvulationTestRecord() =
@@ -708,8 +711,8 @@ private fun ExerciseSessionRecord.toPlatformExerciseSessionRecord() =
             title?.let { setTitle(it) }
             setLaps(laps.map { it.toPlatformExerciseLap() })
             setSegments(segments.map { it.toPlatformExerciseSegment() })
-            if (exerciseRoute is ExerciseRoute.Data) {
-                setRoute(exerciseRoute.toPlatformExerciseRoute())
+            if (exerciseRouteResult is ExerciseRouteResult.Data) {
+                setRoute(exerciseRouteResult.exerciseRoute.toPlatformExerciseRoute())
             }
         }
         .build()
@@ -719,7 +722,7 @@ private fun ExerciseLap.toPlatformExerciseLap() =
         .apply { length?.let { setLength(it.toPlatformLength()) } }
         .build()
 
-private fun ExerciseRoute.Data.toPlatformExerciseRoute() =
+private fun ExerciseRoute.toPlatformExerciseRoute() =
     PlatformExerciseRoute(
         route.map { location ->
             PlatformExerciseRouteLocationBuilder(
@@ -1033,8 +1036,8 @@ private fun PlatformStepsCadenceSample.toSdkStepsCadenceSample() =
 private fun PlatformSleepSessionStage.toSdkSleepSessionStage() =
     SleepSessionRecord.Stage(startTime, endTime, type.toSdkSleepStageType())
 
-internal fun PlatformExerciseRoute.toSdkExerciseRouteData() =
-    ExerciseRoute.Data(
+internal fun PlatformExerciseRoute.toSdkExerciseRoute() =
+    ExerciseRoute(
         routeLocations.map { value ->
             ExerciseRoute.Location(
                 time = value.time,

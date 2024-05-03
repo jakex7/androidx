@@ -31,6 +31,7 @@ import androidx.annotation.RequiresApi;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.impl.utils.Exif;
+import androidx.camera.core.internal.compat.workaround.InvalidJpegDataParser;
 import androidx.camera.core.processing.Operation;
 import androidx.camera.core.processing.Packet;
 
@@ -109,7 +110,8 @@ class JpegBytes2Disk implements Operation<JpegBytes2Disk.In, ImageCapture.Output
     private static void writeBytesToFile(
             @NonNull File tempFile, @NonNull byte[] bytes) throws ImageCaptureException {
         try (FileOutputStream output = new FileOutputStream(tempFile)) {
-            output.write(bytes);
+            InvalidJpegDataParser invalidJpegDataParser = new InvalidJpegDataParser();
+            output.write(bytes, 0, invalidJpegDataParser.getValidDataLength(bytes));
         } catch (IOException e) {
             throw new ImageCaptureException(ERROR_FILE_IO, "Failed to write to temp file", e);
         }

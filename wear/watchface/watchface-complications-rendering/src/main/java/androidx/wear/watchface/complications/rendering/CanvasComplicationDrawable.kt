@@ -16,7 +16,6 @@
 
 package androidx.wear.watchface.complications.rendering
 
-import android.annotation.SuppressLint
 import android.content.res.Resources
 import android.graphics.Canvas
 import android.graphics.Rect
@@ -25,7 +24,7 @@ import android.util.TypedValue
 import androidx.annotation.CallSuper
 import androidx.annotation.ColorInt
 import androidx.wear.watchface.CanvasComplication
-import androidx.wear.watchface.ComplicationSlotBoundsTypes
+import androidx.wear.watchface.ComplicationSlotBoundsType
 import androidx.wear.watchface.DrawMode
 import androidx.wear.watchface.RenderParameters
 import androidx.wear.watchface.WatchState
@@ -81,7 +80,6 @@ constructor(
         object : Drawable.Callback {
             override fun unscheduleDrawable(who: Drawable, what: Runnable) {}
 
-            @SuppressLint("SyntheticAccessor")
             override fun invalidateDrawable(who: Drawable) {
                 invalidateCallback.onInvalidate()
             }
@@ -139,7 +137,7 @@ constructor(
         zonedDateTime: ZonedDateTime,
         @ColorInt color: Int
     ) {
-        if (boundsType == ComplicationSlotBoundsTypes.ROUND_RECT) {
+        if (boundsType == ComplicationSlotBoundsType.ROUND_RECT) {
             complicationHighlightRenderer.drawComplicationHighlight(canvas, bounds, color)
         }
     }

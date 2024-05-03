@@ -18,6 +18,7 @@ package androidx.compose.ui
 
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.internal.JvmDefaultWithCompatibility
+import androidx.compose.ui.internal.checkPrecondition
 import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.NodeCoordinator
@@ -30,6 +31,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 
+private val EmptyStackTraceElements = emptyArray<StackTraceElement>()
+
 /**
  * Used in place of the standard Job cancellation pathway to avoid reflective
  * javaClass.simpleName lookups to build the exception message and stack trace collection.
@@ -40,7 +43,7 @@ private class ModifierNodeDetachedCancellationException : CancellationException(
 ) {
     override fun fillInStackTrace(): Throwable {
         // Avoid null.clone() on Android <= 6.0 when accessing stackTrace
-        stackTrace = emptyArray()
+        stackTrace = EmptyStackTraceElements
         return this
     }
 }
@@ -179,7 +182,7 @@ interface Modifier {
      * @see androidx.compose.ui.node.ParentDataModifierNode
      * @see androidx.compose.ui.node.LayoutAwareModifierNode
      * @see androidx.compose.ui.node.GlobalPositionAwareModifierNode
-     * @see androidx.compose.ui.node.IntermediateLayoutModifierNode
+     * @see androidx.compose.ui.node.ApproachLayoutModifierNode
      */
     abstract class Node : DelegatableNode {
         @Suppress("LeakingThis")
@@ -221,6 +224,8 @@ interface Modifier {
             private set
         internal var insertedNodeAwaitingAttachForInvalidation = false
         internal var updatedNodeAwaitingAttachForInvalidation = false
+        private var onAttachRunExpected = false
+        private var onDetachRunExpected = false
         /**
          * Indicates that the node is attached to a [androidx.compose.ui.layout.Layout] which is
          * part of the UI tree.
@@ -259,24 +264,47 @@ interface Modifier {
         internal inline fun isKind(kind: NodeKind<*>) = kindSet and kind.mask != 0
 
         internal open fun markAsAttached() {
-            check(!isAttached) { "node attached multiple times" }
-            check(coordinator != null) { "attach invoked on a node without a coordinator" }
+            checkPrecondition(!isAttached) { "node attached multiple times" }
+            checkPrecondition(coordinator != null) {
+                "attach invoked on a node without a coordinator"
+            }
             isAttached = true
+            onAttachRunExpected = true
         }
 
         internal open fun runAttachLifecycle() {
-            check(isAttached) { "Must run markAsAttached() prior to runAttachLifecycle" }
+            checkPrecondition(isAttached) {
+                "Must run markAsAttached() prior to runAttachLifecycle"
+            }
+            checkPrecondition(onAttachRunExpected) { "Must run runAttachLifecycle() only once " +
+                "after markAsAttached()"
+            }
+            onAttachRunExpected = false
             onAttach()
+            onDetachRunExpected = true
         }
 
         internal open fun runDetachLifecycle() {
-            check(isAttached) { "node detached multiple times" }
-            check(coordinator != null) { "detach invoked on a node without a coordinator" }
+            checkPrecondition(isAttached) { "node detached multiple times" }
+            checkPrecondition(coordinator != null) {
+                "detach invoked on a node without a coordinator"
+            }
+            checkPrecondition(onDetachRunExpected) {
+                "Must run runDetachLifecycle() once after runAttachLifecycle() and before " +
+                    "markAsDetached()"
+            }
+            onDetachRunExpected = false
             onDetach()
         }
 
         internal open fun markAsDetached() {
-            check(isAttached) { "Cannot detach a node that is not attached" }
+            checkPrecondition(isAttached) { "Cannot detach a node that is not attached" }
+            checkPrecondition(!onAttachRunExpected) {
+                "Must run runAttachLifecycle() before markAsDetached()"
+            }
+            checkPrecondition(!onDetachRunExpected) {
+                "Must run runDetachLifecycle() before markAsDetached()"
+            }
             isAttached = false
 
             scope?.let {
@@ -286,7 +314,7 @@ interface Modifier {
         }
 
         internal open fun reset() {
-            check(isAttached) { "reset() called on an unattached node" }
+            checkPrecondition(isAttached) { "reset() called on an unattached node" }
             onReset()
         }
 
@@ -341,7 +369,7 @@ interface Modifier {
             requireOwner().registerOnEndApplyChangesListener(effect)
         }
 
-        internal fun setAsDelegateTo(owner: Node) {
+        internal open fun setAsDelegateTo(owner: Node) {
             node = owner
         }
     }

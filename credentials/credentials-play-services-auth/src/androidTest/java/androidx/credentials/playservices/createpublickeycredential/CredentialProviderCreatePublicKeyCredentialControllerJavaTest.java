@@ -16,6 +16,7 @@
 
 package androidx.credentials.playservices.createpublickeycredential;
 
+
 import static androidx.credentials.playservices.createkeycredential.CreatePublicKeyCredentialControllerTestUtils.ALL_REQUIRED_AND_OPTIONAL_SIGNATURE;
 import static androidx.credentials.playservices.createkeycredential.CreatePublicKeyCredentialControllerTestUtils.ALL_REQUIRED_FIELDS_SIGNATURE;
 import static androidx.credentials.playservices.createkeycredential.CreatePublicKeyCredentialControllerTestUtils.MAIN_CREATE_JSON_ALL_REQUIRED_AND_OPTIONAL_FIELDS_PRESENT;
@@ -52,8 +53,7 @@ import org.junit.runner.RunWith;
 @SmallTest
 public class CredentialProviderCreatePublicKeyCredentialControllerJavaTest {
     @Test
-    public void
-            convertRequestToPlayServices_correctRequiredOnlyRequest_success() {
+    public void convertRequestToPlayServices_correctRequiredOnlyRequest_success() {
         ActivityScenario<TestCredentialsActivity> activityScenario =
                 ActivityScenario.launch(TestCredentialsActivity.class);
         activityScenario.onActivity(activity -> {
@@ -67,7 +67,7 @@ public class CredentialProviderCreatePublicKeyCredentialControllerJavaTest {
                                         new CreatePublicKeyCredentialRequest(
                                                 MAIN_CREATE_JSON_ALL_REQUIRED_FIELDS_PRESENT));
                 JSONObject actualJson = createJsonObjectFromPublicKeyCredentialCreationOptions(
-                                        actualResponse);
+                        actualResponse);
                 JSONObject requiredKeys = new JSONObject(ALL_REQUIRED_FIELDS_SIGNATURE);
 
                 assertThat(TestUtils.Companion.isSubsetJson(expectedJson, actualJson,
@@ -94,7 +94,7 @@ public class CredentialProviderCreatePublicKeyCredentialControllerJavaTest {
                                         MAIN_CREATE_JSON_ALL_REQUIRED_AND_OPTIONAL_FIELDS_PRESENT));
                 JSONObject actualJson =
                         createJsonObjectFromPublicKeyCredentialCreationOptions(
-                                        actualResponse);
+                                actualResponse);
                 JSONObject requiredKeys = new JSONObject(ALL_REQUIRED_AND_OPTIONAL_SIGNATURE);
 
                 assertThat(TestUtils.Companion.isSubsetJson(expectedJson, actualJson,
@@ -112,10 +112,10 @@ public class CredentialProviderCreatePublicKeyCredentialControllerJavaTest {
         activityScenario.onActivity(activity -> {
             try {
                 CredentialProviderCreatePublicKeyCredentialController
-                            .getInstance(activity)
-                            .convertRequestToPlayServices(
-                                    new CreatePublicKeyCredentialRequest(
-                                            MAIN_CREATE_JSON_MISSING_REQUIRED_FIELD));
+                        .getInstance(activity)
+                        .convertRequestToPlayServices(
+                                new CreatePublicKeyCredentialRequest(
+                                        MAIN_CREATE_JSON_MISSING_REQUIRED_FIELD));
 
                 // Should not reach here.
                 assertWithMessage("Exception should be thrown").that(true).isFalse();
@@ -188,7 +188,7 @@ public class CredentialProviderCreatePublicKeyCredentialControllerJavaTest {
                                         new CreatePublicKeyCredentialRequest(
                                                 OPTIONAL_FIELD_MISSING_OPTIONAL_SUBFIELD));
                 JSONObject actualJson = createJsonObjectFromPublicKeyCredentialCreationOptions(
-                                        actualResponse);
+                        actualResponse);
                 JSONObject requiredKeys = new
                         JSONObject(OPTIONAL_FIELD_MISSING_OPTIONAL_SUBFIELD_SIGNATURE);
 

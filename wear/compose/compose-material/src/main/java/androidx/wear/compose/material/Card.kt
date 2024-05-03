@@ -19,15 +19,18 @@ package androidx.wear.compose.material
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.Interaction
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -81,12 +84,13 @@ import kotlin.math.min
  * content
  * @param shape Defines the card's shape. It is strongly recommended to use the default as this
  * shape is a key characteristic of the Wear Material Theme
- * @param interactionSource The [MutableInteractionSource] representing the stream of
- * [Interaction]s for this card. You can create and pass in your own remembered
- * [MutableInteractionSource] if you want to observe [Interaction]s and customize the
- * appearance / behavior of this card in different [Interaction]s.
+ * @param interactionSource an optional hoisted [MutableInteractionSource] for observing and
+ * emitting [Interaction]s for this card. You can use this to change the card's appearance
+ * or preview the card in different states. Note that if `null` is provided, interactions will
+ * still happen internally.
  * @param role The type of user interface element. Accessibility services might use this
  * to describe the element or do customizations
+ * @param content Slot for composable body content displayed on the Card
  */
 @Composable
 public fun Card(
@@ -97,7 +101,7 @@ public fun Card(
     enabled: Boolean = true,
     contentPadding: PaddingValues = CardDefaults.ContentPadding,
     shape: Shape = MaterialTheme.shapes.large,
-    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    interactionSource: MutableInteractionSource? = null,
     role: Role? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -111,6 +115,7 @@ public fun Card(
         shape = shape,
         interactionSource = interactionSource,
         role = role,
+        ripple = rippleOrFallbackImplementation(),
     ) {
         CompositionLocalProvider(
             LocalContentColor provides contentColor,
@@ -147,6 +152,9 @@ public fun Card(
  * Example of an [AppCard] with icon, title, time and two lines of body text:
  * @sample androidx.wear.compose.material.samples.AppCardWithIcon
  *
+ * Example of an [AppCard] with image content:
+ * @sample androidx.wear.compose.material.samples.AppCardWithImage
+ *
  * For more information, see the
  * [Cards](https://developer.android.com/training/wearables/components/cards)
  * guide.
@@ -172,6 +180,7 @@ public fun Card(
  * set.
  * @param timeColor The default color to use for time() slot unless explicitly set.
  * @param titleColor The default color to use for title() slot unless explicitly set.
+ * @param content Slot for composable body content displayed on the Card
  */
 @Composable
 public fun AppCard(
@@ -196,8 +205,9 @@ public fun AppCard(
         border = null,
         contentPadding = CardDefaults.ContentPadding,
         containerPainter = backgroundPainter,
-        interactionSource = remember { MutableInteractionSource() },
+        interactionSource = null,
         shape = MaterialTheme.shapes.large,
+        ripple = rippleOrFallbackImplementation(),
         appImage = appImage?.let { { appImage() } },
         appName = {
             CompositionLocalProvider(
@@ -259,7 +269,7 @@ public fun AppCard(
  * @sample androidx.wear.compose.material.samples.TitleCardStandard
  *
  * Example of a title card with a background image:
- * @sample androidx.wear.compose.material.samples.TitleCardWithImage
+ * @sample androidx.wear.compose.material.samples.TitleCardWithImageBackground
  *
  * For more information, see the
  * [Cards](https://developer.android.com/training/wearables/components/cards)
@@ -281,6 +291,7 @@ public fun AppCard(
  * @param contentColor The default color to use for content() slot unless explicitly set.
  * @param titleColor The default color to use for title() slot unless explicitly set.
  * @param timeColor The default color to use for time() slot unless explicitly set.
+ * @param content Slot for composable body content displayed on the Card
  */
 @Composable
 public fun TitleCard(
@@ -295,35 +306,39 @@ public fun TitleCard(
     timeColor: Color = contentColor,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    androidx.wear.compose.materialcore.TitleCard(
+    androidx.wear.compose.materialcore.Card(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
+        containerPainter = backgroundPainter,
         border = null,
         contentPadding = CardDefaults.ContentPadding,
-        containerPainter = backgroundPainter,
-        interactionSource = remember { MutableInteractionSource() },
+        interactionSource = null,
+        role = null,
         shape = MaterialTheme.shapes.large,
-        title = {
-            CompositionLocalProvider(
-                LocalContentColor provides titleColor,
-                LocalTextStyle provides MaterialTheme.typography.title3,
+        ripple = rippleOrFallbackImplementation(),
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                title()
-            }
-        },
-        time = {
-            time?.let {
-                Spacer(modifier = Modifier.weight(1.0f))
                 CompositionLocalProvider(
-                    LocalContentColor provides timeColor,
-                    LocalTextStyle provides MaterialTheme.typography.caption1,
+                    LocalContentColor provides titleColor,
+                    LocalTextStyle provides MaterialTheme.typography.title3,
                 ) {
-                    time()
+                    title()
+                }
+                time?.let {
+                    Spacer(modifier = Modifier.weight(1.0f))
+                    CompositionLocalProvider(
+                        LocalContentColor provides timeColor,
+                        LocalTextStyle provides MaterialTheme.typography.caption1,
+                    ) {
+                        time()
+                    }
                 }
             }
-        },
-        content = {
             Spacer(modifier = Modifier.height(2.dp))
             CompositionLocalProvider(
                 LocalContentColor provides contentColor,
@@ -332,7 +347,7 @@ public fun TitleCard(
                 content()
             }
         }
-    )
+    }
 }
 
 /**

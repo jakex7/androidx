@@ -25,12 +25,12 @@ import android.view.SurfaceHolder
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
-import androidx.wear.watchface.CanvasTypes
+import androidx.wear.watchface.CanvasType
 import androidx.wear.watchface.ComplicationSlotsManager
 import androidx.wear.watchface.Renderer
 import androidx.wear.watchface.WatchFace
 import androidx.wear.watchface.WatchFaceService
-import androidx.wear.watchface.WatchFaceTypes
+import androidx.wear.watchface.WatchFaceType
 import androidx.wear.watchface.WatchState
 import androidx.wear.watchface.client.DeviceConfig
 import androidx.wear.watchface.client.ListenableWatchFaceControlClient
@@ -44,17 +44,21 @@ import java.util.concurrent.TimeUnit
 import org.junit.Assert
 import org.junit.Assert.assertNull
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito
-import org.mockito.MockitoAnnotations
+import org.mockito.junit.MockitoJUnit
 
 private const val TIMEOUT_MS = 500L
 
 @RunWith(AndroidJUnit4::class)
 @MediumTest
 public class ListenableWatchFaceControlClientTest {
+
+    @get:Rule
+    val mocks = MockitoJUnit.rule()
 
     @Mock private lateinit var surfaceHolder: SurfaceHolder
     @Mock private lateinit var surface: Surface
@@ -63,7 +67,6 @@ public class ListenableWatchFaceControlClientTest {
 
     @Before
     public fun setUp() {
-        MockitoAnnotations.initMocks(this)
         Mockito.`when`(surfaceHolder.surfaceFrame).thenReturn(Rect(0, 0, 400, 400))
         Mockito.`when`(surfaceHolder.surface).thenReturn(surface)
     }
@@ -413,7 +416,7 @@ internal class TestWatchFaceServiceWithPreviewImageUpdateRequest(
                     surfaceHolder,
                     currentUserStyleRepository,
                     watchState,
-                    CanvasTypes.HARDWARE,
+                    CanvasType.HARDWARE,
                     16
                 ) {
                 override suspend fun init() {
@@ -428,6 +431,6 @@ internal class TestWatchFaceServiceWithPreviewImageUpdateRequest(
                     zonedDateTime: ZonedDateTime
                 ) {}
             }
-        return WatchFace(WatchFaceTypes.DIGITAL, renderer)
+        return WatchFace(WatchFaceType.DIGITAL, renderer)
     }
 }

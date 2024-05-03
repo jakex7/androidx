@@ -29,10 +29,8 @@ import android.os.Build;
 import androidx.annotation.DoNotInline;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
-import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
-import androidx.core.os.BuildCompat;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -168,10 +166,9 @@ public final class ServiceCompat {
      * @see Service#startForeground(int, Notification)
      * @see Service#startForeground(int, Notification, int)
      */
-    @OptIn(markerClass = BuildCompat.PrereleaseSdkCheck.class)
     public static void startForeground(@NonNull Service service, int id,
             @NonNull Notification notification, int foregroundServiceType) {
-        if (BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT >= 34) {
             Api34Impl.startForeground(service, id, notification, foregroundServiceType);
         } else if (Build.VERSION.SDK_INT >= 29) {
             Api29Impl.startForeground(service, id, notification, foregroundServiceType);
@@ -183,6 +180,7 @@ public final class ServiceCompat {
     /**
      * Remove the passed service from foreground state, allowing it to be killed if
      * more memory is needed.
+     * @param service service to remove.
      * @param flags Additional behavior options: {@link #STOP_FOREGROUND_REMOVE},
      * {@link #STOP_FOREGROUND_DETACH}.
      * @see Service#startForeground(int, Notification)

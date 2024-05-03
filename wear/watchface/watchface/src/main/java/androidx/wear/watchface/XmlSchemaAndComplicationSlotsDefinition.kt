@@ -113,7 +113,7 @@ public class XmlSchemaAndComplicationSlotsDefinition(
     public class ComplicationSlotStaticData(
         val slotId: Int,
         val accessibilityTraversalIndex: Int?,
-        @ComplicationSlotBoundsType val boundsType: Int,
+        @ComplicationSlotBoundsTypeIntDef val boundsType: Int,
         val bounds: ComplicationSlotBounds,
         val supportedTypes: List<ComplicationType>,
         val defaultDataSourcePolicy: DefaultComplicationDataSourcePolicy,
@@ -125,19 +125,16 @@ public class XmlSchemaAndComplicationSlotsDefinition(
     ) {
         companion object {
             @Suppress("NewApi")
-            private val typesMap by
-                lazy(LazyThreadSafetyMode.NONE) {
-                    mapOf(
-                        "SHORT_TEXT" to ComplicationType.SHORT_TEXT,
-                        "LONG_TEXT" to ComplicationType.LONG_TEXT,
-                        "RANGED_VALUE" to ComplicationType.RANGED_VALUE,
-                        "MONOCHROMATIC_IMAGE" to ComplicationType.MONOCHROMATIC_IMAGE,
-                        "SMALL_IMAGE" to ComplicationType.SMALL_IMAGE,
-                        "PHOTO_IMAGE" to ComplicationType.PHOTO_IMAGE,
-                        "GOAL_PROGRESS" to ComplicationType.GOAL_PROGRESS,
-                        "WEIGHTED_ELEMENTS" to ComplicationType.WEIGHTED_ELEMENTS
-                    )
-                }
+            private val typesMap = mapOf(
+                "SHORT_TEXT" to ComplicationType.SHORT_TEXT,
+                "LONG_TEXT" to ComplicationType.LONG_TEXT,
+                "RANGED_VALUE" to ComplicationType.RANGED_VALUE,
+                "MONOCHROMATIC_IMAGE" to ComplicationType.MONOCHROMATIC_IMAGE,
+                "SMALL_IMAGE" to ComplicationType.SMALL_IMAGE,
+                "PHOTO_IMAGE" to ComplicationType.PHOTO_IMAGE,
+                "GOAL_PROGRESS" to ComplicationType.GOAL_PROGRESS,
+                "WEIGHTED_ELEMENTS" to ComplicationType.WEIGHTED_ELEMENTS
+            )
 
             fun inflate(
                 resources: Resources,
@@ -159,9 +156,9 @@ public class XmlSchemaAndComplicationSlotsDefinition(
                 }
                 val boundsType =
                     when (parser.getAttributeIntValue(NAMESPACE_APP, "boundsType", 0)) {
-                        0 -> ComplicationSlotBoundsTypes.ROUND_RECT
-                        1 -> ComplicationSlotBoundsTypes.BACKGROUND
-                        2 -> ComplicationSlotBoundsTypes.EDGE
+                        0 -> ComplicationSlotBoundsType.ROUND_RECT
+                        1 -> ComplicationSlotBoundsType.BACKGROUND
+                        2 -> ComplicationSlotBoundsType.EDGE
                         else -> throw IllegalArgumentException("Unknown boundsType")
                     }
 
@@ -265,9 +262,9 @@ public class XmlSchemaAndComplicationSlotsDefinition(
                     Bundle(),
                     it.fixedComplicationDataSource,
                     when (it.boundsType) {
-                        ComplicationSlotBoundsTypes.ROUND_RECT -> RoundRectComplicationTapFilter()
-                        ComplicationSlotBoundsTypes.BACKGROUND -> BackgroundComplicationTapFilter()
-                        ComplicationSlotBoundsTypes.EDGE ->
+                        ComplicationSlotBoundsType.ROUND_RECT -> RoundRectComplicationTapFilter()
+                        ComplicationSlotBoundsType.BACKGROUND -> BackgroundComplicationTapFilter()
+                        ComplicationSlotBoundsType.EDGE ->
                             complicationSlotInflationFactory.getEdgeComplicationTapFilter(it.slotId)
                         else ->
                             throw UnsupportedOperationException(

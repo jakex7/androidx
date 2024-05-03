@@ -16,9 +16,7 @@
 
 package androidx.test.uiautomator;
 
-import android.app.Service;
 import android.graphics.Point;
-import android.hardware.display.DisplayManager;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.Display;
@@ -26,6 +24,8 @@ import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.MotionEvent.PointerCoords;
 import android.view.MotionEvent.PointerProperties;
+
+import androidx.annotation.NonNull;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -62,8 +62,6 @@ class GestureController {
 
     private final UiDevice mDevice;
 
-    private final DisplayManager mDisplayManager;
-
     /** Comparator for sorting PointerGestures by start times. */
     private static final Comparator<PointerGesture> START_TIME_COMPARATOR =
             (o1, o2) -> Long.compare(o1.delay(), o2.delay());
@@ -76,8 +74,6 @@ class GestureController {
     // Private constructor.
     private GestureController(UiDevice device) {
         mDevice = device;
-        mDisplayManager = (DisplayManager) mDevice.getInstrumentation().getContext()
-                .getSystemService(Service.DISPLAY_SERVICE);
     }
 
     /** Returns the {@link GestureController} instance for the given {@link UiDevice}. */
@@ -133,12 +129,14 @@ class GestureController {
         // Record the start time
         final long startTime = SystemClock.uptimeMillis();
 
-        // Update motion event delay to twice of the display refresh rate
+        // Update motion event delay to twice of the maximum display refresh rate
         long injectionDelay = MOTION_EVENT_INJECTION_DELAY_MILLIS;
         try {
             int displayId = pending.peek().displayId();
-            Display display = mDisplayManager.getDisplay(displayId);
-            float displayRefreshRate = display.getRefreshRate();
+            Display display = mDevice.getDisplayById(displayId);
+            float[] refreshRates = display.getSupportedRefreshRates();
+            Arrays.sort(refreshRates);
+            float displayRefreshRate = refreshRates[refreshRates.length - 1];
             injectionDelay = (long) (500 / displayRefreshRate);
         } catch (Exception e) {
             Log.e(TAG, "Fail to update motion event delay", e);
@@ -287,6 +285,12 @@ class GestureController {
         @Override
         public void run() {
             performGesture(mGestures);
+        }
+
+        @NonNull
+        @Override
+        public String toString() {
+            return Arrays.toString(mGestures);
         }
     }
 

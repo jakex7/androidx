@@ -16,6 +16,7 @@
 
 package androidx.wear.compose.foundation
 
+import androidx.annotation.FloatRange
 import androidx.annotation.RestrictTo
 import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.compose.animation.core.AnimationSpec
@@ -38,6 +39,9 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.layout.LayoutModifier
 import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.MeasureResult
@@ -54,6 +58,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
@@ -124,6 +129,9 @@ public fun <T> Modifier.swipeableV2(
             Orientation.Vertical -> verticalScrollAxisRange = range
         }
     }
+
+    // Update the orientation in the swipeable state
+    state.orientation = orientation
 
     return this.then(semantics).draggable(
         state = state.swipeDraggableState,
@@ -217,6 +225,7 @@ public class SwipeableV2State<T>(
     internal val positionalThreshold: Density.(totalDistance: Float) -> Float =
         SwipeableV2Defaults.PositionalThreshold,
     internal val velocityThreshold: Dp = SwipeableV2Defaults.VelocityThreshold,
+    private val nestedScrollDispatcher: NestedScrollDispatcher? = null
 ) {
 
     private val swipeMutex = InternalMutatorMutex()
@@ -239,6 +248,11 @@ public class SwipeableV2State<T>(
             this@SwipeableV2State.dispatchRawDelta(delta)
         }
     }
+
+    /**
+     * The orientation in which the swipeable can be swiped.
+     */
+    internal var orientation = Orientation.Horizontal
 
     /**
      * The current value of the [SwipeableV2State].
@@ -296,7 +310,7 @@ public class SwipeableV2State<T>(
      * The fraction of the progress going from [currentValue] to [targetValue], within [0f..1f]
      * bounds.
      */
-    /*@FloatRange(from = 0f, to = 1f)*/
+    @get:FloatRange(from = 0.0, to = 1.0)
     val progress: Float by derivedStateOf {
         val a = anchors[currentValue] ?: 0f
         val b = anchors[targetValue] ?: 0f
@@ -426,17 +440,29 @@ public class SwipeableV2State<T>(
      * Find the closest anchor taking into account the velocity and settle at it with an animation.
      */
     suspend fun settle(velocity: Float) {
+        var availableVelocity = velocity
+        // Dispatch the velocity to parent nodes for consuming
+        nestedScrollDispatcher?.let {
+            val consumedVelocity = nestedScrollDispatcher.dispatchPreFling(
+                if (orientation == Orientation.Horizontal) {
+                    Velocity(x = velocity, y = 0f)
+                } else {
+                    Velocity(x = 0f, y = velocity)
+                }
+            )
+            availableVelocity -= (consumedVelocity.x + consumedVelocity.y)
+        }
         val previousValue = this.currentValue
         val targetValue = computeTarget(
             offset = requireOffset(),
             currentValue = previousValue,
-            velocity = velocity
+            velocity = availableVelocity
         )
         if (confirmValueChange(targetValue)) {
-            animateTo(targetValue, velocity)
+            animateTo(targetValue, availableVelocity)
         } else {
             // If the user vetoed the state change, rollback to the previous state.
-            animateTo(previousValue, velocity)
+            animateTo(previousValue, availableVelocity)
         }
     }
 
@@ -445,15 +471,43 @@ public class SwipeableV2State<T>(
      *
      * @return The delta the consumed by the [SwipeableV2State]
      */
+    @Suppress("DEPRECATION") // b/327155912
     fun dispatchRawDelta(delta: Float): Float {
+        var remainingDelta = delta
+
+        // Dispatch the delta as a scroll event to parent node for consuming it
+        nestedScrollDispatcher?.let {
+            val consumedByParent = nestedScrollDispatcher.dispatchPreScroll(
+                available = offsetWithOrientation(remainingDelta),
+                source = NestedScrollSource.Drag
+            )
+            remainingDelta -= (consumedByParent.x + consumedByParent.y)
+        }
         val currentDragPosition = offset ?: 0f
-        val potentiallyConsumed = currentDragPosition + delta
+        val potentiallyConsumed = currentDragPosition + remainingDelta
         val clamped = potentiallyConsumed.coerceIn(minOffset, maxOffset)
         val deltaToConsume = clamped - currentDragPosition
         if (abs(deltaToConsume) >= 0) {
             offset = ((offset ?: 0f) + deltaToConsume).coerceIn(minOffset, maxOffset)
         }
-        return deltaToConsume
+
+        nestedScrollDispatcher?.let {
+            val consumedDelta = nestedScrollDispatcher.dispatchPostScroll(
+                consumed = offsetWithOrientation(deltaToConsume),
+                available = offsetWithOrientation(delta - deltaToConsume),
+                source = NestedScrollSource.Drag
+            )
+            remainingDelta -= (deltaToConsume + consumedDelta.x + consumedDelta.y)
+        }
+        return remainingDelta
+    }
+
+    private fun offsetWithOrientation(delta: Float): Offset {
+        return if (orientation == Orientation.Horizontal) {
+            Offset(x = delta, y = 0f)
+        } else {
+            Offset(x = 0f, y = delta)
+        }
     }
 
     private fun computeTarget(
@@ -476,7 +530,11 @@ public class SwipeableV2State<T>(
                 val distance = abs(currentAnchors.getValue(upper) - currentAnchor)
                 val relativeThreshold = abs(positionalThreshold(currentDensity, distance))
                 val absoluteThreshold = abs(currentAnchor + relativeThreshold)
-                if (offset < absoluteThreshold) currentValue else upper
+                if (offset < 0) {
+                    if (abs(offset) > absoluteThreshold) currentValue else upper
+                } else {
+                    if (offset < absoluteThreshold) currentValue else upper
+                }
             }
         } else {
             // Swiping from upper to lower (negative).
@@ -619,17 +677,19 @@ public fun fractionalPositionalThreshold(
 @RestrictTo(LIBRARY_GROUP)
 public object SwipeableV2Defaults {
     /**
-     * The default animation used by [SwipeableV2State].
+     * The default animation that will be used to animate to a new state.
      */
     val AnimationSpec = SpringSpec<Float>()
 
     /**
-     * The default velocity threshold (1.8 dp per millisecond) used by [rememberSwipeableV2State].
+     * The default velocity threshold (in dp per second) that the end velocity has to
+     * exceed in order to animate to the next state.
      */
     val VelocityThreshold: Dp = 125.dp
 
     /**
-     * The default positional threshold (56 dp) used by [rememberSwipeableV2State]
+     * The default positional threshold used when calculating the target state while a swipe is in
+     * progress and when settling after the swipe ends.
      */
     val PositionalThreshold: Density.(totalDistance: Float) -> Float =
         fixedPositionalThreshold(56.dp)

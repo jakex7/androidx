@@ -65,8 +65,13 @@ import kotlinx.coroutines.launch
  * functionality to the text. For example, to draw selection around the text.
  * @param onClick Callback that is executed when users click the text. This callback is called
  * with clicked character's offset.
+ *
+ * Note: this composable is now deprecated. Instead, use regular [androidx.compose.material3.Text]
+ * or [androidx.compose.foundation.text.BasicText] and pass an AnnotatedString that contains a
+ * [androidx.compose.ui.text.LinkAnnotation].
  */
 @Composable
+@Deprecated("Use Text or BasicText and pass an AnnotatedString that contains a LinkAnnotation")
 fun ClickableText(
     text: AnnotatedString,
     modifier: Modifier = Modifier,
@@ -135,11 +140,16 @@ fun ClickableText(
  * hovering this.
  * @param onClick Callback that is executed when users click the text. This callback is called
  * with clicked character's offset.
+ *
+ * Note: this composable is now deprecated. Instead, use regular [androidx.compose.material3.Text]
+ * or [androidx.compose.foundation.text.BasicText] and pass an AnnotatedString that contains a
+ * [androidx.compose.ui.text.LinkAnnotation].
  */
 @ExperimentalFoundationApi // when removing this experimental annotation,
 // onHover should be nullable with null as default. The other ClickableText
 // should be deprecated as hidden and simply call this function.
 @Composable
+@Deprecated("Use Text or BasicText and pass an AnnotatedString that contains a LinkAnnotation")
 fun ClickableText(
     text: AnnotatedString,
     onHover: ((Int?) -> Unit),

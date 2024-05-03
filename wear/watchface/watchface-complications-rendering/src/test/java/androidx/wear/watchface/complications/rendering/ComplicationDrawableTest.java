@@ -48,13 +48,13 @@ import android.view.SurfaceHolder;
 
 import androidx.annotation.NonNull;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.wear.watchface.CanvasTypes;
+import androidx.wear.watchface.CanvasType;
 import androidx.wear.watchface.ComplicationHelperActivity;
 import androidx.wear.watchface.ComplicationSlotsManager;
 import androidx.wear.watchface.Renderer;
 import androidx.wear.watchface.WatchFace;
 import androidx.wear.watchface.WatchFaceService;
-import androidx.wear.watchface.WatchFaceTypes;
+import androidx.wear.watchface.WatchFaceType;
 import androidx.wear.watchface.WatchState;
 import androidx.wear.watchface.complications.data.DataKt;
 import androidx.wear.watchface.complications.data.NoDataComplicationData;
@@ -65,10 +65,12 @@ import kotlin.coroutines.Continuation;
 import org.jetbrains.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.internal.DoNotInstrument;
 
@@ -89,16 +91,16 @@ public class ComplicationDrawableTest {
     private androidx.wear.watchface.complications.data.ComplicationData mComplicationData;
     private int mDefaultTextSize;
 
+    @Rule public final MockitoRule mocks = MockitoJUnit.rule();
+
     @Mock Canvas mMockCanvas;
     @Mock Drawable mMockDrawableActive;
     @Mock Drawable mMockDrawableAmbient;
     @Mock PendingIntent mMockPendingIntent;
     @Mock Drawable.Callback mMockDrawableCallback;
 
-    @SuppressWarnings("deprecation") // b/251211092
     @Before
     public void setUp() {
-        MockitoAnnotations.openMocks(this);
         mComplicationDrawable = new ComplicationDrawable();
         mComplicationDrawable.setCallback(mMockDrawableCallback);
 
@@ -739,12 +741,12 @@ public class ComplicationDrawableTest {
                 @NonNull CurrentUserStyleRepository currentUserStyleRepository,
                 @NonNull Continuation<? super WatchFace> completion) {
             return new WatchFace(
-                    WatchFaceTypes.ANALOG,
+                    WatchFaceType.ANALOG,
                     new Renderer.CanvasRenderer(
                             surfaceHolder,
                             currentUserStyleRepository,
                             watchState,
-                            CanvasTypes.SOFTWARE,
+                            CanvasType.SOFTWARE,
                             16L) {
                         @Override
                         public void renderHighlightLayer(

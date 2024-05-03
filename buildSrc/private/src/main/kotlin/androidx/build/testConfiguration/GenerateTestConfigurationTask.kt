@@ -26,27 +26,29 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.SkipWhenEmpty
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
 /**
- * Writes a configuration file in
- * <a href=https://source.android.com/devices/tech/test_infra/tradefed/testing/through-suite/android-test-structure>AndroidTest.xml</a>
- * format that gets zipped alongside the APKs to be tested.
- * This config gets ingested by Tradefed.
+ * Writes a configuration file in <a
+ * href=https://source.android.com/devices/tech/test_infra/tradefed/testing/through-suite/android-test-structure>AndroidTest.xml</a>
+ * format that gets zipped alongside the APKs to be tested. This config gets ingested by Tradefed.
  */
 @DisableCachingByDefault(because = "Doesn't benefit from caching")
-abstract class GenerateTestConfigurationTask @Inject constructor(
-    private val objects: ObjectFactory
-) : DefaultTask() {
+abstract class GenerateTestConfigurationTask
+@Inject
+constructor(private val objects: ObjectFactory) : DefaultTask() {
 
     @get:InputFiles
     @get:Optional
@@ -57,48 +59,78 @@ abstract class GenerateTestConfigurationTask @Inject constructor(
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val appFileCollection: ConfigurableFileCollection
 
-    @get:Internal
-    abstract val appLoader: Property<BuiltArtifactsLoader>
+    /**
+     * File existence check to determine whether to run this task.
+     */
+    @get:InputFiles
+    @get:SkipWhenEmpty
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val androidTestSourceCodeCollection: ConfigurableFileCollection
+
+    @get:Internal abstract val appLoader: Property<BuiltArtifactsLoader>
+
+    /**
+     * Extracted APKs for PrivacySandbox SDKs dependencies.
+     * Produced by AGP.
+     */
+    @get:InputFiles
+    @get:Optional
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val privacySandboxSdkApks: ConfigurableFileCollection
+
+    /**
+     * Extracted split with manifest containing <uses-sdk-library> tag.
+     * Produced by AGP.
+     */
+    @get:InputFiles
+    @get:Optional
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val privacySandboxUsesSdkSplit: ConfigurableFileCollection
 
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val testFolder: DirectoryProperty
 
-    @get:Internal
-    abstract val testLoader: Property<BuiltArtifactsLoader>
+    @get:Internal abstract val testLoader: Property<BuiltArtifactsLoader>
 
-    @get:Input
-    abstract val testProjectPath: Property<String>
+    @get:Input abstract val minSdk: Property<Int>
 
-    @get:Input
-    abstract val minSdk: Property<Int>
+    @get:Input abstract val macrobenchmark: Property<Boolean>
 
-    @get:Input
-    abstract val hasBenchmarkPlugin: Property<Boolean>
+    @get:Input abstract val hasBenchmarkPlugin: Property<Boolean>
 
-    @get:Input
-    abstract val testRunner: Property<String>
+    @get:Input abstract val testRunner: Property<String>
 
-    @get:Input
-    abstract val presubmit: Property<Boolean>
+    @get:Input abstract val presubmit: Property<Boolean>
 
-    @get:Input
-    abstract val additionalApkKeys: ListProperty<String>
+    @get:Input abstract val additionalApkKeys: ListProperty<String>
 
-    @get:Input
-    abstract val additionalTags: ListProperty<String>
+    @get:Input abstract val additionalTags: ListProperty<String>
 
-    @get:OutputFile
-    abstract val outputXml: RegularFileProperty
+    @get:Input abstract val instrumentationArgs: MapProperty<String, String>
 
-    @get:OutputFile
-    abstract val outputJson: RegularFileProperty
+    @get:OutputFile abstract val outputXml: RegularFileProperty
 
-    @get:OutputFile
-    abstract val outputTestApk: RegularFileProperty
+    @get:OutputFile abstract val outputJson: RegularFileProperty
+
+    @get:OutputFile abstract val outputTestApk: RegularFileProperty
 
     @get:[OutputFile Optional]
     abstract val outputAppApk: RegularFileProperty
+
+    /**
+     * Filename prefix for all PrivacySandbox related output files.
+     * Required for producing unique filenames over all projects,
+     */
+    @get:Input
+    @get:Optional
+    abstract val outputPrivacySandboxFilenamesPrefix: Property<String>
+
+    /**
+     * Output directory for PrivacySandbox files (SDKs APKs, splits, etc).
+     */
+    @get:[OutputDirectory Optional]
+    abstract val outputPrivacySandboxFiles: DirectoryProperty
 
     @TaskAction
     fun generateAndroidTestZip() {
@@ -114,51 +146,76 @@ abstract class GenerateTestConfigurationTask @Inject constructor(
 
             // Decides where to load the app apk from, depending on whether appFolder or
             // appFileCollection has been set.
-            val appDir = if (appFolder.isPresent && appFileCollection.files.isEmpty()) {
-                appFolder.get()
-            } else if (!appFolder.isPresent && appFileCollection.files.size == 1) {
-                objects.directoryProperty().also { it.set(appFileCollection.files.first()) }.get()
-            } else {
-                throw IllegalStateException("""
+            val appDir =
+                if (appFolder.isPresent && appFileCollection.files.isEmpty()) {
+                    appFolder.get()
+                } else if (!appFolder.isPresent && appFileCollection.files.size == 1) {
+                    objects
+                        .directoryProperty()
+                        .also { it.set(appFileCollection.files.first()) }
+                        .get()
+                } else {
+                    throw IllegalStateException(
+                        """
                     App apk not specified or both appFileCollection and appFolder specified.
-                """.trimIndent())
-            }
+                """
+                            .trimIndent()
+                    )
+                }
 
-            val appApk = appLoader.get().load(appDir)
-                ?: throw RuntimeException("Cannot load required APK for task: $name")
+            val appApk =
+                appLoader.get().load(appDir)
+                    ?: throw RuntimeException("Cannot load required APK for task: $name")
             // We don't need to check hasBenchmarkPlugin because benchmarks shouldn't have test apps
             val appApkBuiltArtifact = appApk.elements.single()
             val destinationApk = outputAppApk.get().asFile
             File(appApkBuiltArtifact.outputFile).copyTo(destinationApk, overwrite = true)
-            configBuilder.appApkName(destinationApk.name)
+            configBuilder
+                .appApkName(destinationApk.name)
                 .appApkSha256(sha256(File(appApkBuiltArtifact.outputFile)))
+            configurePrivacySandbox(configBuilder)
         }
         configBuilder.additionalApkKeys(additionalApkKeys.get())
         val isPresubmit = presubmit.get()
         configBuilder.isPostsubmit(!isPresubmit)
         // This section adds metadata tags that will help filter runners to specific modules.
         if (hasBenchmarkPlugin.get()) {
-            configBuilder.isBenchmark(true)
-            if (configBuilder.isPostsubmit) {
-                configBuilder.tag("microbenchmarks")
-            } else {
+            configBuilder.isMicrobenchmark(true)
+
+            // tag microbenchmarks as "microbenchmarks" in either build config, so that benchmark
+            // test configs will always have something to run, regardless of build (though presubmit
+            // builds will still set dry run, and not output metrics)
+            configBuilder.tag("microbenchmarks")
+
+            if (isPresubmit) {
                 // in presubmit, we treat micro benchmarks as regular correctness tests as
                 // they run with dryRunMode to check crashes don't happen, without measurement
                 configBuilder.tag("androidx_unit_tests")
             }
-        } else if (testProjectPath.get().endsWith("macrobenchmark")) {
+        } else if (macrobenchmark.get()) {
             // macro benchmarks do not have a dryRunMode, so we don't run them in presubmit
+            configBuilder.isMacrobenchmark(true)
             configBuilder.tag("macrobenchmarks")
+            if (additionalTags.get().contains("wear")) {
+                // Wear macrobenchmarks are tagged separately to enable running on wear in CI
+                // standard macrobenchmarks don't currently run well on wear (b/189952249)
+                configBuilder.tag("wear-macrobenchmarks")
+            }
         } else {
             configBuilder.tag("androidx_unit_tests")
         }
         additionalTags.get().forEach { configBuilder.tag(it) }
-        val testApk = testLoader.get().load(testFolder.get())
-            ?: throw RuntimeException("Cannot load required APK for task: $name")
+        val testApk =
+            testLoader.get().load(testFolder.get())
+                ?: throw RuntimeException("Cannot load required APK for task: $name")
         val testApkBuiltArtifact = testApk.elements.single()
         val destinationApk = outputTestApk.get().asFile
         File(testApkBuiltArtifact.outputFile).copyTo(destinationApk, overwrite = true)
-        configBuilder.testApkName(destinationApk.name)
+        instrumentationArgs.get().forEach {
+            (key, value) -> configBuilder.instrumentationArgsMap[key] = value
+        }
+        configBuilder
+            .testApkName(destinationApk.name)
             .applicationId(testApk.applicationId)
             .minSdk(minSdk.get().toString())
             .testRunner(testRunner.get())
@@ -167,10 +224,59 @@ abstract class GenerateTestConfigurationTask @Inject constructor(
         if (!outputJson.asFile.get().name.startsWith("_")) {
             // Prefixing json file names with _ allows us to collocate these files
             // inside of the androidTest.zip to make fetching them less expensive.
-            throw GradleException("json output file names are expected to use _ prefix to, " +
-                "currently set to ${outputJson.asFile.get().name}")
+            throw GradleException(
+                "json output file names are expected to use _ prefix to, " +
+                    "currently set to ${outputJson.asFile.get().name}"
+            )
         }
-        createOrFail(outputJson).writeText(configBuilder.buildJson())
+        if (privacySandboxSdkApks.isEmpty) {
+            // Privacy sandbox not yet supported in JSON configs
+            createOrFail(outputJson).writeText(configBuilder.buildJson())
+        }
+    }
+
+    /**
+     * Configure installation of PrivacySandbox SDKs before main and test APKs.
+     * Do nothing if project doesn't have dependencies on PrivacySandbox SDKs.
+     */
+    private fun configurePrivacySandbox(configBuilder: ConfigBuilder) {
+        if (privacySandboxSdkApks.isEmpty) {
+            return
+        }
+
+        val prefix = outputPrivacySandboxFilenamesPrefix.get()
+        val sdkApkFileNames = privacySandboxSdkApks.asFileTree.map { sdkApk ->
+            // TODO (b/309610890): Remove after supporting unique filenames on bundletool side.
+            val sdkProjectName = sdkApk.parentFile?.name
+            val outputFileName = "$prefix-$sdkProjectName-${sdkApk.name}"
+            val outputFile = outputPrivacySandboxFiles.get().file(outputFileName)
+            sdkApk.copyTo(outputFile.asFile, overwrite = true)
+            outputFileName
+        }
+        configBuilder.initialSetupApks(sdkApkFileNames)
+
+        val usesSdkSplitArtifact = appLoader.get().load(privacySandboxUsesSdkSplit)
+            ?.elements
+            ?.single()
+        if (usesSdkSplitArtifact != null) {
+            val splitApk = File(usesSdkSplitArtifact.outputFile)
+            val outputFileName = "$prefix-${splitApk.name}"
+            val outputFile = outputPrivacySandboxFiles.get().file(outputFileName)
+            splitApk.copyTo(outputFile.asFile, overwrite = true)
+            configBuilder.appSplits(listOf(outputFileName))
+        }
+
+        if (minSdk.get() < PRIVACY_SANDBOX_MIN_API_LEVEL) {
+            /*
+            Privacy Sandbox SDKs could be installed starting from PRIVACY_SANDBOX_MIN_API_LEVEL.
+            Separate compat config will be generated for lower api levels.
+            */
+            configBuilder.minSdk(PRIVACY_SANDBOX_MIN_API_LEVEL.toString())
+        }
+    }
+
+    companion object {
+        private const val PRIVACY_SANDBOX_MIN_API_LEVEL = 34
     }
 }
 
@@ -178,9 +284,7 @@ internal fun createOrFail(fileProperty: RegularFileProperty): File {
     val resolvedFile: File = fileProperty.asFile.get()
     if (!resolvedFile.exists()) {
         if (!resolvedFile.createNewFile()) {
-            throw RuntimeException(
-                "Failed to create test configuration file: $resolvedFile"
-            )
+            throw RuntimeException("Failed to create test configuration file: $resolvedFile")
         }
     }
     return resolvedFile

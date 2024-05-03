@@ -90,13 +90,15 @@ private fun KSTypeArgument.replaceTypeAliases(resolver: Resolver): KSTypeArgumen
 private fun KSType.replaceTypeArgs(
     resolver: Resolver,
     typeArgsMap: Map<String, KSTypeArgument>
-): KSType = replace(arguments.map { it.replaceTypeArgs(resolver, typeArgsMap) })
+): KSType = replace(arguments.map { it.replaceTypeArgs(this, resolver, typeArgsMap) })
 
 private fun KSTypeArgument.replaceTypeArgs(
+    enclosingType: KSType,
     resolver: Resolver,
     typeArgsMap: Map<String, KSTypeArgument>
 ): KSTypeArgument {
     val type = type?.resolve() ?: return this
+    if (type == enclosingType) return this
     if (type.isTypeParameter()) {
         val name = (type.declaration as KSTypeParameter).name.asString()
         if (typeArgsMap.containsKey(name)) {
@@ -113,12 +115,14 @@ private fun KSTypeArgument.replaceTypeArgs(
  * Root package comes as <root> instead of "" so we work around it here.
  */
 internal fun KSDeclaration.getNormalizedPackageName(): String {
-    return packageName.asString().let {
-        if (it == "<root>") {
-            ""
-        } else {
-            it
-        }
+    return packageName.asString().getNormalizedPackageName()
+}
+
+internal fun String.getNormalizedPackageName(): String {
+    return if (this == "<root>") {
+        ""
+    } else {
+        this
     }
 }
 

@@ -24,8 +24,6 @@ import kotlin.math.sqrt
 /**
  * Results for a given metric from a benchmark, including each measurement made and general stats
  * for those measurements (min/median/max).
- *
- * @suppress
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public class MetricResult(
@@ -49,7 +47,7 @@ public class MetricResult(
     init {
         val values = data.sorted()
         val size = values.size
-        require(size >= 1) { "At least one result is necessary." }
+        require(size >= 1) { "At least one result is necessary, $size found for $name." }
 
         val mean: Double = data.average()
         min = values.first()

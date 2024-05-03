@@ -70,7 +70,7 @@ class TabRowScreenshotTest(private val scheme: ColorSchemeWrapper) {
 
             Surface(
                 modifier = wrapperModifier,
-                colors = NonInteractiveSurfaceDefaults.colors(
+                colors = SurfaceDefaults.colors(
                     containerColor = Color.Transparent
                 ),
                 shape = RectangleShape
@@ -108,7 +108,7 @@ class TabRowScreenshotTest(private val scheme: ColorSchemeWrapper) {
 
             Surface(
                 modifier = wrapperModifier.focusRequester(focusRequester),
-                colors = NonInteractiveSurfaceDefaults.colors(
+                colors = SurfaceDefaults.colors(
                     containerColor = Color.Transparent
                 ),
                 shape = RectangleShape
@@ -152,7 +152,7 @@ class TabRowScreenshotTest(private val scheme: ColorSchemeWrapper) {
 
             Surface(
                 modifier = wrapperModifier.focusRequester(focusRequester),
-                colors = NonInteractiveSurfaceDefaults.colors(
+                colors = SurfaceDefaults.colors(
                     containerColor = Color.Transparent
                 ),
                 shape = RectangleShape
@@ -195,7 +195,7 @@ class TabRowScreenshotTest(private val scheme: ColorSchemeWrapper) {
 
             Surface(
                 modifier = wrapperModifier,
-                colors = NonInteractiveSurfaceDefaults.colors(
+                colors = SurfaceDefaults.colors(
                     containerColor = Color.Transparent
                 ),
                 shape = RectangleShape
@@ -203,9 +203,10 @@ class TabRowScreenshotTest(private val scheme: ColorSchemeWrapper) {
                 TabRow(
                     selectedTabIndex = selectedTabIndex,
                     separator = { Spacer(modifier = Modifier.width(12.dp)) },
-                    indicator = { tabPositions ->
+                    indicator = { tabPositions, doesTabRowHaveFocus ->
                         TabRowDefaults.UnderlinedIndicator(
-                            currentTabPosition = tabPositions[selectedTabIndex]
+                            currentTabPosition = tabPositions[selectedTabIndex],
+                            doesTabRowHaveFocus = doesTabRowHaveFocus,
                         )
                     }
                 ) {
@@ -238,7 +239,7 @@ class TabRowScreenshotTest(private val scheme: ColorSchemeWrapper) {
 
             Surface(
                 modifier = wrapperModifier.focusRequester(focusRequester),
-                colors = NonInteractiveSurfaceDefaults.colors(
+                colors = SurfaceDefaults.colors(
                     containerColor = Color.Transparent
                 ),
                 shape = RectangleShape
@@ -246,9 +247,10 @@ class TabRowScreenshotTest(private val scheme: ColorSchemeWrapper) {
                 TabRow(
                     selectedTabIndex = selectedTabIndex,
                     separator = { Spacer(modifier = Modifier.width(12.dp)) },
-                    indicator = { tabPositions ->
+                    indicator = { tabPositions, doesTabRowHaveFocus ->
                         TabRowDefaults.UnderlinedIndicator(
-                            currentTabPosition = tabPositions[selectedTabIndex]
+                            currentTabPosition = tabPositions[selectedTabIndex],
+                            doesTabRowHaveFocus = doesTabRowHaveFocus,
                         )
                     }
                 ) {
@@ -287,7 +289,7 @@ class TabRowScreenshotTest(private val scheme: ColorSchemeWrapper) {
 
             Surface(
                 modifier = wrapperModifier.focusRequester(focusRequester),
-                colors = NonInteractiveSurfaceDefaults.colors(
+                colors = SurfaceDefaults.colors(
                     containerColor = Color.Transparent
                 ),
                 shape = RectangleShape
@@ -295,9 +297,10 @@ class TabRowScreenshotTest(private val scheme: ColorSchemeWrapper) {
                 TabRow(
                     selectedTabIndex = selectedTabIndex,
                     separator = { Spacer(modifier = Modifier.width(12.dp)) },
-                    indicator = { tabPositions ->
+                    indicator = { tabPositions, doesTabRowHaveFocus ->
                         TabRowDefaults.UnderlinedIndicator(
-                            currentTabPosition = tabPositions[selectedTabIndex]
+                            currentTabPosition = tabPositions[selectedTabIndex],
+                            doesTabRowHaveFocus = doesTabRowHaveFocus,
                         )
                     },
                 ) {

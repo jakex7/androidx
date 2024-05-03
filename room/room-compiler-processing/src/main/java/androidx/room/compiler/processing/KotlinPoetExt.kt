@@ -21,6 +21,7 @@ import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.OriginatingElementsHolder
 import com.squareup.kotlinpoet.ParameterizedTypeName
+import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.javapoet.KClassName
 
@@ -34,7 +35,7 @@ internal val KOTLIN_NONE_TYPE_NAME: KClassName =
 fun <T : OriginatingElementsHolder.Builder<T>> T.addOriginatingElement(
     element: XElement
 ): T {
-    element.originatingElementForPoet()?.let(this::addOriginatingElement)
+    addOriginatingElement(element.originatingElementForPoet())
     return this
 }
 
@@ -105,6 +106,39 @@ object FunSpecHelper {
                     resolvedType.returnType
                 }.asTypeName().kotlin
             )
+        }
+    }
+}
+
+object PropertySpecHelper {
+    fun overriding(
+        elm: XMethodElement,
+        owner: XType
+    ): PropertySpec.Builder {
+        require(elm.isKotlinPropertyMethod())
+        val asMember = elm.asMemberOf(owner)
+        return overriding(
+            executableElement = elm,
+            resolvedType = asMember
+        )
+    }
+
+    private fun overriding(
+        executableElement: XMethodElement,
+        resolvedType: XMethodType
+    ): PropertySpec.Builder {
+        return PropertySpec.builder(
+            name = checkNotNull(executableElement.propertyName),
+            type = resolvedType.returnType.asTypeName().kotlin
+        ).apply {
+            addModifiers(KModifier.OVERRIDE)
+            if (executableElement.isInternal()) {
+                addModifiers(KModifier.INTERNAL)
+            } else if (executableElement.isProtected()) {
+                addModifiers(KModifier.PROTECTED)
+            } else if (executableElement.isPublic()) {
+                addModifiers(KModifier.PUBLIC)
+            }
         }
     }
 }

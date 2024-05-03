@@ -16,6 +16,9 @@
 
 package androidx.appsearch.platformstorage.converter;
 
+import static android.app.appsearch.AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_NONE;
+import static android.app.appsearch.AppSearchSchema.StringPropertyConfig.TOKENIZER_TYPE_PLAIN;
+
 import android.annotation.SuppressLint;
 import android.os.Build;
 
@@ -100,6 +103,13 @@ public final class SchemaToPlatformConverter {
                     .setCardinality(stringProperty.getCardinality())
                     .setIndexingType(stringProperty.getIndexingType())
                     .setTokenizerType(stringProperty.getTokenizerType());
+
+            // TODO(b/277344542): Handle RFC822 tokenization on T devices with U trains.
+            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU) {
+                Preconditions.checkArgumentInRange(stringProperty.getTokenizerType(),
+                        TOKENIZER_TYPE_NONE, TOKENIZER_TYPE_PLAIN, "tokenizerType");
+            }
+
             if (stringProperty.getDeletionPropagation()) {
                 // TODO(b/268521214): Update once deletion propagation is available.
                 throw new UnsupportedOperationException("Setting deletion propagation is not "
@@ -153,6 +163,13 @@ public final class SchemaToPlatformConverter {
         } else if (jetpackProperty instanceof AppSearchSchema.DocumentPropertyConfig) {
             AppSearchSchema.DocumentPropertyConfig documentProperty =
                     (AppSearchSchema.DocumentPropertyConfig) jetpackProperty;
+            if (!documentProperty.getIndexableNestedProperties().isEmpty()) {
+                // TODO(b/289150947): Update and set list once indexable-nested-properties-list is
+                //  available.
+                throw new UnsupportedOperationException(
+                        "DocumentPropertyConfig.addIndexableNestedProperties is not supported on "
+                                + "this AppSearch implementation.");
+            }
             return new android.app.appsearch.AppSearchSchema.DocumentPropertyConfig.Builder(
                     documentProperty.getName(), documentProperty.getSchemaType())
                     .setCardinality(documentProperty.getCardinality())
@@ -222,6 +239,8 @@ public final class SchemaToPlatformConverter {
                     .setCardinality(documentProperty.getCardinality())
                     .setShouldIndexNestedProperties(documentProperty.shouldIndexNestedProperties())
                     .build();
+            // TODO(b/289150947): Add the indexable_nested_properties_list once it becomes
+            //  available in platform.
         } else {
             throw new IllegalArgumentException(
                     "Invalid property type " + platformProperty.getClass()

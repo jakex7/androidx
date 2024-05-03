@@ -18,11 +18,13 @@ package androidx.compose.ui.platform
 
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.DefaultShadowColor
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.RenderEffect
+import androidx.compose.ui.graphics.ReusableGraphicsLayerScope
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -350,7 +352,8 @@ class SkiaLayerTest {
 
         layer.resize(IntSize(1, 2))
         layer.updateProperties(
-            clip = true
+            clip = true,
+            size = Size(1f, 2f)
         )
 
         assertFalse(layer.isInLayer(Offset(-1f, -1f)))
@@ -362,7 +365,8 @@ class SkiaLayerTest {
         layer.resize(IntSize(100, 200))
         layer.updateProperties(
             clip = true,
-            shape = CircleShape
+            shape = CircleShape,
+            size = Size(100f, 200f)
         )
 
         assertFalse(layer.isInLayer(Offset(5f, 5f)))
@@ -373,7 +377,7 @@ class SkiaLayerTest {
     private fun TestSkiaLayer() = SkiaLayer(
         Density(1f, 1f),
         invalidateParentLayer = {},
-        drawBlock = {}
+        drawBlock = { _, _ -> }
     )
 
     private fun SkiaLayer.updateProperties(
@@ -393,13 +397,31 @@ class SkiaLayerTest {
         shape: Shape = RectangleShape,
         clip: Boolean = false,
         renderEffect: RenderEffect? = null,
-        compositingStrategy: CompositingStrategy = CompositingStrategy.Auto
+        compositingStrategy: CompositingStrategy = CompositingStrategy.Auto,
+        size: Size = Size.Zero
     ) {
-        updateLayerProperties(
-            scaleX, scaleY, alpha, translationX, translationY, shadowElevation, rotationX,
-            rotationY, rotationZ, cameraDistance, transformOrigin, shape, clip, renderEffect,
-            ambientShadowColor, spotShadowColor, compositingStrategy, LayoutDirection.Ltr,
-            Density(1f, 1f)
-        )
+        val scope = ReusableGraphicsLayerScope()
+        scope.cameraDistance = cameraDistance
+        scope.scaleX = scaleX
+        scope.scaleY = scaleY
+        scope.alpha = alpha
+        scope.translationX = translationX
+        scope.translationY = translationY
+        scope.shadowElevation = shadowElevation
+        scope.ambientShadowColor = ambientShadowColor
+        scope.spotShadowColor = spotShadowColor
+        scope.rotationX = rotationX
+        scope.rotationY = rotationY
+        scope.rotationZ = rotationZ
+        scope.cameraDistance = cameraDistance
+        scope.transformOrigin = transformOrigin
+        scope.shape = shape
+        scope.clip = clip
+        scope.renderEffect = renderEffect
+        scope.compositingStrategy = compositingStrategy
+        scope.layoutDirection = LayoutDirection.Ltr
+        scope.graphicsDensity = Density(1f)
+        scope.outline = shape.createOutline(size, scope.layoutDirection, scope.graphicsDensity)
+        updateLayerProperties(scope)
     }
 }

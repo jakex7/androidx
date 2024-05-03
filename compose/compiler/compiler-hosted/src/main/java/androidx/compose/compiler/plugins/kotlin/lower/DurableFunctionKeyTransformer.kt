@@ -17,9 +17,11 @@
 package androidx.compose.compiler.plugins.kotlin.lower
 
 import androidx.compose.compiler.plugins.kotlin.ComposeClassIds
+import androidx.compose.compiler.plugins.kotlin.FeatureFlags
 import androidx.compose.compiler.plugins.kotlin.ModuleMetrics
 import androidx.compose.compiler.plugins.kotlin.analysis.ComposeWritableSlices.DURABLE_FUNCTION_KEY
 import androidx.compose.compiler.plugins.kotlin.analysis.ComposeWritableSlices.DURABLE_FUNCTION_KEYS
+import androidx.compose.compiler.plugins.kotlin.analysis.StabilityInferencer
 import androidx.compose.compiler.plugins.kotlin.irTrace
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
@@ -103,11 +105,15 @@ class DurableFunctionKeyTransformer(
     context: IrPluginContext,
     symbolRemapper: DeepCopySymbolRemapper,
     metrics: ModuleMetrics,
+    stabilityInferencer: StabilityInferencer,
+    featureFlags: FeatureFlags,
 ) : DurableKeyTransformer(
     DurableKeyVisitor(),
     context,
     symbolRemapper,
-    metrics
+    stabilityInferencer,
+    metrics,
+    featureFlags,
 ) {
     fun removeKeyMetaClasses(moduleFragment: IrModuleFragment) {
         moduleFragment.transformChildrenVoid(object : IrElementTransformerVoid() {

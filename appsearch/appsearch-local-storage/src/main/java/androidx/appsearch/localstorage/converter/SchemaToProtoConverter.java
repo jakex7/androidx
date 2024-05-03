@@ -101,7 +101,11 @@ public final class SchemaToProtoConverter {
                         .setValueType(
                                 convertJoinableValueTypeToProto(
                                         stringProperty.getJoinableValueType()))
+                        // @exportToFramework:startStrip()
+                        // Do not call this in framework as it will populate the proto field and
+                        // fail comparison tests.
                         .setPropagateDelete(stringProperty.getDeletionPropagation())
+                        // @exportToFramework:endStrip()
                         .build();
                 builder.setJoinableConfig(joinableConfig);
             }
@@ -119,8 +123,11 @@ public final class SchemaToProtoConverter {
             builder
                     .setSchemaType(documentProperty.getSchemaType())
                     .setDocumentIndexingConfig(
-                            DocumentIndexingConfig.newBuilder().setIndexNestedProperties(
-                                    documentProperty.shouldIndexNestedProperties()));
+                            DocumentIndexingConfig.newBuilder()
+                                    .setIndexNestedProperties(
+                                            documentProperty.shouldIndexNestedProperties())
+                                    .addAllIndexableNestedPropertiesList(
+                                            documentProperty.getIndexableNestedProperties()));
         } else if (property instanceof AppSearchSchema.LongPropertyConfig) {
             AppSearchSchema.LongPropertyConfig longProperty =
                     (AppSearchSchema.LongPropertyConfig) property;
@@ -210,12 +217,15 @@ public final class SchemaToProtoConverter {
     @NonNull
     private static AppSearchSchema.DocumentPropertyConfig toDocumentPropertyConfig(
             @NonNull PropertyConfigProto proto) {
-        return new AppSearchSchema.DocumentPropertyConfig.Builder(
-                proto.getPropertyName(), proto.getSchemaType())
-                .setCardinality(proto.getCardinality().getNumber())
-                .setShouldIndexNestedProperties(
-                        proto.getDocumentIndexingConfig().getIndexNestedProperties())
-                .build();
+        AppSearchSchema.DocumentPropertyConfig.Builder builder =
+                new AppSearchSchema.DocumentPropertyConfig.Builder(
+                                proto.getPropertyName(), proto.getSchemaType())
+                        .setCardinality(proto.getCardinality().getNumber())
+                        .setShouldIndexNestedProperties(
+                                proto.getDocumentIndexingConfig().getIndexNestedProperties());
+        builder.addIndexableNestedProperties(
+                proto.getDocumentIndexingConfig().getIndexableNestedPropertiesListList());
+        return builder.build();
     }
 
     @NonNull

@@ -77,8 +77,8 @@ public final class SearchSpecToPlatformConverter {
                 .setSnippetCountPerProperty(jetpackSearchSpec.getSnippetCountPerProperty())
                 .setMaxSnippetSize(jetpackSearchSpec.getMaxSnippetSize());
         if (jetpackSearchSpec.getResultGroupingTypeFlags() != 0) {
-            // TODO(b/258715421): Add Build.VERSION.SDK_INT condition once
-            // SEARCH_SPEC_GROUPING_TYPE_PER_SCHEMA is supported on Android U.
+            // TODO(b/258715421): Add Build.VERSION.SDK_INT condition once there is an extservices
+            // sdk that includes SEARCH_SPEC_GROUPING_TYPE_PER_SCHEMA.
             if (true) {
                 if ((jetpackSearchSpec.getResultGroupingTypeFlags()
                         & SearchSpec.GROUPING_TYPE_PER_SCHEMA) != 0) {
@@ -126,6 +126,12 @@ public final class SearchSpecToPlatformConverter {
                         + "AppSearch implementation.");
             }
             ApiHelperForU.setJoinSpec(platformBuilder, jetpackSearchSpec.getJoinSpec());
+        }
+
+        if (!jetpackSearchSpec.getFilterProperties().isEmpty()) {
+            // TODO(b/296088047): Remove this once property filters become available.
+            throw new UnsupportedOperationException(Features.SEARCH_SPEC_ADD_FILTER_PROPERTIES
+                    + " is not available on this AppSearch implementation.");
         }
         return platformBuilder.build();
     }

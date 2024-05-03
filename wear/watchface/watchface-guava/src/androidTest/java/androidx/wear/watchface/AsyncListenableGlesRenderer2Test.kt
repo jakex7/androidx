@@ -63,7 +63,7 @@ internal class TestAsyncGlesRenderWithSharedAssetsTestWatchFaceService(
         currentUserStyleRepository: CurrentUserStyleRepository
     ) =
         WatchFace(
-            WatchFaceTypes.DIGITAL,
+            WatchFaceType.DIGITAL,
             object :
                 ListenableGlesRenderer2<TestSharedAssets>(
                     surfaceHolder,
@@ -127,11 +127,12 @@ public class AsyncListenableGlesRenderer2Test : WatchFaceControlClientServiceTes
                 onBackgroundThreadGlContextFuture,
                 sharedAssetsFuture
             )
+        val controlClient = createWatchFaceControlClientService()
 
         val deferredClient =
             handlerCoroutineScope.async {
                 @Suppress("deprecation")
-                watchFaceControlClientService.getOrCreateInteractiveWatchFaceClient(
+                controlClient.getOrCreateInteractiveWatchFaceClient(
                     "testId",
                     DeviceConfig(false, false, 0, 0),
                     WatchUiState(false, 0),
@@ -140,7 +141,7 @@ public class AsyncListenableGlesRenderer2Test : WatchFaceControlClientServiceTes
                 )
             }
 
-        handler.post { watchFaceService.onCreateEngine() as WatchFaceService.EngineWrapper }
+        handler.post { watchFaceService.onCreateEngine() }
 
         val client = awaitWithTimeout(deferredClient)
         try {

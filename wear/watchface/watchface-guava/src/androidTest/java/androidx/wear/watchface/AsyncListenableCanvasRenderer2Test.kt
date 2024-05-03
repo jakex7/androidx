@@ -70,13 +70,13 @@ internal class TestAsyncCanvasRenderWithSharedAssetsTestWatchFaceService(
         currentUserStyleRepository: CurrentUserStyleRepository
     ) =
         WatchFace(
-            WatchFaceTypes.DIGITAL,
+            WatchFaceType.DIGITAL,
             object :
                 ListenableCanvasRenderer2<TestSharedAssets>(
                     surfaceHolder,
                     currentUserStyleRepository,
                     watchState,
-                    CanvasTypes.HARDWARE,
+                    CanvasType.HARDWARE,
                     16
                 ) {
                 override fun initFuture(): ListenableFuture<Unit> {
@@ -137,11 +137,12 @@ public class AsyncListenableCanvasRenderer2Test : WatchFaceControlClientServiceT
                 initFuture,
                 sharedAssetsFuture
             )
+        val controlClient = createWatchFaceControlClientService()
 
         val deferredClient =
             handlerCoroutineScope.async {
                 @Suppress("deprecation")
-                watchFaceControlClientService.getOrCreateInteractiveWatchFaceClient(
+                controlClient.getOrCreateInteractiveWatchFaceClient(
                     "testId",
                     DeviceConfig(false, false, 0, 0),
                     WatchUiState(false, 0),
@@ -150,7 +151,7 @@ public class AsyncListenableCanvasRenderer2Test : WatchFaceControlClientServiceT
                 )
             }
 
-        handler.post { watchFaceService.onCreateEngine() as WatchFaceService.EngineWrapper }
+        handler.post { watchFaceService.onCreateEngine() }
 
         val client = awaitWithTimeout(deferredClient)
 

@@ -28,7 +28,7 @@ import androidx.annotation.RestrictTo;
  * Android API level, on that device.
  */
 
-// @exportToFramework:copyToPath(testing/testutils/src/android/app/appsearch/testutil/external/Features.java)
+// @exportToFramework:copyToPath(../../../cts/tests/appsearch/testutils/src/android/app/appsearch/testutil/external/Features.java)
 public interface Features {
 
     /**
@@ -111,10 +111,19 @@ public interface Features {
      */
     String SEARCH_SPEC_GROUPING_TYPE_PER_SCHEMA = "SEARCH_SPEC_GROUPING_TYPE_PER_SCHEMA";
 
-    /** Feature for {@link #isFeatureSupported(String)}. This feature covers
+    /**
+     * Feature for {@link #isFeatureSupported(String)}. This feature covers
      * {@link SearchSpec.Builder#setPropertyWeights}.
      */
     String SEARCH_SPEC_PROPERTY_WEIGHTS = "SEARCH_SPEC_PROPERTY_WEIGHTS";
+
+    /**
+     * Feature for {@link #isFeatureSupported(String)}. This feature covers
+     * {@link SearchSpec.Builder#addFilterProperties}.
+     * @exportToFramework:hide
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    String SEARCH_SPEC_ADD_FILTER_PROPERTIES = "SEARCH_SPEC_ADD_FILTER_PROPERTIES";
 
     /**
      * Feature for {@link #isFeatureSupported(String)}. This feature covers
@@ -143,12 +152,8 @@ public interface Features {
 
     /**
      * Feature for {@link #isFeatureSupported(String)}. This feature covers setting schemas with
-     * circular references for {@link AppSearchSession#setSchemaAsync}
-     *
-     * @exportToFramework:hide
-     * TODO(b/280698121): Unhide and request jetpack API approval after this is synced to framework.
+     * circular references for {@link AppSearchSession#setSchemaAsync}.
      */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     String SET_SCHEMA_CIRCULAR_REFERENCES = "SET_SCHEMA_CIRCULAR_REFERENCES";
 
     /**
@@ -156,6 +161,13 @@ public interface Features {
      * {@link AppSearchSchema.Builder#addParentType}.
      */
     String SCHEMA_ADD_PARENT_TYPE = "SCHEMA_ADD_PARENT_TYPE";
+
+    /**
+     * Feature for {@link #isFeatureSupported(String)}. This feature covers
+     * {@link
+     * AppSearchSchema.DocumentPropertyConfig.Builder#addIndexableNestedProperties(String...)}
+     */
+    String SCHEMA_ADD_INDEXABLE_NESTED_PROPERTIES = "SCHEMA_ADD_INDEXABLE_NESTED_PROPERTIES";
 
     /**
      * Returns whether a feature is supported at run-time. Feature support depends on the
@@ -170,4 +182,12 @@ public interface Features {
      * backend.
      */
     boolean isFeatureSupported(@NonNull String feature);
+
+    /**
+     * Returns the maximum amount of properties that can be indexed in a Document
+     * given the Android API level and AppSearch backend.
+     *
+     * <p>A property is defined as all values that are present at a particular path.
+     */
+    int getMaxIndexedProperties();
 }

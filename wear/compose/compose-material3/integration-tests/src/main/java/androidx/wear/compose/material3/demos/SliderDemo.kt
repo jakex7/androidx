@@ -38,6 +38,7 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.integration.demos.common.Centralize
 import androidx.wear.compose.integration.demos.common.ComposableDemo
 import androidx.wear.compose.integration.demos.common.DemoCategory
+import androidx.wear.compose.material3.ExperimentalWearMaterial3Api
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.InlineSlider
 import androidx.wear.compose.material3.InlineSliderColors
@@ -83,6 +84,7 @@ val SliderDemos =
         )
     )
 
+@OptIn(ExperimentalWearMaterial3Api::class)
 @Composable
 fun InlineSliderDemo(segmented: Boolean = false) {
     var enabledValue by remember { mutableFloatStateOf(5f) }
@@ -97,7 +99,9 @@ fun InlineSliderDemo(segmented: Boolean = false) {
         modifier = Modifier.fillMaxSize(),
         autoCentering = AutoCenteringParams(itemIndex = 0)
     ) {
-        item { Text("Enabled Slider, value = $enabledValue") }
+        item {
+            Text("Enabled Slider, value = $enabledValue")
+        }
         item {
             DefaultInlineSlider(
                 value = enabledValue,
@@ -108,7 +112,9 @@ fun InlineSliderDemo(segmented: Boolean = false) {
                 onValueChange = { enabledValue = it }
             )
         }
-        item { Text("Disabled Slider, value = $disabledValue") }
+        item {
+            Text("Disabled Slider, value = $disabledValue")
+        }
         item {
             DefaultInlineSlider(
                 value = disabledValue,
@@ -122,6 +128,7 @@ fun InlineSliderDemo(segmented: Boolean = false) {
     }
 }
 
+@OptIn(ExperimentalWearMaterial3Api::class)
 @Composable
 fun InlineSliderWithIntegersDemo() {
     var valueWithoutSegments by remember { mutableIntStateOf(5) }
@@ -136,7 +143,9 @@ fun InlineSliderWithIntegersDemo() {
         modifier = Modifier.fillMaxSize(),
         autoCentering = AutoCenteringParams(itemIndex = 0)
     ) {
-        item { Text("No segments, value = $valueWithoutSegments") }
+        item {
+            Text("No segments, value = $valueWithoutSegments")
+        }
         item {
             DefaultInlineSlider(
                 value = valueWithoutSegments,
@@ -144,7 +153,9 @@ fun InlineSliderWithIntegersDemo() {
                 segmented = false,
                 onValueChange = { valueWithoutSegments = it })
         }
-        item { Text("With segments, value = $valueWithSegments") }
+        item {
+            Text("With segments, value = $valueWithSegments")
+        }
         item {
             DefaultInlineSlider(
                 value = valueWithSegments,
@@ -163,6 +174,7 @@ fun InlineSliderRTLDemo() {
     }
 }
 
+@OptIn(ExperimentalWearMaterial3Api::class)
 @Composable
 fun InlineSliderCustomColorsDemo() {
     var value by remember { mutableFloatStateOf(4.5f) }
@@ -194,10 +206,10 @@ fun InlineSliderCustomColorsDemo() {
     }
 }
 
+@OptIn(ExperimentalWearMaterial3Api::class)
 @Composable
 fun DefaultInlineSlider(
     value: Float,
-    @Suppress("PrimitiveInLambda")
     onValueChange: (Float) -> Unit,
     steps: Int,
     modifier: Modifier = Modifier,
@@ -222,10 +234,10 @@ fun DefaultInlineSlider(
     )
 }
 
+@OptIn(ExperimentalWearMaterial3Api::class)
 @Composable
 fun DefaultInlineSlider(
     value: Int,
-    @Suppress("PrimitiveInLambda")
     onValueChange: (Int) -> Unit,
     valueProgression: IntProgression,
     segmented: Boolean,

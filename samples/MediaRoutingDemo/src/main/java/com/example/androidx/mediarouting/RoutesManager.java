@@ -29,8 +29,6 @@ import android.content.res.Resources;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.OptIn;
-import androidx.core.os.BuildCompat;
 import androidx.mediarouter.media.MediaRouter;
 import androidx.mediarouter.media.MediaRouterParams;
 import androidx.mediarouter.media.RouteListingPreference;
@@ -111,13 +109,13 @@ public final class RoutesManager {
     }
 
     /**
-     * Gets the route with the passed id or null if not exists.
+     * Gets the route with the passed id, or null if no route with the given id exists.
      *
      * @param id of the route to search for.
-     * @return the route with the passed id or null if not exists.
+     * @return the route with the passed id, or null if it does not exist.
      */
     @Nullable
-    public RouteItem getRouteWithId(@NonNull String id) {
+    public RouteItem getRouteWithId(@Nullable String id) {
         return mRouteItems.get(id);
     }
 
@@ -145,7 +143,6 @@ public final class RoutesManager {
      *
      * <p>Does not affect the system's state if called on a device running API 33 or older.
      */
-    @OptIn(markerClass = BuildCompat.PrereleaseSdkCheck.class)
     public void setRouteListingPreferenceEnabled(boolean routeListingPreferenceEnabled) {
         mRouteListingPreferenceEnabled = routeListingPreferenceEnabled;
         onRouteListingPreferenceChanged();
@@ -165,7 +162,6 @@ public final class RoutesManager {
      *
      * <p>Does not affect the system's state if called on a device running API 33 or older.
      */
-    @OptIn(markerClass = BuildCompat.PrereleaseSdkCheck.class)
     public void setRouteListingSystemOrderingPreferred(
             boolean routeListingSystemOrderringPreferred) {
             mRouteListingSystemOrderingPreferred = routeListingSystemOrderringPreferred;
@@ -188,7 +184,6 @@ public final class RoutesManager {
      *
      * @see #setRouteListingPreferenceEnabled
      */
-    @OptIn(markerClass = BuildCompat.PrereleaseSdkCheck.class)
     public void setRouteListingPreferenceItems(
             @NonNull List<RouteListingPreferenceItemHolder> preference) {
             mRouteListingPreferenceItems =
@@ -322,7 +317,7 @@ public final class RoutesManager {
                             .setItems(items)
                             .setLinkedItemComponentName(
                                     new ComponentName(mContext, MainActivity.class))
-                            .setUseSystemOrdering(mRouteListingSystemOrderingPreferred)
+                            .setSystemOrderingEnabled(mRouteListingSystemOrderingPreferred)
                             .build();
         }
         mMediaRouter.setRouteListingPreference(routeListingPreference);

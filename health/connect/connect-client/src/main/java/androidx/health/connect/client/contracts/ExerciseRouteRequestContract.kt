@@ -20,8 +20,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.activity.result.contract.ActivityResultContract
-import androidx.health.connect.client.permission.RequestExerciseRouteInternal
-import androidx.health.connect.client.permission.platform.RequestExerciseRouteUpsideDownCake
+import androidx.health.connect.client.permission.ExerciseRouteRequestAppContract
+import androidx.health.connect.client.permission.platform.ExerciseRouteRequestModuleContract
 import androidx.health.connect.client.records.ExerciseRoute
 
 /**
@@ -32,17 +32,17 @@ import androidx.health.connect.client.records.ExerciseRoute
  *
  * @sample androidx.health.connect.client.samples.ReadExerciseRoute
  */
-class ExerciseRouteRequestContract : ActivityResultContract<String, ExerciseRoute.Data?>() {
+class ExerciseRouteRequestContract : ActivityResultContract<String, ExerciseRoute?>() {
 
-    private val delegate: ActivityResultContract<String, ExerciseRoute.Data?> =
+    private val delegate: ActivityResultContract<String, ExerciseRoute?> =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            RequestExerciseRouteUpsideDownCake()
+            ExerciseRouteRequestModuleContract()
         } else {
-            RequestExerciseRouteInternal()
+            ExerciseRouteRequestAppContract()
         }
 
     /**
-     * Creates an intent to request an [ExerciseRoute.Data]. It receives the exercise session id as
+     * Creates an intent to request an [ExerciseRoute]. It receives the exercise session id as
      * [input].
      *
      * @param context the context
@@ -52,17 +52,18 @@ class ExerciseRouteRequestContract : ActivityResultContract<String, ExerciseRout
      * @see ActivityResultContract.createIntent
      */
     override fun createIntent(context: Context, input: String): Intent {
+        require(input.isNotEmpty()) { "Session identifier can't be empty" }
         return delegate.createIntent(context, input)
     }
 
     /**
-     * Converts the activity result into [ExerciseRoute.Data], to return as output.
+     * Converts the activity result into [ExerciseRoute], to return as output.
      *
      * @return null if the user didn't grant access to the exercise route or if there's no exercise
      *   route for the session id passed on [createIntent].
      * @see ActivityResultContract.parseResult
      */
-    override fun parseResult(resultCode: Int, intent: Intent?): ExerciseRoute.Data? {
+    override fun parseResult(resultCode: Int, intent: Intent?): ExerciseRoute? {
         return delegate.parseResult(resultCode, intent)
     }
 }

@@ -16,6 +16,7 @@
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS"/>
 
     <application>
         <service
@@ -27,7 +28,17 @@
             </intent-filter>
         </service>
 
-        <service android:name="androidx.core.telecom.utils.MockInCallService"
+        <!-- This CS is needed to simulate managed/sim calls for testing -->
+        <service
+            android:name="androidx.core.telecom.test.utils.ManagedConnectionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.ConnectionService"/>
+            </intent-filter>
+        </service>
+
+        <service android:name="androidx.core.telecom.test.utils.MockInCallService"
             android:permission="android.permission.BIND_INCALL_SERVICE"
             android:exported="true">
             <intent-filter>
@@ -43,7 +54,7 @@
                 android:value="true" />
         </service>
 
-        <activity android:name="androidx.core.telecom.utils.MockDialerActivity"
+        <activity android:name="androidx.core.telecom.test.utils.MockDialerActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.DIAL" />

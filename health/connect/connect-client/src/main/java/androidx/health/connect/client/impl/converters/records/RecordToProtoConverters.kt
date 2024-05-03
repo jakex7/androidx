@@ -34,7 +34,7 @@ import androidx.health.connect.client.records.CervicalMucusRecord.Companion.SENS
 import androidx.health.connect.client.records.CyclingPedalingCadenceRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ElevationGainedRecord
-import androidx.health.connect.client.records.ExerciseRoute
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
@@ -56,8 +56,6 @@ import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SeriesRecord
 import androidx.health.connect.client.records.SexualActivityRecord
 import androidx.health.connect.client.records.SleepSessionRecord
-import androidx.health.connect.client.records.SleepStageRecord
-import androidx.health.connect.client.records.SleepStageRecord.Companion.STAGE_TYPE_INT_TO_STRING_MAP
 import androidx.health.connect.client.records.SpeedRecord
 import androidx.health.connect.client.records.StepsCadenceRecord
 import androidx.health.connect.client.records.StepsRecord
@@ -289,14 +287,13 @@ fun Record.toProto(): DataProto.DataPoint =
         is ExerciseSessionRecord ->
             intervalProto()
                 .setDataType(protoDataType("ActivitySession"))
-                .putValues("hasRoute", boolVal(exerciseRoute !is ExerciseRoute.NoData))
+                .putValues("hasRoute", boolVal(exerciseRouteResult !is ExerciseRouteResult.NoData))
                 .apply {
                     val exerciseType =
                         enumValFromInt(
                             exerciseType,
                             ExerciseSessionRecord.EXERCISE_TYPE_INT_TO_STRING_MAP
-                        )
-                            ?: enumVal("workout")
+                        ) ?: enumVal("workout")
                     putValues("activityType", exerciseType)
                     title?.let { putValues("title", stringVal(it)) }
                     notes?.let { putValues("notes", stringVal(it)) }
@@ -316,11 +313,13 @@ fun Record.toProto(): DataProto.DataPoint =
                                 .build()
                         )
                     }
-                    if (exerciseRoute is ExerciseRoute.Data) {
+                    if (exerciseRouteResult is ExerciseRouteResult.Data) {
                         putSubTypeDataLists(
                             "route",
                             DataProto.DataPoint.SubTypeDataList.newBuilder()
-                                .addAllValues(exerciseRoute.route.map { it.toProto() })
+                                .addAllValues(
+                                    exerciseRouteResult.exerciseRoute.route.map { it.toProto() }
+                                )
                                 .build()
                         )
                     }
@@ -496,15 +495,6 @@ fun Record.toProto(): DataProto.DataPoint =
                     }
                     title?.let { putValues("title", stringVal(it)) }
                     notes?.let { putValues("notes", stringVal(it)) }
-                }
-                .build()
-        is SleepStageRecord ->
-            intervalProto()
-                .setDataType(protoDataType("SleepStage"))
-                .apply {
-                    enumValFromInt(stage, STAGE_TYPE_INT_TO_STRING_MAP)?.let {
-                        putValues("stage", it)
-                    }
                 }
                 .build()
         is StepsRecord ->

@@ -21,7 +21,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import androidx.core.os.BuildCompat;
+import android.os.Build;
+
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -40,14 +41,16 @@ public class CredentialProviderPlayServicesImplJavaTest {
     @Test
     @SdkSuppress(maxSdkVersion = 33)
     public void isAvailableOnDevice_apiSuccess_returnsTrue() {
-        if (BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT >= 34) {
             return; // Wait until Mockito fixes 'mock' for API 34
         }
         ActivityScenario<TestCredentialsActivity> activityScenario =
                 ActivityScenario.launch(TestCredentialsActivity.class);
         activityScenario.onActivity(activity -> {
             GoogleApiAvailability mock = mock(GoogleApiAvailability.class);
-            when(mock.isGooglePlayServicesAvailable(activity.getBaseContext()))
+            when(mock.isGooglePlayServicesAvailable(
+                    activity.getBaseContext(),
+                    CredentialProviderPlayServicesImpl.MIN_GMS_APK_VERSION))
                     .thenReturn(ConnectionResult.SUCCESS);
             boolean expectedAvailability = true;
 
@@ -63,7 +66,7 @@ public class CredentialProviderPlayServicesImplJavaTest {
     @Test
     @SdkSuppress(maxSdkVersion = 33)
     public void isAvailableOnDevice_apiNotSuccess_returnsFalse() {
-        if (BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT >= 34) {
             return; // Wait until Mockito fixes 'mock' for API 34
         }
         ActivityScenario<TestCredentialsActivity> activityScenario =
@@ -71,7 +74,9 @@ public class CredentialProviderPlayServicesImplJavaTest {
         activityScenario.onActivity(activity -> {
             for (int code : TestUtils.Companion.getConnectionResultFailureCases()) {
                 GoogleApiAvailability mock = mock(GoogleApiAvailability.class);
-                when(mock.isGooglePlayServicesAvailable(activity.getBaseContext()))
+                when(mock.isGooglePlayServicesAvailable(
+                        activity.getBaseContext(),
+                        CredentialProviderPlayServicesImpl.MIN_GMS_APK_VERSION))
                         .thenReturn(code);
                 boolean expectedAvailability = false;
 

@@ -17,8 +17,7 @@
 package androidx.graphics.path
 
 import android.graphics.Path
-import androidx.core.os.BuildCompat
-import androidx.core.os.BuildCompat.PrereleaseSdkCheck
+import android.os.Build
 
 /**
  * A path iterator can be used to iterate over all the [segments][PathSegment] that make up
@@ -30,28 +29,18 @@ import androidx.core.os.BuildCompat.PrereleaseSdkCheck
  * [PathIterator] objects are created implicitly through a given [Path] object; to create a
  * [PathIterator], call one of the two [Path.iterator] extension functions.
  */
-@Suppress("NotCloseable", "IllegalExperimentalApiUsage")
-@PrereleaseSdkCheck
+@Suppress("NotCloseable")
 class PathIterator constructor(
     val path: Path,
     val conicEvaluation: ConicEvaluation = ConicEvaluation.AsQuadratics,
     val tolerance: Float = 0.25f
 ) : Iterator<PathSegment> {
 
-    internal val implementation: PathIteratorImpl
-    init {
-        implementation =
-            when {
-                // TODO: replace isAtLeastU() check with below or similar when U is released
-                // Build.VERSION.SDK_INT >= 34 -> {
-                BuildCompat.isAtLeastU() -> {
-                    PathIteratorApi34Impl(path, conicEvaluation, tolerance)
-                }
-                else -> {
-                    PathIteratorPreApi34Impl(path, conicEvaluation, tolerance)
-                }
-            }
-    }
+    private val implementation: PathIteratorImpl =
+        when {
+            Build.VERSION.SDK_INT >= 34 -> PathIteratorApi34Impl(path, conicEvaluation, tolerance)
+            else -> PathIteratorPreApi34Impl(path, conicEvaluation, tolerance)
+        }
 
     enum class ConicEvaluation {
         /**
@@ -101,11 +90,11 @@ class PathIterator constructor(
      * the [points] array represents a point for the given segment. The number of pairs of floats
      * depends on the [PathSegment.Type]:
      * - [Move][PathSegment.Type.Move]: 1 pair (indices 0 to 1)
-     * - [Move][PathSegment.Type.Line]: 2 pairs (indices 0 to 3)
-     * - [Move][PathSegment.Type.Quadratic]: 3 pairs (indices 0 to 5)
-     * - [Move][PathSegment.Type.Conic]: 4 pairs (indices 0 to 7), the last pair contains the
-     *   [weight][PathSegment.weight] twice
-     * - [Move][PathSegment.Type.Cubic]: 4 pairs (indices 0 to 7)
+     * - [Line][PathSegment.Type.Line]: 2 pairs (indices 0 to 3)
+     * - [Quadratic][PathSegment.Type.Quadratic]: 3 pairs (indices 0 to 5)
+     * - [Conic][PathSegment.Type.Conic]: 3 pairs (indices 0 to 5), and the conic
+     *   [weight][PathSegment.weight] at index 6. The value of the last float is undefined
+     * - [Cubic][PathSegment.Type.Cubic]: 4 pairs (indices 0 to 7)
      * - [Close][PathSegment.Type.Close]: 0 pair
      * - [Done][PathSegment.Type.Done]: 0 pair
      * This method does not allocate any memory.
@@ -131,8 +120,6 @@ class PathIterator constructor(
  * conics as quadratics. To preserve conics, use the [Path.iterator] function that takes a
  * [PathIterator.ConicEvaluation] parameter.
  */
-@Suppress("IllegalExperimentalApiUsage")
-@PrereleaseSdkCheck
 operator fun Path.iterator() = PathIterator(this)
 
 /**
@@ -140,7 +127,5 @@ operator fun Path.iterator() = PathIterator(this)
  * conics (not convert them to quadratics), set [conicEvaluation] to
  * [PathIterator.ConicEvaluation.AsConic].
  */
-@Suppress("IllegalExperimentalApiUsage")
-@PrereleaseSdkCheck
 fun Path.iterator(conicEvaluation: PathIterator.ConicEvaluation, tolerance: Float = 0.25f) =
     PathIterator(this, conicEvaluation, tolerance)

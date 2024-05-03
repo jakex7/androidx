@@ -38,9 +38,16 @@ internal fun getSelectionHandleCoordinates(
     areHandlesCrossed: Boolean
 ): Offset {
     val line = textLayoutResult.getLineForOffset(offset)
-    val x = textLayoutResult.getHorizontalPosition(offset, isStart, areHandlesCrossed)
-    val y = textLayoutResult.getLineBottom(line)
 
+    // This happens if maxLines is set but the offset is on a line >= maxLines.
+    if (line >= textLayoutResult.lineCount) return Offset.Unspecified
+
+    val x = textLayoutResult
+        .getHorizontalPosition(offset, isStart, areHandlesCrossed)
+        .coerceIn(0f, textLayoutResult.size.width.toFloat())
+    val y = textLayoutResult
+        .getLineBottom(line)
+        .coerceIn(0f, textLayoutResult.size.height.toFloat())
     return Offset(x, y)
 }
 

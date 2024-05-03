@@ -62,7 +62,7 @@ class ExerciseSessionRecordTest {
                             )
                         ),
                     exerciseRoute =
-                        ExerciseRoute.Data(
+                        ExerciseRoute(
                             route =
                                 listOf(
                                     ExerciseRoute.Location(
@@ -103,7 +103,7 @@ class ExerciseSessionRecordTest {
                             )
                         ),
                     exerciseRoute =
-                        ExerciseRoute.Data(
+                        ExerciseRoute(
                             route =
                                 listOf(
                                     ExerciseRoute.Location(
@@ -121,6 +121,99 @@ class ExerciseSessionRecordTest {
     }
 
     @Test
+    fun validRecord_emptyRoute_equals() {
+        assertThat(
+                ExerciseSessionRecord(
+                    startTime = Instant.ofEpochMilli(1234L),
+                    startZoneOffset = null,
+                    endTime = Instant.ofEpochMilli(1236L),
+                    endZoneOffset = null,
+                    exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
+                    title = "title",
+                    notes = "notes",
+                    segments =
+                        listOf(
+                            ExerciseSegment(
+                                startTime = Instant.ofEpochMilli(1234L),
+                                endTime = Instant.ofEpochMilli(1235L),
+                                segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                            )
+                        ),
+                    laps =
+                        listOf(
+                            ExerciseLap(
+                                startTime = Instant.ofEpochMilli(1235L),
+                                endTime = Instant.ofEpochMilli(1236L),
+                                length = 10.meters,
+                            )
+                        ),
+                    exerciseRoute = ExerciseRoute(route = listOf()),
+                )
+            )
+            .isEqualTo(
+                ExerciseSessionRecord(
+                    startTime = Instant.ofEpochMilli(1234L),
+                    startZoneOffset = null,
+                    endTime = Instant.ofEpochMilli(1236L),
+                    endZoneOffset = null,
+                    exerciseType = EXERCISE_TYPE_BIKING,
+                    title = "title",
+                    notes = "notes",
+                    segments =
+                        listOf(
+                            ExerciseSegment(
+                                startTime = Instant.ofEpochMilli(1234L),
+                                endTime = Instant.ofEpochMilli(1235L),
+                                segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                            )
+                        ),
+                    laps =
+                        listOf(
+                            ExerciseLap(
+                                startTime = Instant.ofEpochMilli(1235L),
+                                endTime = Instant.ofEpochMilli(1236L),
+                                length = 10.meters,
+                            )
+                        ),
+                    exerciseRoute = ExerciseRoute(route = listOf()),
+                )
+            )
+    }
+
+    @Test
+    fun validRecord_emptyRoute_hasExerciseRouteData() {
+        val record =
+            ExerciseSessionRecord(
+                startTime = Instant.ofEpochMilli(1234L),
+                startZoneOffset = null,
+                endTime = Instant.ofEpochMilli(1236L),
+                endZoneOffset = null,
+                exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
+                title = "title",
+                notes = "notes",
+                segments =
+                    listOf(
+                        ExerciseSegment(
+                            startTime = Instant.ofEpochMilli(1234L),
+                            endTime = Instant.ofEpochMilli(1235L),
+                            segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                        )
+                    ),
+                laps =
+                    listOf(
+                        ExerciseLap(
+                            startTime = Instant.ofEpochMilli(1235L),
+                            endTime = Instant.ofEpochMilli(1236L),
+                            length = 10.meters,
+                        )
+                    ),
+                exerciseRoute = ExerciseRoute(route = listOf()),
+            )
+        assertThat((record.exerciseRouteResult as ExerciseRouteResult.Data))
+            .isEqualTo(ExerciseRouteResult.Data(ExerciseRoute(listOf())))
+    }
+
+    @Test
     fun invalidTimes_throws() {
         assertFailsWith<IllegalArgumentException> {
             ExerciseSessionRecord(
@@ -131,7 +224,7 @@ class ExerciseSessionRecordTest {
                 exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_EXERCISE_CLASS,
                 title = "title",
                 notes = "notes",
-                exerciseRouteData = null,
+                exerciseRoute = null,
             )
         }
     }
@@ -181,7 +274,7 @@ class ExerciseSessionRecordTest {
                             segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
                         )
                     ),
-                exerciseRouteData = null,
+                exerciseRoute = null,
             )
         }
 
@@ -200,7 +293,7 @@ class ExerciseSessionRecordTest {
                             segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
                         )
                     ),
-                exerciseRouteData = null,
+                exerciseRoute = null,
             )
         }
     }
@@ -221,7 +314,7 @@ class ExerciseSessionRecordTest {
                             endTime = Instant.ofEpochMilli(1235L),
                         )
                     ),
-                exerciseRouteData = null,
+                exerciseRoute = null,
             )
         }
 
@@ -239,7 +332,7 @@ class ExerciseSessionRecordTest {
                             endTime = Instant.ofEpochMilli(1236L),
                         )
                     ),
-                exerciseRouteData = null,
+                exerciseRoute = null,
             )
         }
     }
@@ -254,7 +347,7 @@ class ExerciseSessionRecordTest {
                 endZoneOffset = null,
                 exerciseType = EXERCISE_TYPE_BIKING,
                 exerciseRoute =
-                    ExerciseRoute.Data(
+                    ExerciseRoute(
                         route =
                             listOf(
                                 ExerciseRoute.Location(
@@ -275,7 +368,7 @@ class ExerciseSessionRecordTest {
                 endZoneOffset = null,
                 exerciseType = EXERCISE_TYPE_BIKING,
                 exerciseRoute =
-                    ExerciseRoute.Data(
+                    ExerciseRoute(
                         route =
                             listOf(
                                 ExerciseRoute.Location(
@@ -311,7 +404,7 @@ class ExerciseSessionRecordTest {
                             segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
                         ),
                     ),
-                exerciseRouteData = null,
+                exerciseRoute = null,
             )
         }
     }
@@ -336,7 +429,7 @@ class ExerciseSessionRecordTest {
                             endTime = Instant.ofEpochMilli(1236L),
                         ),
                     ),
-                exerciseRouteData = null,
+                exerciseRoute = null,
             )
         }
     }
@@ -358,7 +451,7 @@ class ExerciseSessionRecordTest {
                             segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_PLANK
                         ),
                     ),
-                exerciseRouteData = null,
+                exerciseRoute = null,
             )
         }
     }
@@ -373,7 +466,7 @@ class ExerciseSessionRecordTest {
                         endZoneOffset = null,
                         exerciseType = EXERCISE_TYPE_BIKING,
                         exerciseRoute =
-                            ExerciseRoute.Data(
+                            ExerciseRoute(
                                 route =
                                     listOf(
                                         ExerciseRoute.Location(
@@ -384,18 +477,20 @@ class ExerciseSessionRecordTest {
                                     )
                             ),
                     )
-                    .exerciseRoute
+                    .exerciseRouteResult
             )
             .isEqualTo(
-                ExerciseRoute.Data(
-                    route =
-                        listOf(
-                            ExerciseRoute.Location(
-                                time = Instant.ofEpochMilli(1235L),
-                                latitude = 34.5,
-                                longitude = -34.5
+                ExerciseRouteResult.Data(
+                    ExerciseRoute(
+                        route =
+                            listOf(
+                                ExerciseRoute.Location(
+                                    time = Instant.ofEpochMilli(1235L),
+                                    latitude = 34.5,
+                                    longitude = -34.5
+                                )
                             )
-                        )
+                    )
                 )
             )
         assertThat(
@@ -405,10 +500,10 @@ class ExerciseSessionRecordTest {
                         endTime = Instant.ofEpochMilli(1236L),
                         endZoneOffset = null,
                         exerciseType = EXERCISE_TYPE_BIKING,
-                        exerciseRouteData = null
+                        exerciseRoute = null
                     )
-                    .exerciseRoute
+                    .exerciseRouteResult
             )
-            .isEqualTo(ExerciseRoute.NoData())
+            .isEqualTo(ExerciseRouteResult.NoData())
     }
 }

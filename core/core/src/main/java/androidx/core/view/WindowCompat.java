@@ -78,6 +78,7 @@ public final class WindowCompat {
      * the target class type is unconstrained, an explicit cast may be
      * necessary.
      *
+     * @param window window in which to find the view.
      * @param id the ID to search for
      * @return a view with given ID
      * @see ViewCompat#requireViewById(View, int)
@@ -115,9 +116,11 @@ public final class WindowCompat {
      */
     public static void setDecorFitsSystemWindows(@NonNull Window window,
             final boolean decorFitsSystemWindows) {
-        if (Build.VERSION.SDK_INT >= 30) {
+        if (Build.VERSION.SDK_INT >= 35) {
+            Api35Impl.setDecorFitsSystemWindows(window, decorFitsSystemWindows);
+        } else if (Build.VERSION.SDK_INT >= 30) {
             Api30Impl.setDecorFitsSystemWindows(window, decorFitsSystemWindows);
-        } else if (Build.VERSION.SDK_INT >= 16) {
+        } else {
             Api16Impl.setDecorFitsSystemWindows(window, decorFitsSystemWindows);
         }
     }
@@ -135,13 +138,11 @@ public final class WindowCompat {
         return new WindowInsetsControllerCompat(window, view);
     }
 
-    @RequiresApi(16)
     static class Api16Impl {
         private Api16Impl() {
             // This class is not instantiable.
         }
 
-        @DoNotInline
         static void setDecorFitsSystemWindows(@NonNull Window window,
                 final boolean decorFitsSystemWindows) {
             final int decorFitsFlags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -159,6 +160,22 @@ public final class WindowCompat {
     @RequiresApi(30)
     static class Api30Impl {
         private Api30Impl() {
+            // This class is not instantiable.
+        }
+
+        @DoNotInline
+        static void setDecorFitsSystemWindows(@NonNull Window window,
+                final boolean decorFitsSystemWindows) {
+            final View decorView = window.getDecorView();
+            final int sysUiVis = decorView.getSystemUiVisibility();
+            decorView.setSystemUiVisibility(sysUiVis | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+            window.setDecorFitsSystemWindows(decorFitsSystemWindows);
+        }
+    }
+
+    @RequiresApi(35)
+    static class Api35Impl {
+        private Api35Impl() {
             // This class is not instantiable.
         }
 

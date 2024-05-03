@@ -16,14 +16,12 @@
 
 package androidx.compose.foundation.lazy.grid
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.layout.LazyLayoutKeyIndexMap
 import androidx.compose.ui.unit.Constraints
 
 /**
  * Abstracts away subcomposition and span calculation from the measuring logic of entire lines.
  */
-@OptIn(ExperimentalFoundationApi::class)
 internal abstract class LazyGridMeasuredLineProvider(
     private val isVertical: Boolean,
     private val slots: LazyGridSlots,
@@ -47,13 +45,7 @@ internal abstract class LazyGridMeasuredLineProvider(
         }
     }
 
-    fun itemConstraints(itemIndex: Int): Constraints {
-        val span = spanLayoutProvider.spanOf(
-            itemIndex,
-            spanLayoutProvider.slotsPerLine
-        )
-        return childConstraints(0, span)
-    }
+    fun spanOf(index: Int): Int = spanLayoutProvider.spanOf(index, spanLayoutProvider.slotsPerLine)
 
     /**
      * Used to subcompose items on lines of lazy grids. Composed placeables will be measured
@@ -78,9 +70,11 @@ internal abstract class LazyGridMeasuredLineProvider(
             val span = lineConfiguration.spans[it].currentLineSpan
             val constraints = childConstraints(startSlot, span)
             measuredItemProvider.getAndMeasure(
-                lineConfiguration.firstItemIndex + it,
-                mainAxisSpacing,
-                constraints
+                index = lineConfiguration.firstItemIndex + it,
+                constraints = constraints,
+                lane = startSlot,
+                span = span,
+                mainAxisSpacing = mainAxisSpacing
             ).also { startSlot += span }
         }
         return createLine(
@@ -94,7 +88,7 @@ internal abstract class LazyGridMeasuredLineProvider(
     /**
      * Contains the mapping between the key and the index. It could contain not all the items of
      * the list as an optimization.
-     **/
+     */
     val keyIndexMap: LazyLayoutKeyIndexMap get() = measuredItemProvider.keyIndexMap
 
     abstract fun createLine(

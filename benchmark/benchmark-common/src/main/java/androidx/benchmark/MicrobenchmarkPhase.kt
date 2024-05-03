@@ -53,7 +53,7 @@ internal class MicrobenchmarkPhase(
                 "THERMAL THROTTLE DETECTED, SLEEPING FOR $THROTTLE_BACKOFF_S SECONDS"
             )
             val startTimeNs = System.nanoTime()
-            userspaceTrace("Sleep due to Thermal Throttle") {
+            inMemoryTrace("Sleep due to Thermal Throttle") {
                 Thread.sleep(TimeUnit.SECONDS.toMillis(THROTTLE_BACKOFF_S))
             }
             val sleepTimeNs = System.nanoTime() - startTimeNs
@@ -103,7 +103,7 @@ internal class MicrobenchmarkPhase(
         private val THROTTLE_BACKOFF_S = Arguments.thermalThrottleSleepDurationSeconds
 
         // static instance ensures there's only one, and we don't leak native memory
-        private val cpuEventCounter: CpuEventCounter by lazy {
+        internal val cpuEventCounter: CpuEventCounter by lazy {
             // As this is only ever enabled by experimental arguments, we force enable this
             // permanently once the first benchmark uses it, for local runs only.
             CpuEventCounter.forceEnable()?.let { errorMessage ->
@@ -146,30 +146,27 @@ internal class MicrobenchmarkPhase(
             loopMode: LoopMode,
             measurementCount: Int,
             simplifiedTimingOnlyMode: Boolean,
-            cpuEventCountersMask: Int,
+            metrics: Array<MetricCapture>
         ) = MicrobenchmarkPhase(
             label = "Benchmark Time",
             measurementCount = measurementCount,
             loopMode = loopMode,
-            metrics = if (cpuEventCountersMask != 0) {
-                arrayOf(
-                    TimeCapture(),
-                    CpuEventCounterCapture(cpuEventCounter, cpuEventCountersMask)
-                )
-            } else {
-                arrayOf(TimeCapture())
-            },
+            metrics = metrics,
             thermalThrottleSleepsMax = if (simplifiedTimingOnlyMode) 0 else 2
         )
 
         fun profiledTimingPhase(
-            profiler: Profiler
+            profiler: Profiler,
+            metrics: Array<MetricCapture>,
+            loopModeOverride: LoopMode?,
+            measurementCountOverride: Int?
         ): MicrobenchmarkPhase {
-            val measurementCount = if (profiler.requiresSingleMeasurementIteration) 1 else 50
+            val measurementCount = measurementCountOverride
+                ?: if (profiler.requiresSingleMeasurementIteration) 1 else 50
             return MicrobenchmarkPhase(
                 label = "Benchmark Profiled Time",
                 measurementCount = measurementCount,
-                loopMode = if (profiler.requiresSingleMeasurementIteration) {
+                loopMode = loopModeOverride ?: if (profiler.requiresSingleMeasurementIteration) {
                     LoopMode.FixedIterations(1)
                 } else {
                     LoopMode.Duration(
@@ -180,7 +177,8 @@ internal class MicrobenchmarkPhase(
                         }
                     )
                 },
-                profiler = profiler
+                profiler = profiler,
+                metrics = metrics
             )
         }
 
@@ -203,9 +201,10 @@ internal class MicrobenchmarkPhase(
         val startupMode: Boolean,
         val simplifiedTimingOnlyMode: Boolean,
         val profiler: Profiler?,
+        val profilerPerfCompareMode: Boolean,
         val warmupCount: Int?,
         val measurementCount: Int?,
-        val cpuEventCountersMask: Int,
+        val metrics: Array<MetricCapture>,
     ) {
         val warmupManager = WarmupManager(overrideCount = warmupCount)
         init {
@@ -223,12 +222,21 @@ internal class MicrobenchmarkPhase(
             } else if (startupMode) {
                 listOf(startupModePhase())
             } else {
+                val timingMeasurementCount = measurementCount ?: 50
+
                 val profiler = if (simplifiedTimingOnlyMode) null else profiler
                 // note that it's currently important that allocation runs for the same target
                 // duration as timing, since we only report a single value for
                 // "repeatIterations" in the output JSON. If we ever want to avoid loopMode
                 // sharing between these phases, we should update that JSON representation.
-                val loopMode = LoopMode.Duration(BenchmarkState.DEFAULT_MEASUREMENT_DURATION_NS)
+                val loopMode = if (profilerPerfCompareMode) {
+                    // single fixed iteration as a compromise choice that can be matched between
+                    // measurement and profiler, and not produce overwhelming method tracing capture
+                    // durations/file sizes
+                    LoopMode.FixedIterations(1)
+                } else {
+                    LoopMode.Duration(BenchmarkState.DEFAULT_MEASUREMENT_DURATION_NS)
+                }
                 listOfNotNull(
                     warmupPhase(
                         warmupManager = warmupManager,
@@ -237,19 +245,37 @@ internal class MicrobenchmarkPhase(
                         // only timing phase has a complex impl of pause/resume, then behavior
                         // changes drastically, and the warmupManager will estimate a far faster
                         // impl of `measureRepeated { runWithTimingDisabled }`
-                        collectCpuEventInstructions = cpuEventCountersMask != 0
+                        collectCpuEventInstructions = metrics.any {
+                            it is CpuEventCounterCapture && it.names.isNotEmpty()
+                        }
                     ),
                     // Regular timing phase
                     timingMeasurementPhase(
-                        measurementCount = measurementCount ?: 50,
+                        measurementCount = timingMeasurementCount,
                         loopMode = loopMode,
-                        simplifiedTimingOnlyMode = simplifiedTimingOnlyMode,
-                        cpuEventCountersMask = cpuEventCountersMask
+                        metrics = metrics,
+                        simplifiedTimingOnlyMode = simplifiedTimingOnlyMode
                     ),
                     if (simplifiedTimingOnlyMode || profiler == null) {
                         null
                     } else {
-                        profiledTimingPhase(profiler)
+                        if (profilerPerfCompareMode) {
+                            // benchmark the profiler, matching the timing phases for fair compare
+                            profiledTimingPhase(
+                                profiler = profiler,
+                                metrics = arrayOf(TimeCapture("profilerTimeNs")),
+                                loopModeOverride = loopMode,
+                                measurementCountOverride = timingMeasurementCount
+                            )
+                        } else {
+                            // standard profiling
+                            profiledTimingPhase(
+                                profiler,
+                                metrics = emptyArray(),
+                                loopModeOverride = null,
+                                measurementCountOverride = null
+                            )
+                        }
                     },
                     if (simplifiedTimingOnlyMode) {
                         null // skip allocations

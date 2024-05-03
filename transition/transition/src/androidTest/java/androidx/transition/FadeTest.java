@@ -42,7 +42,6 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.os.BuildCompat;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
@@ -147,7 +146,7 @@ public class FadeTest extends BaseTest {
         verify(listenerOut, timeout(3000)).onTransitionPause(any(Transition.class));
         verify(listenerIn, timeout(3000)).onTransitionStart(any(Transition.class));
         assertThat(valuesOut[1], allOf(greaterThan(0f), lessThan(1f)));
-        if (Build.VERSION.SDK_INT >= 19 && fadeOut.mInitialAlpha >= 0) {
+        if (fadeOut.mInitialAlpha >= 0) {
             // These won't match on API levels 18 and below due to lack of Animator pause.
             assertEquals(valuesOut[1], valuesIn[0], 0.01f);
         }
@@ -183,7 +182,7 @@ public class FadeTest extends BaseTest {
         verify(listenerIn, timeout(3000)).onTransitionPause(any(Transition.class));
         verify(listenerOut, timeout(3000)).onTransitionStart(any(Transition.class));
         assertThat(valuesIn[1], allOf(greaterThan(0f), lessThan(1f)));
-        if (Build.VERSION.SDK_INT >= 19 && fadeIn.mInitialAlpha >= 0) {
+        if (fadeIn.mInitialAlpha >= 0) {
             // These won't match on API levels 18 and below due to lack of Animator pause.
             assertEquals(valuesIn[1], valuesOut[0], 0.01f);
         }
@@ -268,7 +267,7 @@ public class FadeTest extends BaseTest {
 
     @Test
     public void seekingFadeIn() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT < 34) {
             return; // only supported on U+
         }
         final TransitionActivity activity = rule.getActivity();
@@ -334,7 +333,7 @@ public class FadeTest extends BaseTest {
 
     @Test
     public void seekingFadeOut() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT < 34) {
             return; // only supported on U+
         }
         final TransitionActivity activity = rule.getActivity();
@@ -409,7 +408,7 @@ public class FadeTest extends BaseTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
     @Test
     public void seekingFadeInBeforeStart() throws Throwable {
-        if (!BuildCompat.isAtLeastU()) {
+        if (Build.VERSION.SDK_INT < 34) {
             return; // only supported on U+
         }
         TransitionSeekController[] seekControllerArr = new TransitionSeekController[1];

@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.paddingFromBaseline
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.internal.Strings
+import androidx.compose.material3.internal.getString
 import androidx.compose.material3.tokens.SnackbarTokens
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -39,6 +41,8 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastFirst
+import androidx.compose.ui.util.fastFirstOrNull
 import kotlin.math.max
 import kotlin.math.min
 
@@ -111,33 +115,25 @@ fun Snackbar(
         contentColor = contentColor,
         shadowElevation = SnackbarTokens.ContainerElevation
     ) {
-        val textStyle = MaterialTheme.typography.fromToken(SnackbarTokens.SupportingTextFont)
-        val actionTextStyle = MaterialTheme.typography.fromToken(SnackbarTokens.ActionLabelTextFont)
+        val textStyle = SnackbarTokens.SupportingTextFont.value
+        val actionTextStyle = SnackbarTokens.ActionLabelTextFont.value
         CompositionLocalProvider(LocalTextStyle provides textStyle) {
             when {
-                action == null -> OneRowSnackbar(
+                actionOnNewLine && action != null -> NewLineButtonSnackbar(
                     text = content,
-                    action = null,
+                    action = action,
                     dismissAction = dismissAction,
-                    actionTextStyle,
-                    actionContentColor,
-                    dismissActionContentColor
-                )
-                actionOnNewLine -> NewLineButtonSnackbar(
-                    content,
-                    action,
-                    dismissAction,
-                    actionTextStyle,
-                    actionContentColor,
-                    dismissActionContentColor
+                    actionTextStyle = actionTextStyle,
+                    actionContentColor = actionContentColor,
+                    dismissActionContentColor = dismissActionContentColor,
                 )
                 else -> OneRowSnackbar(
                     text = content,
                     action = action,
                     dismissAction = dismissAction,
-                    actionTextStyle,
-                    actionContentColor,
-                    dismissActionContentColor
+                    actionTextStyle = actionTextStyle,
+                    actionTextColor = actionContentColor,
+                    dismissActionColor = dismissActionContentColor,
                 )
             }
         }
@@ -333,9 +329,9 @@ private fun OneRowSnackbar(
     ) { measurables, constraints ->
         val containerWidth = min(constraints.maxWidth, ContainerMaxWidth.roundToPx())
         val actionButtonPlaceable =
-            measurables.firstOrNull { it.layoutId == actionTag }?.measure(constraints)
+            measurables.fastFirstOrNull { it.layoutId == actionTag }?.measure(constraints)
         val dismissButtonPlaceable =
-            measurables.firstOrNull { it.layoutId == dismissActionTag }?.measure(constraints)
+            measurables.fastFirstOrNull { it.layoutId == dismissActionTag }?.measure(constraints)
         val actionButtonWidth = actionButtonPlaceable?.width ?: 0
         val actionButtonHeight = actionButtonPlaceable?.height ?: 0
         val dismissButtonWidth = dismissButtonPlaceable?.width ?: 0
@@ -344,15 +340,15 @@ private fun OneRowSnackbar(
         val textMaxWidth =
             (containerWidth - actionButtonWidth - dismissButtonWidth - extraSpacingWidth)
                 .coerceAtLeast(constraints.minWidth)
-        val textPlaceable = measurables.first { it.layoutId == textTag }.measure(
+        val textPlaceable = measurables.fastFirst { it.layoutId == textTag }.measure(
             constraints.copy(minHeight = 0, maxWidth = textMaxWidth)
         )
 
         val firstTextBaseline = textPlaceable[FirstBaseline]
-        require(firstTextBaseline != AlignmentLine.Unspecified) { "No baselines for text" }
         val lastTextBaseline = textPlaceable[LastBaseline]
-        require(lastTextBaseline != AlignmentLine.Unspecified) { "No baselines for text" }
-        val isOneLine = firstTextBaseline == lastTextBaseline
+        val hasText = firstTextBaseline != AlignmentLine.Unspecified &&
+            lastTextBaseline != AlignmentLine.Unspecified
+        val isOneLine = firstTextBaseline == lastTextBaseline || !hasText
         val dismissButtonPlaceX = containerWidth - dismissButtonWidth
         val actionButtonPlaceX = dismissButtonPlaceX - actionButtonWidth
 
@@ -406,22 +402,22 @@ private fun OneRowSnackbar(
  */
 object SnackbarDefaults {
     /** Default shape of a snackbar. */
-    val shape: Shape @Composable get() = SnackbarTokens.ContainerShape.toShape()
+    val shape: Shape @Composable get() = SnackbarTokens.ContainerShape.value
 
     /** Default color of a snackbar. */
-    val color: Color @Composable get() = SnackbarTokens.ContainerColor.toColor()
+    val color: Color @Composable get() = SnackbarTokens.ContainerColor.value
 
     /** Default content color of a snackbar. */
-    val contentColor: Color @Composable get() = SnackbarTokens.SupportingTextColor.toColor()
+    val contentColor: Color @Composable get() = SnackbarTokens.SupportingTextColor.value
 
     /** Default action color of a snackbar. */
-    val actionColor: Color @Composable get() = SnackbarTokens.ActionLabelTextColor.toColor()
+    val actionColor: Color @Composable get() = SnackbarTokens.ActionLabelTextColor.value
 
     /** Default action content color of a snackbar. */
-    val actionContentColor: Color @Composable get() = SnackbarTokens.ActionLabelTextColor.toColor()
+    val actionContentColor: Color @Composable get() = SnackbarTokens.ActionLabelTextColor.value
 
     /** Default dismiss action content color of a snackbar. */
-    val dismissActionContentColor: Color @Composable get() = SnackbarTokens.IconColor.toColor()
+    val dismissActionContentColor: Color @Composable get() = SnackbarTokens.IconColor.value
 }
 
 private val ContainerMaxWidth = 600.dp

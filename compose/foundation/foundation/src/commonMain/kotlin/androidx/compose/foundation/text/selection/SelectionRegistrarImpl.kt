@@ -16,14 +16,29 @@
 
 package androidx.compose.foundation.text.selection
 
+import androidx.collection.LongObjectMap
+import androidx.collection.emptyLongObjectMap
+import androidx.collection.mutableLongObjectMapOf
 import androidx.compose.foundation.AtomicLong
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.LayoutCoordinates
 
-internal class SelectionRegistrarImpl : SelectionRegistrar {
+internal class SelectionRegistrarImpl private constructor(
+    initialIncrementId: Long
+) : SelectionRegistrar {
+    companion object {
+        val Saver = Saver<SelectionRegistrarImpl, Long>(
+            save = { it.incrementId.get() },
+            restore = { SelectionRegistrarImpl(it) }
+        )
+    }
+
+    constructor() : this(initialIncrementId = 1L)
+
     /**
      * A flag to check if the [Selectable]s have already been sorted.
      */
@@ -41,12 +56,12 @@ internal class SelectionRegistrarImpl : SelectionRegistrar {
     internal val selectables: List<Selectable>
         get() = _selectables
 
-    private val _selectableMap = mutableMapOf<Long, Selectable>()
+    private val _selectableMap = mutableLongObjectMapOf<Selectable>()
 
     /**
      * A map from selectable keys to subscribed selectables.
      */
-    internal val selectableMap: Map<Long, Selectable>
+    internal val selectableMap: LongObjectMap<Selectable>
         get() = _selectableMap
 
     /**
@@ -54,7 +69,7 @@ internal class SelectionRegistrarImpl : SelectionRegistrar {
      * denote an invalid id.
      * @see SelectionRegistrar.InvalidSelectableId
      */
-    private var incrementId = AtomicLong(1)
+    private var incrementId = AtomicLong(initialIncrementId)
 
     /**
      * The callback to be invoked when the position change was triggered.
@@ -97,7 +112,7 @@ internal class SelectionRegistrarImpl : SelectionRegistrar {
      */
     internal var afterSelectableUnsubscribe: ((Long) -> Unit)? = null
 
-    override var subselections: Map<Long, Selection> by mutableStateOf(emptyMap())
+    override var subselections: LongObjectMap<Selection> by mutableStateOf(emptyLongObjectMap())
 
     override fun subscribe(selectable: Selectable): Selectable {
         require(selectable.selectableId != SelectionRegistrar.InvalidSelectableId) {
