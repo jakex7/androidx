@@ -50,20 +50,19 @@ class AndroidXRepackageImplPlugin : Plugin<Project> {
         createConfigurations()
 
         val sourceSets = extensions.getByType(SourceSetContainer::class.java)
-        val libraryShadowJar = tasks.register(
-            "shadowLibraryJar", ShadowJar::class.java
-        ) { task ->
-            task.transformers.add(
-                BundleInsideHelper.DontIncludeResourceTransformer().apply {
-                    dropResourcesWithSuffix = ".proto"
-                }
-            )
-            task.from(sourceSets.findByName("main")?.output)
-        }
-
-        afterEvaluate {
-            val artifactIdForPublish = relocationExtension.artifactId
-            libraryShadowJar.configure { task ->
+        val libraryShadowJar =
+            tasks.register("shadowLibraryJar", ShadowJar::class.java) { task ->
+                task.transformers.add(
+                    BundleInsideHelper.DontIncludeResourceTransformer().apply {
+                        dropResourcesWithSuffix = ".proto"
+                    }
+                )
+                task.transformers.add(
+                    BundleInsideHelper.DontIncludeResourceTransformer().apply {
+                        dropResourcesWithSuffix = ".proto.bin"
+                    }
+                )
+                task.from(sourceSets.named("main").map { it.output })
                 relocationExtension.getRelocations().forEach {
                     task.relocate(it.sourcePackage, it.targetPackage)
                 }
