@@ -34,7 +34,7 @@ class ViewBenchmark {
         val inflater = LayoutInflater.from(context)
         val root = FrameLayout(context)
 
-        benchmarkRule.measure {
+        benchmarkRule.measureRepeated {
             inflater.inflate(R.layout.test_simple_view, root, false)
         }
     }
@@ -47,13 +47,13 @@ class ViewBenchmark {
 @RunWith(AndroidJUnit4.class)
 public class ViewBenchmark {
     @Rule
-    public BenchmarkRule mBenchmarkRule = new BenchmarkRule();
+    public BenchmarkRule benchmarkRule = new BenchmarkRule();
 
     @Test
     public void simpleViewInflate() {
         Context context = InstrumentationRegistry
                 .getInstrumentation().getTargetContext();
-        final BenchmarkState state = mBenchmarkRule.getState();
+        final BenchmarkState state = benchmarkRule.getState();
         LayoutInflater inflater = LayoutInflater.from(context);
         FrameLayout root = new FrameLayout(context);
 
@@ -71,8 +71,21 @@ public class ViewBenchmark {
 As in the public documentation, benchmarks in the AndroidX repo are test-only
 library modules. Differences for AndroidX repo:
 
-1.  Module must live in `integration-tests` group directory
-1.  Module name must end with `-benchmark` in `settings.gradle`.
+1.  Module *must* apply `id("androidx.benchmark")` in the plugin block
+1.  Module *should* live in `integration-tests` group directory to follow
+    convention
+1.  Module name *should* end with `-benchmark` in `settings.gradle` to follow
+    convention
+1.  Module *should not* contain non-benchmark tests to avoid wasting resources
+    in benchmark postsubmit.
+
+Applying the benchmark plugin give you the following benefits in AndroidX:
+
+*   Inclusion in microbenchmark CI runs
+*   AOT Compilation of module (local and CI) for stability
+*   Disable ANR avoidance in local runs (so you always get method traces)
+
+But note that these can be detrimental for non-benchmark code.
 
 ### I'm lazy and want to start quickly
 
@@ -104,7 +117,7 @@ Args can be set in your benchmark's `build.gradle`, which will affect both
 Studio / command-line gradlew runs. Runs from Studio will link result traces
 that can be opened directly from the IDE.
 
-```
+```groovy
 android {
     defaultConfig {
         // must be one of: 'None', 'StackSampling', or 'MethodTracing'
@@ -119,7 +132,7 @@ Args can also be passed from CLI. Here's an example which runs the
 `androidx.compose.material.benchmark.CheckboxesInRowsBenchmark#draw` method with
 `StackSampling` profiling:
 
-```
+```bash
 ./gradlew compose:material:material-benchmark:cC \
     -P android.testInstrumentationRunnerArguments.androidx.benchmark.profiling.mode=StackSampling \
     -P android.testInstrumentationRunnerArguments.class=androidx.compose.material.benchmark.CheckboxesInRowsBenchmark#draw
@@ -157,7 +170,7 @@ not commit the following changes.
 First, set your benchmark to be debuggable in your benchmark module's
 `androidTest/AndroidManifest.xml`:
 
-```
+```xml
   <application
     ...
     android:debuggable="false"
@@ -169,7 +182,7 @@ fail to find the benchmark as a test source.
 
 Next select `ConnectedAllocation` in your benchmark module's `build.gradle`:
 
-```
+```groovy
 android {
     defaultConfig {
         // --- Local only, don't commit this! ---
@@ -206,9 +219,10 @@ in Studio.
 As many Android apps don't yet enable R8, the default for microbenchmarks in
 AndroidX is to run with R8 disabled to measure worst-case performance. It may
 still be useful to run your microbenchmarks with R8 enabled locally however, and
-that is supported experimentally. To enable, in your microbench module:
+that is supported experimentally. To do this in your microbench module, set the
+**androidTest** minification property:
 
-```
+```groovy
 android {
     buildTypes.release.androidTest.enableMinification = true
 }

@@ -16,7 +16,6 @@
 
 package androidx.tv.material3
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,6 +42,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
 import androidx.test.filters.SdkSuppress
 import androidx.test.screenshot.AndroidXScreenshotTestRule
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,13 +50,11 @@ import org.junit.runner.RunWith
 @OptIn(ExperimentalTvMaterial3Api::class)
 @MediumTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+@SdkSuppress(minSdkVersion = 35, maxSdkVersion = 35)
 class CardScreenshotTest {
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
-    @get:Rule
-    val screenshotRule = AndroidXScreenshotTestRule(TV_GOLDEN_MATERIAL3)
+    @get:Rule val screenshotRule = AndroidXScreenshotTestRule(TV_GOLDEN_MATERIAL3)
 
     private val boxSizeModifier = Modifier.size(220.dp, 180.dp)
     private val verticalCardSizeModifier = Modifier.size(150.dp, 120.dp)
@@ -66,17 +64,9 @@ class CardScreenshotTest {
     fun card_lightTheme() {
         rule.setContent {
             LightMaterialTheme {
-                Box(
-                    modifier = boxSizeModifier.testTag(CardWrapperTag),
-                    contentAlignment = Center
-                ) {
-                    Card(
-                        modifier = verticalCardSizeModifier,
-                        onClick = { }
-                    ) {
-                        Box(Modifier.fillMaxSize()) {
-                            Text("Card", Modifier.align(Center))
-                        }
+                Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
+                    Card(modifier = verticalCardSizeModifier, onClick = {}) {
+                        Box(Modifier.fillMaxSize()) { Text("Card", Modifier.align(Center)) }
                     }
                 }
             }
@@ -89,17 +79,9 @@ class CardScreenshotTest {
     fun card_darkTheme() {
         rule.setContent {
             DarkMaterialTheme {
-                Box(
-                    modifier = boxSizeModifier.testTag(CardWrapperTag),
-                    contentAlignment = Center
-                ) {
-                    Card(
-                        modifier = verticalCardSizeModifier,
-                        onClick = { }
-                    ) {
-                        Box(Modifier.fillMaxSize()) {
-                            Text("Card", Modifier.align(Center))
-                        }
+                Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
+                    Card(modifier = verticalCardSizeModifier, onClick = {}) {
+                        Box(Modifier.fillMaxSize()) { Text("Card", Modifier.align(Center)) }
                     }
                 }
             }
@@ -111,24 +93,14 @@ class CardScreenshotTest {
     @Test
     fun card_focused() {
         rule.setContent {
-            Box(
-                modifier = boxSizeModifier.testTag(CardWrapperTag),
-                contentAlignment = Center
-            ) {
-                Card(
-                    modifier = verticalCardSizeModifier,
-                    onClick = { }
-                ) {
-                    Box(Modifier.fillMaxSize()) {
-                        Text("Card", Modifier.align(Center))
-                    }
+            Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
+                Card(modifier = verticalCardSizeModifier, onClick = {}) {
+                    Box(Modifier.fillMaxSize()) { Text("Card", Modifier.align(Center)) }
                 }
             }
         }
 
-        rule.onNodeWithTag(CardWrapperTag)
-            .onChild()
-            .requestFocus()
+        rule.onNodeWithTag(CardWrapperTag).onChild().requestFocus()
         rule.waitForIdle()
 
         assertAgainstGolden("card_focused")
@@ -138,22 +110,13 @@ class CardScreenshotTest {
     fun classicCard_lightTheme() {
         rule.setContent {
             LightMaterialTheme {
-                Box(
-                    modifier = boxSizeModifier.testTag(CardWrapperTag),
-                    contentAlignment = Center
-                ) {
+                Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
                     ClassicCard(
                         modifier = verticalCardSizeModifier,
-                        image = {
-                            SampleImage(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(80.dp)
-                            )
-                        },
+                        image = { SampleImage(Modifier.fillMaxWidth().height(80.dp)) },
                         title = { Text("Classic Card") },
                         contentPadding = PaddingValues(8.dp),
-                        onClick = { }
+                        onClick = {},
                     )
                 }
             }
@@ -166,22 +129,13 @@ class CardScreenshotTest {
     fun classicCard_darkTheme() {
         rule.setContent {
             DarkMaterialTheme {
-                Box(
-                    modifier = boxSizeModifier.testTag(CardWrapperTag),
-                    contentAlignment = Center
-                ) {
+                Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
                     ClassicCard(
                         modifier = verticalCardSizeModifier,
-                        image = {
-                            SampleImage(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(80.dp)
-                            )
-                        },
+                        image = { SampleImage(Modifier.fillMaxWidth().height(80.dp)) },
                         title = { Text("Classic Card") },
                         contentPadding = PaddingValues(8.dp),
-                        onClick = { }
+                        onClick = {},
                     )
                 }
             }
@@ -193,29 +147,18 @@ class CardScreenshotTest {
     @Test
     fun classicCard_focused() {
         rule.setContent {
-            Box(
-                modifier = boxSizeModifier.testTag(CardWrapperTag),
-                contentAlignment = Center
-            ) {
+            Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
                 ClassicCard(
                     modifier = verticalCardSizeModifier,
-                    image = {
-                        SampleImage(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(80.dp)
-                        )
-                    },
+                    image = { SampleImage(Modifier.fillMaxWidth().height(80.dp)) },
                     title = { Text("Classic Card") },
                     contentPadding = PaddingValues(8.dp),
-                    onClick = { }
+                    onClick = {},
                 )
             }
         }
 
-        rule.onNodeWithTag(CardWrapperTag)
-            .onChild()
-            .requestFocus()
+        rule.onNodeWithTag(CardWrapperTag).onChild().requestFocus()
         rule.waitForIdle()
 
         assertAgainstGolden("classicCard_focused")
@@ -225,15 +168,12 @@ class CardScreenshotTest {
     fun compactCard_lightTheme() {
         rule.setContent {
             LightMaterialTheme {
-                Box(
-                    modifier = boxSizeModifier.testTag(CardWrapperTag),
-                    contentAlignment = Center
-                ) {
+                Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
                     CompactCard(
                         modifier = verticalCardSizeModifier,
                         image = { SampleImage(Modifier.fillMaxSize()) },
                         title = { Text("Compact Card", Modifier.padding(8.dp)) },
-                        onClick = { }
+                        onClick = {},
                     )
                 }
             }
@@ -246,15 +186,12 @@ class CardScreenshotTest {
     fun compactCard_darkTheme() {
         rule.setContent {
             DarkMaterialTheme {
-                Box(
-                    modifier = boxSizeModifier.testTag(CardWrapperTag),
-                    contentAlignment = Center
-                ) {
+                Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
                     CompactCard(
                         modifier = verticalCardSizeModifier,
                         image = { SampleImage(Modifier.fillMaxSize()) },
                         title = { Text("Compact Card", Modifier.padding(8.dp)) },
-                        onClick = { }
+                        onClick = {},
                     )
                 }
             }
@@ -266,22 +203,17 @@ class CardScreenshotTest {
     @Test
     fun compactCard_focused() {
         rule.setContent {
-            Box(
-                modifier = boxSizeModifier.testTag(CardWrapperTag),
-                contentAlignment = Center
-            ) {
+            Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
                 CompactCard(
                     modifier = verticalCardSizeModifier,
                     image = { SampleImage(Modifier.fillMaxSize()) },
                     title = { Text("Compact Card", Modifier.padding(8.dp)) },
-                    onClick = { }
+                    onClick = {},
                 )
             }
         }
 
-        rule.onNodeWithTag(CardWrapperTag)
-            .onChild()
-            .requestFocus()
+        rule.onNodeWithTag(CardWrapperTag).onChild().requestFocus()
         rule.waitForIdle()
 
         assertAgainstGolden("compactCard_focused")
@@ -291,22 +223,13 @@ class CardScreenshotTest {
     fun wideClassicCard_lightTheme() {
         rule.setContent {
             LightMaterialTheme {
-                Box(
-                    modifier = boxSizeModifier.testTag(CardWrapperTag),
-                    contentAlignment = Center
-                ) {
+                Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
                     WideClassicCard(
                         modifier = horizontalCardSizeModifier,
-                        image = {
-                            SampleImage(
-                                Modifier
-                                    .fillMaxHeight()
-                                    .width(80.dp)
-                            )
-                        },
+                        image = { SampleImage(Modifier.fillMaxHeight().width(80.dp)) },
                         title = { Text("Wide Classic Card", Modifier.padding(start = 8.dp)) },
                         contentPadding = PaddingValues(8.dp),
-                        onClick = { }
+                        onClick = {},
                     )
                 }
             }
@@ -319,22 +242,13 @@ class CardScreenshotTest {
     fun wideClassicCard_darkTheme() {
         rule.setContent {
             DarkMaterialTheme {
-                Box(
-                    modifier = boxSizeModifier.testTag(CardWrapperTag),
-                    contentAlignment = Center
-                ) {
+                Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
                     WideClassicCard(
                         modifier = horizontalCardSizeModifier,
-                        image = {
-                            SampleImage(
-                                Modifier
-                                    .fillMaxHeight()
-                                    .width(80.dp)
-                            )
-                        },
+                        image = { SampleImage(Modifier.fillMaxHeight().width(80.dp)) },
                         title = { Text("Wide Classic Card", Modifier.padding(start = 8.dp)) },
                         contentPadding = PaddingValues(8.dp),
-                        onClick = { }
+                        onClick = {},
                     )
                 }
             }
@@ -346,29 +260,18 @@ class CardScreenshotTest {
     @Test
     fun wideClassicCard_focused() {
         rule.setContent {
-            Box(
-                modifier = boxSizeModifier.testTag(CardWrapperTag),
-                contentAlignment = Center
-            ) {
+            Box(modifier = boxSizeModifier.testTag(CardWrapperTag), contentAlignment = Center) {
                 WideClassicCard(
                     modifier = horizontalCardSizeModifier,
-                    image = {
-                        SampleImage(
-                            Modifier
-                                .fillMaxHeight()
-                                .width(80.dp)
-                        )
-                    },
+                    image = { SampleImage(Modifier.fillMaxHeight().width(80.dp)) },
                     title = { Text("Wide Classic Card", Modifier.padding(start = 8.dp)) },
                     contentPadding = PaddingValues(8.dp),
-                    onClick = { }
+                    onClick = {},
                 )
             }
         }
 
-        rule.onNodeWithTag(CardWrapperTag)
-            .onChild()
-            .requestFocus()
+        rule.onNodeWithTag(CardWrapperTag).onChild().requestFocus()
         rule.waitForIdle()
 
         assertAgainstGolden("wideClassicCard_focused")
@@ -376,14 +279,12 @@ class CardScreenshotTest {
 
     @Composable
     fun SampleImage(modifier: Modifier = Modifier) {
-        Box(
-            modifier = modifier
-                .background(Color.Blue)
-        )
+        Box(modifier = modifier.background(Color.Blue))
     }
 
     private fun assertAgainstGolden(goldenName: String) {
-        rule.onNodeWithTag(CardWrapperTag)
+        rule
+            .onNodeWithTag(CardWrapperTag)
             .captureToImage()
             .assertAgainstGolden(screenshotRule, goldenName)
     }

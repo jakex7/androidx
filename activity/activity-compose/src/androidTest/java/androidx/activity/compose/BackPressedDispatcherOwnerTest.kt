@@ -30,6 +30,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,19 +38,14 @@ import org.junit.runner.RunWith
 @LargeTest
 @RunWith(AndroidJUnit4::class)
 class BackPressedDispatcherOwnerTest {
-    @get:Rule
-    val composeTestRule = createComposeRule()
+    @get:Rule val composeTestRule = createComposeRule(StandardTestDispatcher())
 
     @Test
     fun testGetBackPressedDispatcher() {
         lateinit var dispatcherOwner: OnBackPressedDispatcherOwner
-        composeTestRule.setContent {
-            dispatcherOwner = LocalOnBackPressedDispatcherOwner.current!!
-        }
+        composeTestRule.setContent { dispatcherOwner = LocalOnBackPressedDispatcherOwner.current!! }
 
-        assertWithMessage("There should be a dispatcherOwner set")
-            .that(dispatcherOwner)
-            .isNotNull()
+        assertWithMessage("There should be a dispatcherOwner set").that(dispatcherOwner).isNotNull()
     }
 
     @Test
@@ -79,14 +75,10 @@ class BackPressedDispatcherOwnerTest {
         composeTestRule.setContent {
             BackHandler { backCounter++ }
             val dispatcher = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
-            Button(onClick = { dispatcher.onBackPressed() }) {
-                Text(text = "Press Back")
-            }
+            Button(onClick = { dispatcher.onBackPressed() }) { Text(text = "Press Back") }
         }
 
         composeTestRule.onNodeWithText("Press Back").performClick()
-        composeTestRule.runOnIdle {
-            assertThat(backCounter).isEqualTo(1)
-        }
+        composeTestRule.runOnIdle { assertThat(backCounter).isEqualTo(1) }
     }
 }

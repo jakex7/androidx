@@ -46,85 +46,77 @@ fun ToggleButtons() {
     var singularButton3Enabled by remember { mutableStateOf(true) }
 
     Column(
-        modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(
             horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "Singular",
-                style = MaterialTheme.typography.body2,
-                color = Color.White
-            )
+            Text(text = "Singular", style = MaterialTheme.typography.body2, color = Color.White)
             Spacer(modifier = Modifier.size(4.dp))
             ToggleButton(
                 checked = singularButton1Enabled,
-                onCheckedChange = {
-                    singularButton1Enabled = it
-                },
+                onCheckedChange = { singularButton1Enabled = it },
                 enabled = toggleButtonsEnabled,
-                colors = ToggleButtonDefaults.toggleButtonColors(
-                    checkedBackgroundColor = AlternatePrimaryColor2,
-                ),
-                modifier = Modifier.size(ButtonDefaults.SmallButtonSize)
+                colors =
+                    ToggleButtonDefaults.toggleButtonColors(
+                        checkedBackgroundColor = AlternatePrimaryColor2
+                    ),
+                modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
             ) {
                 if (singularButton1Enabled) {
-                    DemoIcon(R.drawable.ic_volume_up_24px)
+                    DemoIcon(R.drawable.icon_volume_up_24px)
                 } else {
-                    DemoIcon(R.drawable.ic_volume_off_24px)
+                    DemoIcon(R.drawable.icon_volume_off_24px)
                 }
             }
             Spacer(modifier = Modifier.size(4.dp))
             ToggleButton(
                 checked = singularButton2Enabled,
-                onCheckedChange = {
-                    singularButton2Enabled = it
-                },
+                onCheckedChange = { singularButton2Enabled = it },
                 enabled = toggleButtonsEnabled,
-                colors = ToggleButtonDefaults.toggleButtonColors(
-                    checkedBackgroundColor = AlternatePrimaryColor3,
-                ),
+                colors =
+                    ToggleButtonDefaults.toggleButtonColors(
+                        checkedBackgroundColor = AlternatePrimaryColor3
+                    ),
                 modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
             ) {
-                DemoIcon(R.drawable.ic_airplanemode_active_24px)
+                DemoIcon(R.drawable.icon_airplanemode_active_24px)
             }
             Spacer(modifier = Modifier.size(4.dp))
             ToggleButton(
                 checked = singularButton3Enabled,
-                onCheckedChange = {
-                    singularButton3Enabled = it
-                },
+                onCheckedChange = { singularButton3Enabled = it },
                 enabled = toggleButtonsEnabled,
-                colors = ToggleButtonDefaults.toggleButtonColors(
-                    checkedBackgroundColor = AlternatePrimaryColor3
-                ),
+                colors =
+                    ToggleButtonDefaults.toggleButtonColors(
+                        checkedBackgroundColor = AlternatePrimaryColor3
+                    ),
                 modifier = Modifier,
-                shape = CutCornerShape(4.dp)
+                shape = CutCornerShape(4.dp),
             ) {
-                DemoIcon(R.drawable.ic_airplanemode_active_24px)
+                DemoIcon(R.drawable.icon_airplanemode_active_24px)
             }
         }
         Spacer(modifier = Modifier.size(4.dp))
         Row(
             horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "Buttons Enabled",
                 style = MaterialTheme.typography.caption2,
-                color = Color.White
+                color = Color.White,
             )
             Spacer(modifier = Modifier.size(4.dp))
             ToggleButton(
                 checked = toggleButtonsEnabled,
-                onCheckedChange = {
-                    toggleButtonsEnabled = it
-                },
+                onCheckedChange = { toggleButtonsEnabled = it },
                 modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
             ) {
-                DemoIcon(R.drawable.ic_check_24px)
+                DemoIcon(R.drawable.icon_check_24px)
             }
         }
     }

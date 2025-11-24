@@ -26,10 +26,12 @@ import androidx.car.app.navigation.model.NavigationTemplate;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 import org.robolectric.annotation.internal.DoNotInstrument;
 
 /** Tests for {@link TabContents}. */
 @RunWith(RobolectricTestRunner.class)
+@Config(sdk = {Config.TARGET_SDK})
 @DoNotInstrument
 public class TabContentsTest {
 
@@ -83,6 +85,30 @@ public class TabContentsTest {
                         new Action.Builder().setTitle("test").build()).build()).build();
 
         TabContents tabContents = new TabContents.Builder(template).build();
+
+        assertEquals(template, tabContents.getTemplate());
+    }
+
+    @Test
+    public void createInstance_sectionedItemTemplate_Throws() {
+        SectionedItemTemplate template =
+                new SectionedItemTemplate.Builder().setHeader(
+                        new Header.Builder().setTitle("title").build()
+                ).build();
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new TabContents.Builder(template).build());
+    }
+
+    @Test
+    public void createInstance_api8_sectionedItemTemplate() {
+        SectionedItemTemplate template =
+                new SectionedItemTemplate.Builder().setHeader(
+                        new Header.Builder().setTitle("title").build()
+                ).build();
+
+        TabContents tabContents = new TabContents.Builder(template, /* enableApi8= */ true).build();
 
         assertEquals(template, tabContents.getTemplate());
     }

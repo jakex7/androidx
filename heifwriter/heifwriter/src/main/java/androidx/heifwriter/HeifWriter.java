@@ -21,31 +21,23 @@ import static android.media.MediaMuxer.OutputFormat.MUXER_OUTPUT_HEIF;
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.media.MediaCodec;
-import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.Looper;
-import android.os.Process;
 import android.util.Log;
-import android.util.Pair;
 import android.view.Surface;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Writes one or more still images (of the same dimensions) into
@@ -133,6 +125,9 @@ public final class HeifWriter extends WriterBase {
         private int mPrimaryIndex = 0;
         private int mRotation = 0;
         private Handler mHandler;
+        private EncoderPreference mEncoderPreference =
+                EncoderPreference.getDefaultEncoderPreference();
+
 
         /**
          * Construct a Builder with output specified by its path.
@@ -264,6 +259,21 @@ public final class HeifWriter extends WriterBase {
         }
 
         /**
+         * Sets the encoder preference for this builder.
+         *
+         * <p>This method allows you to configure the desired encoding type (hardware or software)
+         * and the bitrate mode (e.g., constant quality).
+         *
+         * @param preference The non-null {@link EncoderPreference} object used to specify
+         *                   the encoder's configuration.
+         * @return This {@code Builder} instance for method chaining.
+         */
+        public @NonNull Builder setEncoderPreference(@NonNull EncoderPreference preference) {
+            mEncoderPreference = preference;
+            return this;
+        }
+
+        /**
          * Build a HeifWriter object.
          *
          * @return a HeifWriter object built according to the specifications.
@@ -272,13 +282,119 @@ public final class HeifWriter extends WriterBase {
          */
         public @NonNull HeifWriter build() throws IOException {
             return new HeifWriter(mPath, mFd, mWidth, mHeight, mRotation, mGridEnabled, mQuality,
-                mMaxImages, mPrimaryIndex, mInputMode, mHandler);
+                mMaxImages, mPrimaryIndex, mInputMode, mEncoderPreference, mHandler);
         }
+    }
+
+    /**
+     * Start the heif writer. Can only be called once.
+     *
+     * @throws IllegalStateException if called more than once.
+     */
+    @Override
+    public void start() {
+        super.start();
+    }
+
+    /**
+     * Add one YUV buffer to the heif file.
+     *
+     * @param format The YUV format as defined in {@link android.graphics.ImageFormat}, currently
+     *               only support YUV_420_888.
+     *
+     * @param data byte array containing the YUV data. If the format has more than one planes,
+     *             they must be concatenated.
+     *
+     * @throws IllegalStateException if not started or not configured to use buffer input.
+     */
+    @Override
+    public void addYuvBuffer(int format, byte @NonNull [] data) {
+        super.addYuvBuffer(format, data);
+    }
+
+    /**
+     * Retrieves the input surface for encoding.
+     *
+     * @return the input surface if configured to use surface input.
+     *
+     * @throws IllegalStateException if called after start or not configured to use surface input.
+     */
+    @Override
+    public @NonNull Surface getInputSurface() {
+        return super.getInputSurface();
+    }
+
+    /**
+     * Set the timestamp (in nano seconds) of the last input frame to encode.
+     *
+     * This call is only valid for surface input. Client can use this to stop the heif writer
+     * earlier before the maximum number of images are written. If not called, the writer will
+     * only stop when the maximum number of images are written.
+     *
+     * @param timestampNs timestamp (in nano seconds) of the last frame that will be written to the
+     *                    heif file. Frames with timestamps larger than the specified value will not
+     *                    be written. However, if a frame already started encoding when this is set,
+     *                    all tiles within that frame will be encoded.
+     *
+     * @throws IllegalStateException if not started or not configured to use surface input.
+     */
+    @Override
+    public void setInputEndOfStreamTimestamp(@IntRange(from = 0) long timestampNs) {
+        super.setInputEndOfStreamTimestamp(timestampNs);
+    }
+
+    /**
+     * Add one bitmap to the heif file.
+     *
+     * @param bitmap the bitmap to be added to the file.
+     * @throws IllegalStateException if not started or not configured to use bitmap input.
+     */
+    @Override
+    public void addBitmap(@NonNull Bitmap bitmap) {
+        super.addBitmap(bitmap);
+    }
+
+    /**
+     * Add Exif data for the specified image. The data must be a valid Exif data block,
+     * starting with "Exif\0\0" followed by the TIFF header (See JEITA CP-3451C Section 4.5.2.)
+     *
+     * @param imageIndex index of the image, must be a valid index for the max number of image
+     *                   specified by {@link Builder#setMaxImages(int)}.
+     * @param exifData byte buffer containing a Exif data block.
+     * @param offset offset of the Exif data block within exifData.
+     * @param length length of the Exif data block.
+     */
+    @Override
+    public void addExifData(int imageIndex, byte @NonNull [] exifData, int offset, int length) {
+        super.addExifData(imageIndex, exifData, offset, length);
+    }
+
+    /**
+     * Stop the heif writer synchronously. Throws exception if the writer didn't finish writing
+     * successfully. Upon a success return:
+     *
+     * - For buffer and bitmap inputs, all images sent before stop will be written.
+     *
+     * - For surface input, images with timestamp on or before that specified in
+     *   {@link #setInputEndOfStreamTimestamp(long)} will be written. In case where
+     *   {@link #setInputEndOfStreamTimestamp(long)} was never called, stop will block
+     *   until maximum number of images are received.
+     *
+     * @param timeoutMs Maximum time (in microsec) to wait for the writer to complete, with zero
+     *                  indicating waiting indefinitely.
+     * @see #setInputEndOfStreamTimestamp(long)
+     * @throws Exception if encountered error, in which case the output file may not be valid. In
+     *                   particular, {@link TimeoutException} is thrown when timed out, and {@link
+     *                   MediaCodec.CodecException} is thrown when encountered codec error.
+     */
+    @Override
+    public void stop(@IntRange(from = 0) long timeoutMs) throws Exception {
+        super.stop(timeoutMs);
     }
 
     @SuppressLint("WrongConstant")
     @SuppressWarnings("WeakerAccess") /* synthetic access */
-    HeifWriter(@NonNull String path,
+        HeifWriter(@NonNull String path,
         @NonNull FileDescriptor fd,
         int width,
         int height,
@@ -288,8 +404,9 @@ public final class HeifWriter extends WriterBase {
         int maxImages,
         int primaryIndex,
         @InputMode int inputMode,
+        @NonNull EncoderPreference preference,
         @Nullable Handler handler) throws IOException {
-        super(rotation, inputMode, maxImages, primaryIndex, gridEnabled, quality,
+        super(rotation, inputMode, maxImages, primaryIndex, gridEnabled, quality, preference,
             handler, /* highBitDepthEnabled */ false);
 
         if (DEBUG) {
@@ -300,16 +417,17 @@ public final class HeifWriter extends WriterBase {
                 + ", quality: " + quality
                 + ", maxImages: " + maxImages
                 + ", primaryIndex: " + primaryIndex
-                + ", inputMode: " + inputMode);
+                + ", inputMode: " + inputMode
+                + ", encoder preference: " + preference);
         }
+
+        mEncoder = new HeifEncoder(width, height, gridEnabled, quality,
+            mInputMode, preference, mHandler, new WriterCallback());
 
         // set to 1 initially, and wait for output format to know for sure
         mNumTiles = 1;
 
         mMuxer = (path != null) ? new MediaMuxer(path, MUXER_OUTPUT_HEIF)
             : new MediaMuxer(fd, MUXER_OUTPUT_HEIF);
-
-        mEncoder = new HeifEncoder(width, height, gridEnabled, quality,
-            mInputMode, mHandler, new WriterCallback());
     }
 }

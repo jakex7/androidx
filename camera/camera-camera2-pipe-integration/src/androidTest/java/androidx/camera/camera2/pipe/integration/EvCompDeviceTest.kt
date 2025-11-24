@@ -25,8 +25,8 @@ import androidx.camera.camera2.pipe.FrameInfo
 import androidx.camera.camera2.pipe.integration.adapter.CameraControlAdapter
 import androidx.camera.camera2.pipe.integration.impl.ComboRequestListener
 import androidx.camera.camera2.pipe.integration.interop.ExperimentalCamera2Interop
-import androidx.camera.camera2.pipe.testing.VerifyResultListener
-import androidx.camera.camera2.pipe.testing.toCameraControlAdapter
+import androidx.camera.camera2.pipe.integration.testing.VerifyResultListener
+import androidx.camera.camera2.pipe.integration.testing.toCameraControlAdapter
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -36,7 +36,6 @@ import androidx.camera.testing.impl.CameraXUtil
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.testutils.assertThrows
 import com.google.common.truth.Truth
 import java.util.concurrent.TimeUnit
@@ -54,7 +53,6 @@ import org.junit.runner.RunWith
 
 @LargeTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 21)
 class EvCompDeviceTest {
     private lateinit var cameraSelector: CameraSelector
     private lateinit var context: Context
@@ -62,36 +60,31 @@ class EvCompDeviceTest {
     private lateinit var cameraControl: CameraControlAdapter
     private lateinit var comboListener: ComboRequestListener
 
-    @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest()
+    @get:Rule val useCamera = CameraUtil.grantCameraPermissionAndPreTestAndPostTest()
 
     @Before
     fun setUp() {
         // TODO(b/162296654): Workaround the google_3a specific behavior.
         Assume.assumeFalse(
             "Cuttlefish uses google_3a v1 or v2 it might fail to set EV before first AE converge.",
-            Build.MODEL.contains("Cuttlefish")
+            Build.MODEL.contains("Cuttlefish"),
         )
         Assume.assumeFalse(
             "Pixel uses google_3a v1 or v2 it might fail to set EV before first AE converge.",
-            Build.MODEL.contains("Pixel")
+            Build.MODEL.contains("Pixel"),
         )
         Assume.assumeFalse(
             "Disable Nexus 5 in postsubmit for b/173743705",
-            Build.MODEL.contains("Nexus 5") && !Log.isLoggable("MH", Log.DEBUG)
+            Build.MODEL.contains("Nexus 5") && !Log.isLoggable("MH", Log.DEBUG),
         )
 
         Assume.assumeTrue(CameraUtil.deviceHasCamera())
         Assume.assumeTrue(CameraUtil.hasCameraWithLensFacing(CameraSelector.LENS_FACING_BACK))
 
         context = ApplicationProvider.getApplicationContext()
-        CameraXUtil.initialize(
-            context,
-            CameraPipeConfig.defaultConfig()
-        )
-        cameraSelector = CameraSelector.Builder().requireLensFacing(
-            CameraSelector.LENS_FACING_BACK
-        ).build()
+        CameraXUtil.initialize(context, CameraPipeConfig.defaultConfig())
+        cameraSelector =
+            CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
         camera = CameraUtil.createCameraUseCaseAdapter(context, cameraSelector)
         cameraControl = camera.cameraControl.toCameraControlAdapter()
 
@@ -102,9 +95,7 @@ class EvCompDeviceTest {
     @After
     fun tearDown(): Unit = runBlocking {
         if (::camera.isInitialized) {
-            withContext(Dispatchers.Main) {
-                camera.removeUseCases(camera.useCases)
-            }
+            withContext(Dispatchers.Main) { camera.removeUseCases(camera.useCases) }
         }
 
         CameraXUtil.shutdown()[10000, TimeUnit.MILLISECONDS]
@@ -121,10 +112,7 @@ class EvCompDeviceTest {
         val upper = exposureState.exposureCompensationRange.upper
 
         // Act.
-        val ret = cameraControl.setExposureCompensationIndex(upper).get(
-            3000,
-            TimeUnit.MILLISECONDS
-        )
+        val ret = cameraControl.setExposureCompensationIndex(upper).get(3000, TimeUnit.MILLISECONDS)
 
         // Assert.
         Truth.assertThat(ret).isEqualTo(upper)
@@ -175,12 +163,9 @@ class EvCompDeviceTest {
         // changed.
         val upper = exposureState.exposureCompensationRange.upper
         cameraControl.setExposureCompensationIndex(upper).get(3000, TimeUnit.MILLISECONDS)
-        cameraControl.setZoomRatio(
-            camera.cameraInfo.zoomState.value!!.maxZoomRatio
-        ).get(
-            3000,
-            TimeUnit.MILLISECONDS
-        )
+        cameraControl
+            .setZoomRatio(camera.cameraInfo.zoomState.value!!.maxZoomRatio)
+            .get(3000, TimeUnit.MILLISECONDS)
 
         // Assert. Verify the exposure compensation target result is in the capture result.
         registerListener().verifyCaptureResultParameter(CONTROL_AE_EXPOSURE_COMPENSATION, upper)
@@ -234,21 +219,16 @@ class EvCompDeviceTest {
 
         // Assert. Verify the second time call should set the new exposure value successfully.
         Truth.assertThat(
-            cameraControl.setExposureCompensationIndex(2).get(
-                3000,
-                TimeUnit.MILLISECONDS
+                cameraControl.setExposureCompensationIndex(2).get(3000, TimeUnit.MILLISECONDS)
             )
-        ).isEqualTo(2)
+            .isEqualTo(2)
     }
 
     private suspend fun <T> VerifyResultListener.verifyCaptureResultParameter(
         key: CaptureResult.Key<T>,
         value: T,
         timeout: Long = TimeUnit.SECONDS.toMillis(5),
-    ) = verify(
-        { _, captureResult: FrameInfo -> captureResult.metadata[key] == value },
-        timeout
-    )
+    ) = verify({ _, captureResult: FrameInfo -> captureResult.metadata[key] == value }, timeout)
 
     private fun registerListener(capturesCount: Int = 1): VerifyResultListener =
         VerifyResultListener(capturesCount).also {
@@ -256,18 +236,20 @@ class EvCompDeviceTest {
         }
 
     private fun bindUseCase() {
-        camera = CameraUtil.createCameraAndAttachUseCase(
-            context,
-            cameraSelector,
-            ImageAnalysis.Builder().build().apply {
-                // set analyzer to make it active.
-                setAnalyzer(Dispatchers.Default.asExecutor()) {
-                    // Fake analyzer, do nothing. Close the ImageProxy immediately to prevent the
-                    // closing of the CameraDevice from being stuck.
-                    it.close()
-                }
-            },
-        )
+        camera =
+            CameraUtil.createCameraAndAttachUseCase(
+                context,
+                cameraSelector,
+                ImageAnalysis.Builder().build().apply {
+                    // set analyzer to make it active.
+                    setAnalyzer(Dispatchers.Default.asExecutor()) {
+                        // Fake analyzer, do nothing. Close the ImageProxy immediately to prevent
+                        // the
+                        // closing of the CameraDevice from being stuck.
+                        it.close()
+                    }
+                },
+            )
         cameraControl = camera.cameraControl.toCameraControlAdapter()
     }
 }

@@ -25,6 +25,8 @@ import org.hamcrest.CoreMatchers
 import org.hamcrest.MatcherAssert.assertThat
 import org.junit.Rule
 
+internal const val GENERATED_PATH = "generated/java/$TASK_NAME_PREFIX"
+
 internal const val MAIN_DIR = "androidx/navigation/testapp"
 
 internal const val NEXT_DIRECTIONS = "$MAIN_DIR/NextFragmentDirections"
@@ -45,9 +47,10 @@ internal const val NOTFOO_DYNAMIC_DIRECTIONS = "$MAIN_DIR/DynFeatureFragmentDire
 internal const val NAV_RESOURCES = "src/main/res/navigation"
 internal const val SEC = 1000L
 
+internal const val NAVIGATION_RUNTIME = "androidx.navigation:navigation-runtime:2.4.0"
+
 abstract class BasePluginTest {
-    @get:Rule
-    val projectSetup = ProjectSetupRule()
+    @get:Rule val projectSetup = ProjectSetupRule()
 
     internal fun projectRoot(): File = projectSetup.rootDir
 
@@ -60,45 +63,53 @@ abstract class BasePluginTest {
     }
 
     internal fun assertExists(name: String, ex: Boolean, prefix: String = ""): File {
-        val generatedFile = File(
-            projectRoot(),
-            "${prefix}build/$GENERATED_PATH/$name"
-        )
-        assertThat(
-            generatedFile.exists(),
-            CoreMatchers.`is`(ex)
-        )
+        val generatedFile = File(projectRoot(), "${prefix}build/$GENERATED_PATH$name")
+        assertThat(generatedFile.exists(), CoreMatchers.`is`(ex))
         return generatedFile
     }
 
-    internal fun navResource(name: String) =
-        File(projectRoot(), "$NAV_RESOURCES/$name")
+    internal fun navResource(name: String) = File(projectRoot(), "$NAV_RESOURCES/$name")
 
-    internal fun gradleBuilder(vararg args: String) = GradleRunner.create()
-        .withProjectDir(projectRoot()).withPluginClasspath()
-        // b/175897186 set explicit metaspace size in hopes of fewer crashes
-        .withArguments("-Dorg.gradle.jvmargs=-XX:MaxMetaspaceSize=512m", *args)
+    internal fun gradleBuilder(vararg args: String): GradleRunner {
+        val runner =
+            GradleRunner.create()
+                .withProjectDir(projectRoot())
+                .withPluginClasspath()
+                .withArguments(
+                    // b/175897186 set explicit metaspace size in hopes of fewer crashes
+                    "-Dorg.gradle.jvmargs=-XX:MaxMetaspaceSize=512m",
+                    // Enable configuration cache for these tests
+                    "-Dorg.gradle.configuration-cache=true",
+                    *args,
+                )
+        return runner
+    }
 
     internal fun runGradle(vararg args: String) = gradleBuilder(*args).build()
+
     internal fun runAndFailGradle(vararg args: String) = gradleBuilder(*args).buildAndFail()
 
     internal fun setupSimpleBuildGradle() {
         testData("app-project").copyRecursively(projectRoot())
         projectSetup.writeDefaultBuildGradle(
-            prefix = """
+            prefix =
+                """
                 plugins {
                     id('com.android.application')
                     id('androidx.navigation.safeargs')
                 }
-            """.trimIndent(),
-            suffix = """
+            """
+                    .trimIndent(),
+            suffix =
+                """
                 android {
                     namespace 'androidx.navigation.testapp'
                 }
                 dependencies {
-                    implementation "${projectSetup.props.navigationRuntime}"
+                    implementation "$NAVIGATION_RUNTIME"
                 }
-            """.trimIndent()
+            """
+                    .trimIndent(),
         )
     }
 
@@ -106,9 +117,7 @@ abstract class BasePluginTest {
         testData("multimodule-project").copyRecursively(projectRoot())
         val repositoriesBlock = buildString {
             appendLine("repositories {")
-            projectSetup.allRepositoryPaths.forEach {
-                appendLine("""maven { url "$it" }""")
-            }
+            projectSetup.allRepositoryPaths.forEach { appendLine("""maven { url "$it" }""") }
             appendLine("}")
         }
         val props = projectSetup.props
@@ -119,27 +128,31 @@ abstract class BasePluginTest {
                 ext.buildTools = "${props.buildToolsVersion}"
                 ext.minSdk = ${props.minSdkVersion}
                 ext.debugKeystoreFile = "${props.debugKeystore}"
-                ext.navigationCommonDep = "${props.navigationRuntime}"
+                ext.navigationCommonDep = "$NAVIGATION_RUNTIME"
             }
 
             allprojects {
                 $repositoriesBlock
             }
-            """.trimIndent()
+            """
+                .trimIndent()
         )
     }
 
     internal fun setupSimpleKotlinBuildGradle() {
         testData("app-project-kotlin").copyRecursively(projectRoot())
         projectSetup.writeDefaultBuildGradle(
-            prefix = """
+            prefix =
+                """
                 plugins {
                     id('com.android.application')
                     id('kotlin-android')
                     id('androidx.navigation.safeargs.kotlin')
                 }
-            """.trimIndent(),
-            suffix = """
+            """
+                    .trimIndent(),
+            suffix =
+                """
                 android {
                     namespace 'androidx.navigation.testapp'
                     compileOptions {
@@ -149,7 +162,7 @@ abstract class BasePluginTest {
                 }
                 dependencies {
                     implementation "${projectSetup.props.kotlinStblib}"
-                    implementation "${projectSetup.props.navigationRuntime}"
+                    implementation "$NAVIGATION_RUNTIME"
                 }
                 tasks.withType(
                     org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -158,7 +171,8 @@ abstract class BasePluginTest {
                         jvmTarget = "1.8"
                     }
                 }
-            """.trimIndent()
+            """
+                    .trimIndent(),
         )
     }
 }

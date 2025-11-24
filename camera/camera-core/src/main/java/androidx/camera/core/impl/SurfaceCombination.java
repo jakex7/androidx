@@ -16,12 +16,12 @@
 
 package androidx.camera.core.impl;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -32,12 +32,15 @@ import java.util.List;
  * of surface configuration type and size pairs can be supported for different hardware level camera
  * devices. This structure is used to store a list of surface configuration as a combination.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 public final class SurfaceCombination {
 
     private final List<SurfaceConfig> mSurfaceConfigList = new ArrayList<>();
 
     public SurfaceCombination() {
+    }
+
+    public SurfaceCombination(@NonNull SurfaceConfig... surfaceConfigs) {
+        Collections.addAll(mSurfaceConfigList, surfaceConfigs);
     }
 
     private static void generateArrangements(
@@ -74,8 +77,7 @@ public final class SurfaceCombination {
         return mSurfaceConfigList.remove(surfaceConfig);
     }
 
-    @NonNull
-    public List<SurfaceConfig> getSurfaceConfigList() {
+    public @NonNull List<SurfaceConfig> getSurfaceConfigList() {
         return mSurfaceConfigList;
     }
 
@@ -89,8 +91,7 @@ public final class SurfaceCombination {
      * @return the ordered surface configuration list or {@code null} if the configuration list
      * is not supported by this combination.
      */
-    @Nullable
-    public List<SurfaceConfig> getOrderedSupportedSurfaceConfigList(
+    public @Nullable List<SurfaceConfig> getOrderedSupportedSurfaceConfigList(
             @NonNull List<SurfaceConfig> configList) {
         boolean isSupported = false;
 

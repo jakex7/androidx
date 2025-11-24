@@ -56,13 +56,16 @@ import androidx.camera.integration.extensions.CameraExtensionsActivity
 import androidx.camera.integration.extensions.CameraExtensionsActivity.CAMERA2_IMPLEMENTATION_OPTION
 import androidx.camera.integration.extensions.CameraExtensionsActivity.CAMERA_PIPE_IMPLEMENTATION_OPTION
 import androidx.camera.integration.extensions.IntentExtraKey
+import androidx.camera.integration.extensions.IntentExtraKey.INTENT_EXTRA_KEY_VIDEO_CAPTURE_ENABLED
 import androidx.camera.integration.extensions.utils.CameraSelectorUtil.createCameraSelectorById
 import androidx.camera.integration.extensions.utils.ExtensionModeUtil.AVAILABLE_EXTENSION_MODES
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.testing.impl.CameraUtil
 import androidx.camera.testing.impl.LabTestRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import java.util.concurrent.TimeUnit
 import junit.framework.AssertionFailedError
 import org.junit.Assume.assumeTrue
 
@@ -75,18 +78,55 @@ object CameraXExtensionsTestUtil {
         val extensionMode: Int,
     )
 
-    /**
-     * Gets a list of all camera id and extension mode combinations.
-     */
+    /** Gets a list of all camera id and extension mode combinations. */
     @JvmStatic
-    fun getAllCameraIdExtensionModeCombinations(): List<CameraXExtensionTestParams> =
-        CameraUtil.getBackwardCompatibleCameraIdListOrThrow().flatMap { cameraId ->
-            AVAILABLE_EXTENSION_MODES.flatMap { extensionMode ->
-                CAMERAX_CONFIGS.map { config ->
-                    CameraXExtensionTestParams(config.first, config.second, cameraId, extensionMode)
+    fun getAllCameraIdExtensionModeCombinations(
+        context: Context = ApplicationProvider.getApplicationContext()
+    ): List<CameraXExtensionTestParams> =
+        filterOutUnavailableMode(
+            context,
+            CameraUtil.getBackwardCompatibleCameraIdListOrThrow().flatMap { cameraId ->
+                AVAILABLE_EXTENSION_MODES.flatMap { extensionMode ->
+                    CAMERAX_CONFIGS.map { config ->
+                        CameraXExtensionTestParams(
+                            config.first,
+                            config.second,
+                            cameraId,
+                            extensionMode,
+                        )
+                    }
+                }
+            },
+        )
+
+    private fun filterOutUnavailableMode(
+        context: Context,
+        list: List<CameraXExtensionTestParams>,
+    ): List<CameraXExtensionTestParams> {
+        var extensionsManager: ExtensionsManager? = null
+        var cameraProvider: ProcessCameraProvider? = null
+        try {
+            cameraProvider = ProcessCameraProvider.getInstance(context)[2, TimeUnit.SECONDS]
+            extensionsManager =
+                ExtensionsManager.getInstanceAsync(context, cameraProvider)[2, TimeUnit.SECONDS]
+
+            val result: MutableList<CameraXExtensionTestParams> = mutableListOf()
+            for (item in list) {
+                val cameraSelector = createCameraSelectorById(item.cameraId)
+                if (extensionsManager.isExtensionAvailable(cameraSelector, item.extensionMode)) {
+                    result.add(item)
                 }
             }
+            return result
+        } catch (e: Exception) {
+            return list
+        } finally {
+            try {
+                cameraProvider?.shutdownAsync()?.get()
+                extensionsManager?.shutdown()?.get()
+            } catch (e: Exception) {}
         }
+    }
 
     /**
      * Gets a list of all camera id and mode combinations. Normal mode and all extension modes will
@@ -99,15 +139,12 @@ object CameraXExtensionsTestUtil {
             allModes.add(0, ExtensionMode.NONE)
             allModes.addAll(AVAILABLE_EXTENSION_MODES)
             CameraUtil.getBackwardCompatibleCameraIdListOrThrow().forEach { cameraId ->
-                allModes.forEach { mode ->
-                    add(arrayOf(cameraId, mode))
-                }
+                allModes.forEach { mode -> add(arrayOf(cameraId, mode)) }
             }
         }
 
     /**
-     * Creates an [ImageCaptureExtenderImpl] object for specific [ExtensionMode] and
-     * camera id.
+     * Creates an [ImageCaptureExtenderImpl] object for specific [ExtensionMode] and camera id.
      *
      * @param extensionMode The extension mode for the created object.
      * @param cameraId The target camera id.
@@ -118,19 +155,19 @@ object CameraXExtensionsTestUtil {
     fun createImageCaptureExtenderImpl(
         @ExtensionMode.Mode extensionMode: Int,
         cameraId: String,
-        cameraCharacteristics: CameraCharacteristics
-    ): ImageCaptureExtenderImpl = when (extensionMode) {
-        ExtensionMode.HDR -> HdrImageCaptureExtenderImpl()
-        ExtensionMode.BOKEH -> BokehImageCaptureExtenderImpl()
-        ExtensionMode.FACE_RETOUCH -> BeautyImageCaptureExtenderImpl()
-        ExtensionMode.NIGHT -> NightImageCaptureExtenderImpl()
-        ExtensionMode.AUTO -> AutoImageCaptureExtenderImpl()
-        else -> throw AssertionFailedError("No such ImageCapture extender implementation")
-    }.apply { init(cameraId, cameraCharacteristics) }
+        cameraCharacteristics: CameraCharacteristics,
+    ): ImageCaptureExtenderImpl =
+        when (extensionMode) {
+            ExtensionMode.HDR -> HdrImageCaptureExtenderImpl()
+            ExtensionMode.BOKEH -> BokehImageCaptureExtenderImpl()
+            ExtensionMode.FACE_RETOUCH -> BeautyImageCaptureExtenderImpl()
+            ExtensionMode.NIGHT -> NightImageCaptureExtenderImpl()
+            ExtensionMode.AUTO -> AutoImageCaptureExtenderImpl()
+            else -> throw AssertionFailedError("No such ImageCapture extender implementation")
+        }.apply { init(cameraId, cameraCharacteristics) }
 
     /**
-     * Creates a [PreviewExtenderImpl] object for specific [ExtensionMode] and
-     * camera id.
+     * Creates a [PreviewExtenderImpl] object for specific [ExtensionMode] and camera id.
      *
      * @param extensionMode The extension mode for the created object.
      * @param cameraId The target camera id.
@@ -141,21 +178,19 @@ object CameraXExtensionsTestUtil {
     fun createPreviewExtenderImpl(
         @ExtensionMode.Mode extensionMode: Int,
         cameraId: String,
-        cameraCharacteristics: CameraCharacteristics
-    ): PreviewExtenderImpl = when (extensionMode) {
-        ExtensionMode.HDR -> HdrPreviewExtenderImpl()
-        ExtensionMode.BOKEH -> BokehPreviewExtenderImpl()
-        ExtensionMode.FACE_RETOUCH -> BeautyPreviewExtenderImpl()
-        ExtensionMode.NIGHT -> NightPreviewExtenderImpl()
-        ExtensionMode.AUTO -> AutoPreviewExtenderImpl()
-        else -> throw AssertionFailedError("No such Preview extender implementation")
-    }.apply {
-        init(cameraId, cameraCharacteristics)
-    }
+        cameraCharacteristics: CameraCharacteristics,
+    ): PreviewExtenderImpl =
+        when (extensionMode) {
+            ExtensionMode.HDR -> HdrPreviewExtenderImpl()
+            ExtensionMode.BOKEH -> BokehPreviewExtenderImpl()
+            ExtensionMode.FACE_RETOUCH -> BeautyPreviewExtenderImpl()
+            ExtensionMode.NIGHT -> NightPreviewExtenderImpl()
+            ExtensionMode.AUTO -> AutoPreviewExtenderImpl()
+            else -> throw AssertionFailedError("No such Preview extender implementation")
+        }.apply { init(cameraId, cameraCharacteristics) }
 
     /**
-     * Creates a [AdvancedExtenderImpl] object for specific [ExtensionMode] and
-     * camera id.
+     * Creates a [AdvancedExtenderImpl] object for specific [ExtensionMode] and camera id.
      *
      * @param extensionMode The extension mode for the created object.
      * @param cameraId The target camera id.
@@ -166,19 +201,20 @@ object CameraXExtensionsTestUtil {
     fun createAdvancedExtenderImpl(
         @ExtensionMode.Mode extensionMode: Int,
         cameraId: String,
-        cameraInfo: CameraInfo
-    ): AdvancedExtenderImpl = when (extensionMode) {
-        ExtensionMode.HDR -> HdrAdvancedExtenderImpl()
-        ExtensionMode.BOKEH -> BokehAdvancedExtenderImpl()
-        ExtensionMode.FACE_RETOUCH -> BeautyAdvancedExtenderImpl()
-        ExtensionMode.NIGHT -> NightAdvancedExtenderImpl()
-        ExtensionMode.AUTO -> AutoAdvancedExtenderImpl()
-        else -> throw AssertionFailedError("No such Preview extender implementation")
-    }.apply {
-        val cameraCharacteristicsMap =
-            ExtensionsUtils.getCameraCharacteristicsMap(cameraInfo as CameraInfoInternal)
-        init(cameraId, cameraCharacteristicsMap)
-    }
+        cameraInfo: CameraInfo,
+    ): AdvancedExtenderImpl =
+        when (extensionMode) {
+            ExtensionMode.HDR -> HdrAdvancedExtenderImpl()
+            ExtensionMode.BOKEH -> BokehAdvancedExtenderImpl()
+            ExtensionMode.FACE_RETOUCH -> BeautyAdvancedExtenderImpl()
+            ExtensionMode.NIGHT -> NightAdvancedExtenderImpl()
+            ExtensionMode.AUTO -> AutoAdvancedExtenderImpl()
+            else -> throw AssertionFailedError("No such Preview extender implementation")
+        }.apply {
+            val cameraCharacteristicsMap =
+                ExtensionsUtils.getCameraCharacteristicsMap(cameraInfo as CameraInfoInternal)
+            init(cameraId, cameraCharacteristicsMap)
+        }
 
     /**
      * Returns whether the target camera device can support the test for a specific extension mode.
@@ -199,20 +235,42 @@ object CameraXExtensionsTestUtil {
     fun assumeExtensionModeSupported(
         extensionsManager: ExtensionsManager,
         cameraId: String,
-        extensionMode: Int
+        extensionMode: Int,
     ) {
         val cameraIdCameraSelector = createCameraSelectorById(cameraId)
         assumeTrue(
             "Extensions mode($extensionMode) not supported",
-            extensionsManager.isExtensionAvailable(cameraIdCameraSelector, extensionMode)
+            extensionsManager.isExtensionAvailable(cameraIdCameraSelector, extensionMode),
         )
     }
 
     @JvmStatic
-    fun assumeAnyExtensionModeSupported(
+    fun assumeExtensionModeOutputFormatSupported(
+        cameraProvider: ProcessCameraProvider,
         extensionsManager: ExtensionsManager,
-        cameraId: String
+        cameraId: String,
+        extensionMode: Int,
+        outputFormat: Int,
     ) {
+        val cameraIdCameraSelector = createCameraSelectorById(cameraId)
+        val extensionsEnabledCameraSelector =
+            extensionsManager.getExtensionEnabledCameraSelector(
+                cameraIdCameraSelector,
+                extensionMode,
+            )
+        val imageCaptureCapabilities =
+            ImageCapture.getImageCaptureCapabilities(
+                cameraProvider.getCameraInfo(extensionsEnabledCameraSelector)
+            )
+        assumeTrue(
+            "Extensions mode($extensionMode) does not supported output format $outputFormat still" +
+                " image capture",
+            imageCaptureCapabilities.supportedOutputFormats.contains(outputFormat),
+        )
+    }
+
+    @JvmStatic
+    fun assumeAnyExtensionModeSupported(extensionsManager: ExtensionsManager, cameraId: String) {
         val cameraIdCameraSelector = createCameraSelectorById(cameraId)
         var anyExtensionModeSupported = false
 
@@ -229,7 +287,7 @@ object CameraXExtensionsTestUtil {
     @JvmStatic
     fun getFirstSupportedExtensionMode(
         extensionsManager: ExtensionsManager,
-        cameraId: String
+        cameraId: String,
     ): Int {
         val cameraIdCameraSelector = createCameraSelectorById(cameraId)
 
@@ -258,18 +316,27 @@ object CameraXExtensionsTestUtil {
     fun launchCameraExtensionsActivity(
         cameraId: String,
         extensionMode: Int,
+        outputFormat: Int = ImageCapture.OUTPUT_FORMAT_JPEG,
+        videoCaptureEnabled: Boolean? = null,
         deleteCapturedImages: Boolean = true,
     ): ActivityScenario<CameraExtensionsActivity> {
-        val intent = ApplicationProvider.getApplicationContext<Context>().packageManager
-            .getLaunchIntentForPackage(BASIC_SAMPLE_PACKAGE)?.apply {
-                putExtra(IntentExtraKey.INTENT_EXTRA_KEY_CAMERA_ID, cameraId)
-                putExtra(IntentExtraKey.INTENT_EXTRA_KEY_EXTENSION_MODE, extensionMode)
-                putExtra(
-                    IntentExtraKey.INTENT_EXTRA_KEY_DELETE_CAPTURED_IMAGE,
-                    deleteCapturedImages
-                )
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            }
+        val intent =
+            ApplicationProvider.getApplicationContext<Context>()
+                .packageManager
+                .getLaunchIntentForPackage(BASIC_SAMPLE_PACKAGE)
+                ?.apply {
+                    putExtra(IntentExtraKey.INTENT_EXTRA_KEY_CAMERA_ID, cameraId)
+                    putExtra(IntentExtraKey.INTENT_EXTRA_KEY_EXTENSION_MODE, extensionMode)
+                    putExtra(IntentExtraKey.INTENT_EXTRA_KEY_OUTPUT_FORMAT, outputFormat)
+                    putExtra(
+                        IntentExtraKey.INTENT_EXTRA_KEY_DELETE_CAPTURED_IMAGE,
+                        deleteCapturedImages,
+                    )
+                    videoCaptureEnabled?.let {
+                        putExtra(INTENT_EXTRA_KEY_VIDEO_CAPTURE_ENABLED, it)
+                    }
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
 
         val activityScenario: ActivityScenario<CameraExtensionsActivity> =
             ActivityScenario.launch(intent)
@@ -293,15 +360,16 @@ object CameraXExtensionsTestUtil {
     @JvmStatic
     fun getImageCaptureSupportedResolutions(
         impl: ImageCaptureExtenderImpl,
-        cameraCharacteristics: CameraCharacteristics
+        cameraCharacteristics: CameraCharacteristics,
     ): List<Size> {
         // Returns the supported resolutions list from ImageCaptureExtenderImpl if it provides the
         // info.
         impl.supportedResolutions?.forEach {
             // When there is no capture processor, the image format is JPEG.
             // When there is capture processor for post-processing, the image format is YUV_420_888.
-            if ((impl.captureProcessor == null && it.first == ImageFormat.JPEG) ||
-                (impl.captureProcessor != null && it.first == ImageFormat.YUV_420_888)
+            if (
+                (impl.captureProcessor == null && it.first == ImageFormat.JPEG) ||
+                    (impl.captureProcessor != null && it.first == ImageFormat.YUV_420_888)
             ) {
                 return it.second.toList()
             }
@@ -321,7 +389,7 @@ object CameraXExtensionsTestUtil {
     fun getImageCaptureSupportedResolutions(
         impl: AdvancedExtenderImpl,
         cameraId: String,
-        cameraCharacteristics: CameraCharacteristics
+        cameraCharacteristics: CameraCharacteristics,
     ): List<Size> {
         // Returns the supported resolutions list from AdvancedExtenderImpl if it provides the
         // info.
@@ -350,33 +418,27 @@ object CameraXExtensionsTestUtil {
      *
      * <p>The target testing operation might be:
      * <ul>
-     *     <li> Open and close camera
-     *     <li> Open and close capture session
-     *     <li> Bind and unbind use cases
-     *     <li> Pause and resume lifecycle owner
-     *     <li> Switch cameras
-     *     <li> Switch extension modes
+     * <li> Open and close camera
+     * <li> Open and close capture session
+     * <li> Bind and unbind use cases
+     * <li> Pause and resume lifecycle owner
+     * <li> Switch cameras
+     * <li> Switch extension modes
      * </ul>
-     *
      */
     private const val LAB_STRESS_TEST_OPERATION_REPEAT_COUNT = 10
     private const val STRESS_TEST_OPERATION_REPEAT_COUNT = 3
 
-    /**
-     * Constant to specify that the verification target is [Preview].
-     */
+    /** Constant to specify that the verification target is [Preview]. */
     const val VERIFICATION_TARGET_PREVIEW = 0x1
 
-    /**
-     * Constant to specify that the verification target is [ImageCapture].
-     */
+    /** Constant to specify that the verification target is [ImageCapture]. */
     const val VERIFICATION_TARGET_IMAGE_CAPTURE = 0x2
 
-    /**
-     * A list of supported implementation options and their respective [CameraXConfig].
-     */
-    private val CAMERAX_CONFIGS = listOf(
-        Pair(CAMERA2_IMPLEMENTATION_OPTION, Camera2Config.defaultConfig()),
-        Pair(CAMERA_PIPE_IMPLEMENTATION_OPTION, CameraPipeConfig.defaultConfig())
-    )
+    /** A list of supported implementation options and their respective [CameraXConfig]. */
+    private val CAMERAX_CONFIGS =
+        listOf(
+            Pair(CAMERA2_IMPLEMENTATION_OPTION, Camera2Config.defaultConfig()),
+            Pair(CAMERA_PIPE_IMPLEMENTATION_OPTION, CameraPipeConfig.defaultConfig()),
+        )
 }

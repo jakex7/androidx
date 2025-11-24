@@ -57,6 +57,7 @@ import com.google.common.truth.Truth
 import com.google.common.truth.Truth.assertThat
 import kotlin.math.roundToInt
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -67,11 +68,13 @@ import org.junit.runners.Parameterized
 @RunWith(Parameterized::class)
 class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
 
-    private val isVertical: Boolean get() = config.isVertical
-    private val reverseLayout: Boolean get() = config.reverseLayout
+    private val isVertical: Boolean
+        get() = config.isVertical
 
-    @get:Rule
-    val rule = createComposeRule()
+    private val reverseLayout: Boolean
+        get() = config.reverseLayout
+
+    @get:Rule val rule = createComposeRule(StandardTestDispatcher())
 
     // the numbers should be divisible by 8 to avoid the rounding issues as we run 4 or 8 frames
     // of the animation.
@@ -105,28 +108,17 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     @Test
     fun reorderTwoItems() {
         var list by mutableStateOf(listOf(0, 1))
-        rule.setContent {
-            LazyStaggeredGrid(1) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
-        }
+        rule.setContent { LazyStaggeredGrid(1) { items(list, key = { it }) { Item(it) } } }
 
-        assertPositions(
-            0 to AxisOffset(0f, 0f),
-            1 to AxisOffset(0f, itemSize)
-        )
+        assertPositions(0 to AxisOffset(0f, 0f), 1 to AxisOffset(0f, itemSize))
 
-        rule.runOnUiThread {
-            list = listOf(1, 0)
-        }
+        rule.runOnUiThread { list = listOf(1, 0) }
 
         onAnimationFrame { fraction ->
             assertPositions(
                 0 to AxisOffset(0f, 0f + itemSize * fraction),
                 1 to AxisOffset(0f, itemSize - itemSize * fraction),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -134,24 +126,16 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     @Test
     fun reorderTwoByTwoItems() {
         var list by mutableStateOf(listOf(0, 1, 2, 3))
-        rule.setContent {
-            LazyStaggeredGrid(2) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
-        }
+        rule.setContent { LazyStaggeredGrid(2) { items(list, key = { it }) { Item(it) } } }
 
         assertPositions(
             0 to AxisOffset(0f, 0f),
             1 to AxisOffset(itemSize, 0f),
             2 to AxisOffset(0f, itemSize),
-            3 to AxisOffset(itemSize, itemSize)
+            3 to AxisOffset(itemSize, itemSize),
         )
 
-        rule.runOnUiThread {
-            list = listOf(3, 2, 1, 0)
-        }
+        rule.runOnUiThread { list = listOf(3, 2, 1, 0) }
 
         onAnimationFrame { fraction ->
             val increasing = 0 + itemSize * fraction
@@ -161,7 +145,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 1 to AxisOffset(decreasing, increasing),
                 2 to AxisOffset(increasing, decreasing),
                 3 to AxisOffset(decreasing, decreasing),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -169,24 +153,16 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     @Test
     fun reorderTwoItems_layoutInfoHasFinalPositions() {
         var list by mutableStateOf(listOf(0, 1, 2, 3))
-        rule.setContent {
-            LazyStaggeredGrid(2) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
-        }
+        rule.setContent { LazyStaggeredGrid(2) { items(list, key = { it }) { Item(it) } } }
 
         assertLayoutInfoPositions(
             0 to AxisOffset(0f, 0f),
             1 to AxisOffset(itemSize, 0f),
             2 to AxisOffset(0f, itemSize),
-            3 to AxisOffset(itemSize, itemSize)
+            3 to AxisOffset(itemSize, itemSize),
         )
 
-        rule.runOnUiThread {
-            list = listOf(3, 2, 1, 0)
-        }
+        rule.runOnUiThread { list = listOf(3, 2, 1, 0) }
 
         onAnimationFrame {
             // fraction doesn't affect the offsets in layout info
@@ -194,7 +170,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 3 to AxisOffset(0f, 0f),
                 2 to AxisOffset(itemSize, 0f),
                 1 to AxisOffset(0f, itemSize),
-                0 to AxisOffset(itemSize, itemSize)
+                0 to AxisOffset(itemSize, itemSize),
             )
         }
     }
@@ -202,25 +178,17 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     @Test
     fun reorderFirstAndLastItems() {
         var list by mutableStateOf(listOf(0, 1, 2, 3, 4))
-        rule.setContent {
-            LazyStaggeredGrid(1) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
-        }
+        rule.setContent { LazyStaggeredGrid(1) { items(list, key = { it }) { Item(it) } } }
 
         assertPositions(
             0 to AxisOffset(0f, 0f),
             1 to AxisOffset(0f, itemSize),
             2 to AxisOffset(0f, itemSize * 2),
             3 to AxisOffset(0f, itemSize * 3),
-            4 to AxisOffset(0f, itemSize * 4)
+            4 to AxisOffset(0f, itemSize * 4),
         )
 
-        rule.runOnUiThread {
-            list = listOf(4, 1, 2, 3, 0)
-        }
+        rule.runOnUiThread { list = listOf(4, 1, 2, 3, 0) }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -229,7 +197,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 2 to AxisOffset(0f, itemSize * 2),
                 3 to AxisOffset(0f, itemSize * 3),
                 4 to AxisOffset(0f, itemSize * 4 - itemSize * 4 * fraction),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -237,13 +205,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     @Test
     fun moveFirstItemToEndCausingAllItemsToAnimate() {
         var list by mutableStateOf(listOf(0, 1, 2, 3, 4, 5))
-        rule.setContent {
-            LazyStaggeredGrid(2) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
-        }
+        rule.setContent { LazyStaggeredGrid(2) { items(list, key = { it }) { Item(it) } } }
 
         assertPositions(
             0 to AxisOffset(0f, 0f),
@@ -251,12 +213,10 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             2 to AxisOffset(0f, itemSize),
             3 to AxisOffset(itemSize, itemSize),
             4 to AxisOffset(0f, itemSize * 2),
-            5 to AxisOffset(itemSize, itemSize * 2)
+            5 to AxisOffset(itemSize, itemSize * 2),
         )
 
-        rule.runOnUiThread {
-            list = listOf(1, 2, 3, 4, 5, 0)
-        }
+        rule.runOnUiThread { list = listOf(1, 2, 3, 4, 5, 0) }
 
         onAnimationFrame { fraction ->
             val increasingX = 0 + itemSize * fraction
@@ -268,7 +228,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 3 to AxisOffset(decreasingX, itemSize),
                 4 to AxisOffset(increasingX, itemSize * 2 - itemSize * fraction),
                 5 to AxisOffset(decreasingX, itemSize * 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -284,13 +244,10 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             }
         }
 
-        rule.runOnUiThread {
-            size = itemSizeDp * 2
-        }
+        rule.runOnUiThread { size = itemSizeDp * 2 }
         rule.mainClock.advanceTimeByFrame()
 
-        rule.onNodeWithTag("1")
-            .assertMainAxisSizeIsEqualTo(size)
+        rule.onNodeWithTag("1").assertMainAxisSizeIsEqualTo(size)
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -298,7 +255,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 1 to AxisOffset(0f, itemSize),
                 2 to AxisOffset(0f, itemSize * 2 + itemSize * fraction),
                 3 to AxisOffset(0f, itemSize * 3 + itemSize * fraction),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -314,9 +271,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(1, 2, 3, 4, 0)
-        }
+        rule.runOnUiThread { list = listOf(1, 2, 3, 4, 0) }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -325,7 +280,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 2 to AxisOffset(0f, itemSize),
                 3 to AxisOffset(0f, itemSize * 3 - itemSize * fraction),
                 4 to AxisOffset(0f, itemSize * 3),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -342,9 +297,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(1, 2, 3, 4, 0)
-        }
+        rule.runOnUiThread { list = listOf(1, 2, 3, 4, 0) }
 
         onAnimationFrame(duration = Duration * 2) { fraction ->
             val shorterAnimFraction = (fraction * 2).coerceAtMost(1f)
@@ -354,7 +307,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 2 to AxisOffset(0f, itemSize * 2 - itemSize * shorterAnimFraction),
                 3 to AxisOffset(0f, itemSize * 3 - itemSize * fraction),
                 4 to AxisOffset(0f, itemSize * 4 - itemSize * shorterAnimFraction),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -375,12 +328,10 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             0 to AxisOffset(0f, 0f),
             1 to AxisOffset(0f, 0f),
             2 to AxisOffset(0f, itemSize),
-            3 to AxisOffset(0f, itemSize)
+            3 to AxisOffset(0f, itemSize),
         )
 
-        rule.runOnUiThread {
-            list = listOf(2, 0)
-        }
+        rule.runOnUiThread { list = listOf(2, 0) }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -388,7 +339,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 1 to AxisOffset(0f, 0 + itemSize * fraction),
                 2 to AxisOffset(0f, itemSize - itemSize * fraction),
                 3 to AxisOffset(0f, itemSize - itemSize * fraction),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -405,9 +356,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(2, 0)
-        }
+        rule.runOnUiThread { list = listOf(2, 0) }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -415,7 +364,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 1 to AxisOffset(0f, itemSize),
                 2 to AxisOffset(0f, itemSize - itemSize * fraction),
                 3 to AxisOffset(0f, 0f),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -424,31 +373,21 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     fun animateSpacingChange() {
         var currentSpacing by mutableStateOf(0.dp)
         rule.setContent {
-            LazyStaggeredGrid(
-                1,
-                spacing = currentSpacing
-            ) {
-                items(listOf(0, 1), key = { it }) {
-                    Item(it)
-                }
+            LazyStaggeredGrid(1, spacing = currentSpacing) {
+                items(listOf(0, 1), key = { it }) { Item(it) }
             }
         }
 
-        assertPositions(
-            0 to AxisOffset(0f, 0f),
-            1 to AxisOffset(0f, itemSize),
-        )
+        assertPositions(0 to AxisOffset(0f, 0f), 1 to AxisOffset(0f, itemSize))
 
-        rule.runOnUiThread {
-            currentSpacing = spacingDp
-        }
+        rule.runOnUiThread { currentSpacing = spacingDp }
         rule.mainClock.advanceTimeByFrame()
 
         onAnimationFrame { fraction ->
             assertPositions(
                 0 to AxisOffset(0f, 0f),
                 1 to AxisOffset(0f, itemSize + spacing * fraction),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -459,11 +398,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val gridSize = itemSize * 3
         val gridSizeDp = with(rule.density) { gridSize.toDp() }
         rule.setContent {
-            LazyStaggeredGrid(2, maxSize = gridSizeDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
+            LazyStaggeredGrid(2, maxSize = gridSizeDp) { items(list, key = { it }) { Item(it) } }
         }
 
         assertPositions(
@@ -472,39 +407,34 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             2 to AxisOffset(0f, itemSize),
             3 to AxisOffset(itemSize, itemSize),
             4 to AxisOffset(0f, itemSize * 2),
-            5 to AxisOffset(itemSize, itemSize * 2)
+            5 to AxisOffset(itemSize, itemSize * 2),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 8, 2, 3, 4, 5, 6, 7, 1, 9, 10, 11)
-        }
+        rule.runOnUiThread { list = listOf(0, 8, 2, 3, 4, 5, 6, 7, 1, 9, 10, 11) }
 
         onAnimationFrame { fraction ->
             // item 1 moves to and item 8 moves from `gridSize`, right after the end edge
             val item1Offset = AxisOffset(itemSize, 0 + gridSize * fraction)
-            val item8Offset =
-                AxisOffset(itemSize, gridSize - gridSize * fraction)
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                if (item1Offset.mainAxis < itemSize * 3) {
-                    add(1 to item1Offset)
-                } else {
-                    rule.onNodeWithTag("1").assertIsNotDisplayed()
+            val item8Offset = AxisOffset(itemSize, gridSize - gridSize * fraction)
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    if (item1Offset.mainAxis < itemSize * 3) {
+                        add(1 to item1Offset)
+                    } else {
+                        rule.onNodeWithTag("1").assertIsNotDisplayed()
+                    }
+                    add(2 to AxisOffset(0f, itemSize))
+                    add(3 to AxisOffset(itemSize, itemSize))
+                    add(4 to AxisOffset(0f, itemSize * 2))
+                    add(5 to AxisOffset(itemSize, itemSize * 2))
+                    if (item8Offset.mainAxis < itemSize * 3) {
+                        add(8 to item8Offset)
+                    } else {
+                        rule.onNodeWithTag("8").assertIsNotDisplayed()
+                    }
                 }
-                add(2 to AxisOffset(0f, itemSize))
-                add(3 to AxisOffset(itemSize, itemSize))
-                add(4 to AxisOffset(0f, itemSize * 2))
-                add(5 to AxisOffset(itemSize, itemSize * 2))
-                if (item8Offset.mainAxis < itemSize * 3) {
-                    add(8 to item8Offset)
-                } else {
-                    rule.onNodeWithTag("8").assertIsNotDisplayed()
-                }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -513,9 +443,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         var list by mutableStateOf(listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11))
         rule.setContent {
             LazyStaggeredGrid(2, maxSize = itemSizeDp * 3, startIndex = 6) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
@@ -525,38 +453,34 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             8 to AxisOffset(0f, itemSize),
             9 to AxisOffset(itemSize, itemSize),
             10 to AxisOffset(0f, itemSize * 2),
-            11 to AxisOffset(itemSize, itemSize * 2)
+            11 to AxisOffset(itemSize, itemSize * 2),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 8, 2, 3, 4, 5, 6, 7, 1, 9, 10, 11)
-        }
+        rule.runOnUiThread { list = listOf(0, 8, 2, 3, 4, 5, 6, 7, 1, 9, 10, 11) }
 
         onAnimationFrame { fraction ->
             // item 1 moves from and item 8 moves to `0 - itemSize`, right before the start edge
             val item8Offset = AxisOffset(0f, itemSize - itemSize * 2 * fraction)
             val item1Offset = AxisOffset(0f, -itemSize + itemSize * 2 * fraction)
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                if (item1Offset.mainAxis > -itemSize) {
-                    add(1 to item1Offset)
-                } else {
-                    rule.onNodeWithTag("1").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    if (item1Offset.mainAxis > -itemSize) {
+                        add(1 to item1Offset)
+                    } else {
+                        rule.onNodeWithTag("1").assertIsNotDisplayed()
+                    }
+                    add(6 to AxisOffset(0f, 0f))
+                    add(7 to AxisOffset(itemSize, 0f))
+                    if (item8Offset.mainAxis > -itemSize) {
+                        add(8 to item8Offset)
+                    } else {
+                        rule.onNodeWithTag("8").assertIsNotDisplayed()
+                    }
+                    add(9 to AxisOffset(itemSize, itemSize))
+                    add(10 to AxisOffset(0f, itemSize * 2))
+                    add(11 to AxisOffset(itemSize, itemSize * 2))
                 }
-                add(6 to AxisOffset(0f, 0f))
-                add(7 to AxisOffset(itemSize, 0f))
-                if (item8Offset.mainAxis > -itemSize) {
-                    add(8 to item8Offset)
-                } else {
-                    rule.onNodeWithTag("8").assertIsNotDisplayed()
-                }
-                add(9 to AxisOffset(itemSize, itemSize))
-                add(10 to AxisOffset(0f, itemSize * 2))
-                add(11 to AxisOffset(itemSize, itemSize * 2))
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -564,16 +488,10 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     fun moveFirstItemToEndCausingAllItemsToAnimate_withSpacing() {
         var list by mutableStateOf(listOf(0, 1, 2, 3, 4, 5, 6, 7))
         rule.setContent {
-            LazyStaggeredGrid(2, spacing = spacingDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
+            LazyStaggeredGrid(2, spacing = spacingDp) { items(list, key = { it }) { Item(it) } }
         }
 
-        rule.runOnUiThread {
-            list = listOf(1, 2, 3, 4, 5, 6, 7, 0)
-        }
+        rule.runOnUiThread { list = listOf(1, 2, 3, 4, 5, 6, 7, 0) }
 
         onAnimationFrame { fraction ->
             val increasingX = fraction * itemSize
@@ -581,22 +499,21 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             assertPositions(
                 0 to AxisOffset(increasingX, itemSizePlusSpacing * 3 * fraction),
                 1 to AxisOffset(decreasingX, 0f),
-                2 to AxisOffset(
-                    increasingX,
-                    itemSizePlusSpacing - itemSizePlusSpacing * fraction
-                ),
+                2 to AxisOffset(increasingX, itemSizePlusSpacing - itemSizePlusSpacing * fraction),
                 3 to AxisOffset(decreasingX, itemSizePlusSpacing),
-                4 to AxisOffset(
-                    increasingX,
-                    itemSizePlusSpacing * 2 - itemSizePlusSpacing * fraction
-                ),
+                4 to
+                    AxisOffset(
+                        increasingX,
+                        itemSizePlusSpacing * 2 - itemSizePlusSpacing * fraction,
+                    ),
                 5 to AxisOffset(decreasingX, itemSizePlusSpacing * 2),
-                6 to AxisOffset(
-                    increasingX,
-                    itemSizePlusSpacing * 3 - itemSizePlusSpacing * fraction
-                ),
+                6 to
+                    AxisOffset(
+                        increasingX,
+                        itemSizePlusSpacing * 3 - itemSizePlusSpacing * fraction,
+                    ),
                 7 to AxisOffset(decreasingX, itemSizePlusSpacing * 3),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -607,14 +524,8 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val gridSize = itemSize * 3 + spacing * 2
         val gridSizeDp = with(rule.density) { gridSize.toDp() }
         rule.setContent {
-            LazyStaggeredGrid(
-                2,
-                maxSize = gridSizeDp,
-                spacing = spacingDp
-            ) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+            LazyStaggeredGrid(2, maxSize = gridSizeDp, spacing = spacingDp) {
+                items(list, key = { it }) { Item(it) }
             }
         }
 
@@ -624,35 +535,33 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             2 to AxisOffset(0f, itemSizePlusSpacing),
             3 to AxisOffset(itemSize, itemSizePlusSpacing),
             4 to AxisOffset(0f, itemSizePlusSpacing * 2),
-            5 to AxisOffset(itemSize, itemSizePlusSpacing * 2)
+            5 to AxisOffset(itemSize, itemSizePlusSpacing * 2),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 8, 2, 3, 4, 5, 6, 7, 1, 9)
-        }
+        rule.runOnUiThread { list = listOf(0, 8, 2, 3, 4, 5, 6, 7, 1, 9) }
 
+        val afterLastVisibleItem = itemSize * 3 + spacing * 3
         onAnimationFrame { fraction ->
             // item 1 moves to and item 8 moves from `gridSize`, right after the end edge
-            val item1Offset = AxisOffset(itemSize, gridSize * fraction)
-            val item8Offset = AxisOffset(itemSize, gridSize - gridSize * fraction)
+            val item1Offset = AxisOffset(itemSize, afterLastVisibleItem * fraction)
+            val item8Offset =
+                AxisOffset(itemSize, afterLastVisibleItem - afterLastVisibleItem * fraction)
             val screenSize = itemSize * 3 + spacing * 2
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                if (item1Offset.mainAxis < screenSize) {
-                    add(1 to item1Offset)
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    if (item1Offset.mainAxis < screenSize) {
+                        add(1 to item1Offset)
+                    }
+                    add(2 to AxisOffset(0f, itemSizePlusSpacing))
+                    add(3 to AxisOffset(itemSize, itemSizePlusSpacing))
+                    add(4 to AxisOffset(0f, itemSizePlusSpacing * 2))
+                    add(5 to AxisOffset(itemSize, itemSizePlusSpacing * 2))
+                    if (item8Offset.mainAxis < screenSize) {
+                        add(8 to item8Offset)
+                    }
                 }
-                add(2 to AxisOffset(0f, itemSizePlusSpacing))
-                add(3 to AxisOffset(itemSize, itemSizePlusSpacing))
-                add(4 to AxisOffset(0f, itemSizePlusSpacing * 2))
-                add(5 to AxisOffset(itemSize, itemSizePlusSpacing * 2))
-                if (item8Offset.mainAxis < screenSize) {
-                    add(8 to item8Offset)
-                }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -664,11 +573,9 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 2,
                 maxSize = itemSizeDp * 3 + spacingDp * 2,
                 spacing = spacingDp,
-                startIndex = 4
+                startIndex = 4,
             ) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
@@ -678,42 +585,33 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             6 to AxisOffset(0f, itemSizePlusSpacing),
             7 to AxisOffset(itemSize, itemSizePlusSpacing),
             8 to AxisOffset(0f, itemSizePlusSpacing * 2),
-            9 to AxisOffset(itemSize, itemSizePlusSpacing * 2)
+            9 to AxisOffset(itemSize, itemSizePlusSpacing * 2),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 8, 2, 3, 4, 5, 6, 7, 1, 9, 10, 11)
-        }
+        rule.runOnUiThread { list = listOf(0, 8, 2, 3, 4, 5, 6, 7, 1, 9, 10, 11) }
 
         onAnimationFrame { fraction ->
             // item 8 moves to and item 1 moves from `-itemSizePlusSpacing`,
             // right before the start edge
-            val item1Offset = AxisOffset(
-                0f,
-                -itemSizePlusSpacing + (itemSizePlusSpacing * 3) * fraction
-            )
-            val item8Offset = AxisOffset(
-                0f,
-                itemSizePlusSpacing * 2 -
-                    (itemSizePlusSpacing * 3) * fraction
-            )
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                if (item1Offset.mainAxis > -itemSize) {
-                    add(1 to item1Offset)
+            val item1Offset =
+                AxisOffset(0f, -itemSizePlusSpacing + (itemSizePlusSpacing * 3) * fraction)
+            val item8Offset =
+                AxisOffset(0f, itemSizePlusSpacing * 2 - (itemSizePlusSpacing * 3) * fraction)
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    if (item1Offset.mainAxis > -itemSize) {
+                        add(1 to item1Offset)
+                    }
+                    add(4 to AxisOffset(0f, 0f))
+                    add(5 to AxisOffset(itemSize, 0f))
+                    add(6 to AxisOffset(0f, itemSizePlusSpacing))
+                    add(7 to AxisOffset(itemSize, itemSizePlusSpacing))
+                    if (item8Offset.mainAxis > -itemSize) {
+                        add(8 to item8Offset)
+                    }
+                    add(9 to AxisOffset(itemSize, itemSizePlusSpacing * 2))
                 }
-                add(4 to AxisOffset(0f, 0f))
-                add(5 to AxisOffset(itemSize, 0f))
-                add(6 to AxisOffset(0f, itemSizePlusSpacing))
-                add(7 to AxisOffset(itemSize, itemSizePlusSpacing))
-                if (item8Offset.mainAxis > -itemSize) {
-                    add(8 to item8Offset)
-                }
-                add(9 to AxisOffset(itemSize, itemSizePlusSpacing * 2))
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -723,13 +621,15 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         rule.setContent {
             LazyStaggeredGrid(2, maxSize = itemSize2Dp * 2, startIndex = 6) {
                 items(list, key = { it }) {
-                    val height = when (it) {
-                        2 -> itemSize3Dp
-                        6, 9 -> itemSize2Dp
-                        7 -> itemSize3Dp
-                        8 -> itemSizeDp
-                        else -> itemSizeDp
-                    }
+                    val height =
+                        when (it) {
+                            2 -> itemSize3Dp
+                            6,
+                            9 -> itemSize2Dp
+                            7 -> itemSize3Dp
+                            8 -> itemSizeDp
+                            else -> itemSizeDp
+                        }
                     Item(it, size = height)
                 }
             }
@@ -743,7 +643,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             6 to AxisOffset(0f, 0f),
             7 to AxisOffset(itemSize, 0f),
             8 to AxisOffset(itemSize, item7Size),
-            9 to AxisOffset(0f, item6Size)
+            9 to AxisOffset(0f, item6Size),
         )
 
         rule.runOnUiThread {
@@ -757,29 +657,26 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             rule.onNodeWithTag("5").assertDoesNotExist()
             // item 2 moves from and item 8 moves to `0 - item size`, right before the start edge
             val startItem2Offset = -item2Size
-            val item2Offset =
-                startItem2Offset + (item7Size - startItem2Offset) * fraction
+            val item2Offset = startItem2Offset + (item7Size - startItem2Offset) * fraction
             val endItem8Offset = -item8Size
             val item8Offset = item7Size - (item7Size - endItem8Offset) * fraction
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                if (item8Offset > -item8Size) {
-                    add(8 to AxisOffset(itemSize, item8Offset))
-                } else {
-                    rule.onNodeWithTag("8").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    if (item8Offset > -item8Size) {
+                        add(8 to AxisOffset(itemSize, item8Offset))
+                    } else {
+                        rule.onNodeWithTag("8").assertIsNotDisplayed()
+                    }
+                    add(6 to AxisOffset(0f, 0f))
+                    add(7 to AxisOffset(itemSize, 0f))
+                    if (item2Offset > -item2Size) {
+                        add(2 to AxisOffset(itemSize, item2Offset))
+                    } else {
+                        rule.onNodeWithTag("2").assertIsNotDisplayed()
+                    }
+                    add(9 to AxisOffset(0f, item6Size))
                 }
-                add(6 to AxisOffset(0f, 0f))
-                add(7 to AxisOffset(itemSize, 0f))
-                if (item2Offset > -item2Size) {
-                    add(2 to AxisOffset(itemSize, item2Offset))
-                } else {
-                    rule.onNodeWithTag("2").assertIsNotDisplayed()
-                }
-                add(9 to AxisOffset(0f, item6Size))
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -791,13 +688,15 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         rule.setContent {
             LazyStaggeredGrid(2, maxSize = gridSizeDp) {
                 items(list, key = { it }) {
-                    val height = when (it) {
-                        0, 3 -> itemSize2Dp
-                        1 -> itemSize3Dp
-                        2 -> itemSizeDp
-                        8 -> itemSize3Dp
-                        else -> itemSizeDp
-                    }
+                    val height =
+                        when (it) {
+                            0,
+                            3 -> itemSize2Dp
+                            1 -> itemSize3Dp
+                            2 -> itemSizeDp
+                            8 -> itemSize3Dp
+                            else -> itemSizeDp
+                        }
                     Item(it, size = height)
                 }
             }
@@ -809,40 +708,34 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             0 to AxisOffset(0f, 0f),
             1 to AxisOffset(itemSize, 0f),
             2 to AxisOffset(itemSize, item1Size),
-            3 to AxisOffset(0f, item0Size)
+            3 to AxisOffset(0f, item0Size),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 1, 8, 3, 4, 5, 6, 7, 2, 9, 10, 11)
-        }
-
+        rule.runOnUiThread { list = listOf(0, 1, 8, 3, 4, 5, 6, 7, 2, 9, 10, 11) }
+        val afterLastVisibleItem = itemSize2 * 3
         onAnimationFrame { fraction ->
             // item 8 moves from and item 2 moves to `gridSize`, right after the end edge
-            val startItem8Offset = gridSize
-            val endItem2Offset = gridSize
-            val item2Offset =
-                item1Size + (endItem2Offset - item1Size) * fraction
-            val item8Offset =
-                startItem8Offset - (startItem8Offset - item1Size) * fraction
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                add(1 to AxisOffset(itemSize, 0f))
-                if (item8Offset < gridSize) {
-                    add(8 to AxisOffset(itemSize, item8Offset))
-                } else {
-                    rule.onNodeWithTag("8").assertIsNotDisplayed()
+            val startItem8Offset = afterLastVisibleItem
+            val endItem2Offset = afterLastVisibleItem
+            val item2Offset = item1Size + (endItem2Offset - item1Size) * fraction
+            val item8Offset = startItem8Offset - (startItem8Offset - item1Size) * fraction
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    add(1 to AxisOffset(itemSize, 0f))
+                    if (item8Offset < afterLastVisibleItem) {
+                        add(8 to AxisOffset(itemSize, item8Offset))
+                    } else {
+                        rule.onNodeWithTag("8").assertIsNotDisplayed()
+                    }
+                    add(3 to AxisOffset(0f, item0Size))
+                    if (item2Offset < afterLastVisibleItem) {
+                        add(2 to AxisOffset(itemSize, item2Offset))
+                    } else {
+                        rule.onNodeWithTag("2").assertIsNotDisplayed()
+                    }
                 }
-                add(3 to AxisOffset(0f, item0Size))
-                if (item2Offset < gridSize) {
-                    add(2 to AxisOffset(itemSize, item2Offset))
-                } else {
-                    rule.onNodeWithTag("2").assertIsNotDisplayed()
-                }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -851,14 +744,11 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         var list by mutableStateOf(listOf(0, 1, 2, 3, 4))
         val rawStartPadding = 8f
         val rawEndPadding = 12f
-        val (startPaddingDp, endPaddingDp) = with(rule.density) {
-            rawStartPadding.toDp() to rawEndPadding.toDp()
-        }
+        val (startPaddingDp, endPaddingDp) =
+            with(rule.density) { rawStartPadding.toDp() to rawEndPadding.toDp() }
         rule.setContent {
             LazyStaggeredGrid(1, startPadding = startPaddingDp, endPadding = endPaddingDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
@@ -871,30 +761,16 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             4 to AxisOffset(0f, startPadding + itemSize * 4),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 2, 3, 4, 1)
-        }
+        rule.runOnUiThread { list = listOf(0, 2, 3, 4, 1) }
 
         onAnimationFrame { fraction ->
             assertPositions(
                 0 to AxisOffset(0f, startPadding),
-                1 to AxisOffset(
-                    0f,
-                    startPadding + itemSize + itemSize * 3 * fraction
-                ),
-                2 to AxisOffset(
-                    0f,
-                    startPadding + itemSize * 2 - itemSize * fraction
-                ),
-                3 to AxisOffset(
-                    0f,
-                    startPadding + itemSize * 3 - itemSize * fraction
-                ),
-                4 to AxisOffset(
-                    0f,
-                    startPadding + itemSize * 4 - itemSize * fraction
-                ),
-                fraction = fraction
+                1 to AxisOffset(0f, startPadding + itemSize + itemSize * 3 * fraction),
+                2 to AxisOffset(0f, startPadding + itemSize * 2 - itemSize * fraction),
+                3 to AxisOffset(0f, startPadding + itemSize * 3 - itemSize * fraction),
+                4 to AxisOffset(0f, startPadding + itemSize * 4 - itemSize * fraction),
+                fraction = fraction,
             )
         }
     }
@@ -905,22 +781,11 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
 
         var measurePasses = 0
         rule.setContent {
-            LazyStaggeredGrid(1) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
-            LaunchedEffect(Unit) {
-                snapshotFlow { state.layoutInfo }
-                    .collect {
-                        measurePasses++
-                    }
-            }
+            LazyStaggeredGrid(1) { items(list, key = { it }) { Item(it) } }
+            LaunchedEffect(Unit) { snapshotFlow { state.layoutInfo }.collect { measurePasses++ } }
         }
 
-        rule.runOnUiThread {
-            list = listOf(4, 1, 2, 3, 0)
-        }
+        rule.runOnUiThread { list = listOf(4, 1, 2, 3, 0) }
 
         var startMeasurePasses = Int.MIN_VALUE
         onAnimationFrame { fraction ->
@@ -939,17 +804,11 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     fun noAnimationWhenScrolledToOtherPosition() {
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = itemSizeDp * 3) {
-                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) {
-                    Item(it)
-                }
+                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollToItem(0, (itemSize / 2).roundToInt())
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollToItem(0, (itemSize / 2).roundToInt()) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -957,7 +816,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 1 to AxisOffset(0f, itemSize / 2),
                 2 to AxisOffset(0f, itemSize * 3 / 2),
                 3 to AxisOffset(0f, itemSize * 5 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -966,17 +825,11 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     fun noAnimationWhenScrollForwardBySmallOffset() {
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = itemSizeDp * 3) {
-                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) {
-                    Item(it)
-                }
+                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(itemSize / 2f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(itemSize / 2f) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -984,7 +837,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 1 to AxisOffset(0f, itemSize / 2),
                 2 to AxisOffset(0f, itemSize * 3 / 2),
                 3 to AxisOffset(0f, itemSize * 5 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -993,17 +846,11 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     fun noAnimationWhenScrollBackwardBySmallOffset() {
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = itemSizeDp * 3, startIndex = 2) {
-                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) {
-                    Item(it)
-                }
+                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(-itemSize / 2f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(-itemSize / 2f) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -1011,7 +858,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 2 to AxisOffset(0f, itemSize / 2),
                 3 to AxisOffset(0f, itemSize * 3 / 2),
                 4 to AxisOffset(0f, itemSize * 5 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1020,17 +867,11 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     fun noAnimationWhenScrollForwardByLargeOffset() {
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = itemSizeDp * 3) {
-                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) {
-                    Item(it)
-                }
+                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(itemSize * 2.5f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(itemSize * 2.5f) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -1038,7 +879,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 3 to AxisOffset(0f, itemSize / 2),
                 4 to AxisOffset(0f, itemSize * 3 / 2),
                 5 to AxisOffset(0f, itemSize * 5 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1047,17 +888,11 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     fun noAnimationWhenScrollBackwardByLargeOffset() {
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = itemSizeDp * 3, startIndex = 3) {
-                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) {
-                    Item(it)
-                }
+                items(listOf(0, 1, 2, 3, 4, 5, 6, 7), key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(-itemSize * 2.5f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(-itemSize * 2.5f) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -1065,7 +900,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 1 to AxisOffset(0f, itemSize / 2),
                 2 to AxisOffset(0f, itemSize * 3 / 2),
                 3 to AxisOffset(0f, itemSize * 5 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1080,11 +915,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             }
         }
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(itemSize + itemSize2 + itemSize / 2f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(itemSize + itemSize2 + itemSize / 2f) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -1092,7 +923,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 3 to AxisOffset(0f, itemSize / 2),
                 4 to AxisOffset(0f, itemSize2 + itemSize / 2),
                 5 to AxisOffset(0f, itemSize2 + itemSize * 3 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1108,9 +939,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         }
 
         rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(-(itemSize + itemSize2 + itemSize / 2f))
-            }
+            runBlocking { state.scrollBy(-(itemSize + itemSize2 + itemSize / 2f)) }
         }
 
         onAnimationFrame { fraction ->
@@ -1119,7 +948,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 1 to AxisOffset(0f, itemSize / 2),
                 2 to AxisOffset(0f, itemSize2 + itemSize / 2),
                 3 to AxisOffset(0f, itemSize2 + itemSize * 3 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1128,9 +957,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     fun noAnimationWhenScrollForwardByLargeOffset_multipleCells() {
         rule.setContent {
             LazyStaggeredGrid(3, maxSize = itemSizeDp * 2) {
-                items(List(20) { it }, key = { it }) {
-                    Item(it)
-                }
+                items(List(20) { it }, key = { it }) { Item(it) }
             }
         }
 
@@ -1140,14 +967,10 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             2 to AxisOffset(itemSize * 2, 0f),
             3 to AxisOffset(0f, itemSize),
             4 to AxisOffset(itemSize, itemSize),
-            5 to AxisOffset(itemSize * 2, itemSize)
+            5 to AxisOffset(itemSize * 2, itemSize),
         )
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(itemSize * 2.5f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(itemSize * 2.5f) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -1160,7 +983,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 12 to AxisOffset(0f, itemSize * 3 / 2),
                 13 to AxisOffset(itemSize, itemSize * 3 / 2),
                 14 to AxisOffset(itemSize * 2, itemSize * 3 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1169,9 +992,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     fun noAnimationWhenScrollBackwardByLargeOffset_multipleCells() {
         rule.setContent {
             LazyStaggeredGrid(3, maxSize = itemSizeDp * 2, startIndex = 9) {
-                items(List(20) { it }, key = { it }) {
-                    Item(it)
-                }
+                items(List(20) { it }, key = { it }) { Item(it) }
             }
         }
 
@@ -1181,14 +1002,10 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             11 to AxisOffset(itemSize * 2, 0f),
             12 to AxisOffset(0f, itemSize),
             13 to AxisOffset(itemSize, itemSize),
-            14 to AxisOffset(itemSize * 2, itemSize)
+            14 to AxisOffset(itemSize * 2, itemSize),
         )
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(-itemSize * 2.5f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(-itemSize * 2.5f) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -1201,7 +1018,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 6 to AxisOffset(0f, itemSize * 3 / 2),
                 7 to AxisOffset(itemSize, itemSize * 3 / 2),
                 8 to AxisOffset(itemSize * 2, itemSize * 3 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1219,7 +1036,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                         } else {
                             StaggeredGridItemSpan.SingleLane
                         }
-                    }
+                    },
                 ) {
                     Item(it)
                 }
@@ -1233,11 +1050,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             3 to AxisOffset(itemSize, itemSize),
         )
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(itemSize * 2.5f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(itemSize * 2.5f) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -1246,7 +1059,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 6 to AxisOffset(0f, itemSize / 2), // 3 spans
                 7 to AxisOffset(0f, itemSize * 3 / 2),
                 8 to AxisOffset(itemSize, itemSize * 3 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1264,18 +1077,14 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                         } else {
                             StaggeredGridItemSpan.SingleLane
                         }
-                    }
+                    },
                 ) {
                     Item(it)
                 }
             }
         }
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(itemSize * 3f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(itemSize * 3f) } }
 
         assertPositions(
             5 to AxisOffset(0f, 0f),
@@ -1284,11 +1093,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             8 to AxisOffset(itemSize, itemSize),
         )
 
-        rule.runOnUiThread {
-            runBlocking {
-                state.scrollBy(-itemSize * 2.5f)
-            }
-        }
+        rule.runOnUiThread { runBlocking { state.scrollBy(-itemSize * 2.5f) } }
 
         onAnimationFrame { fraction ->
             assertPositions(
@@ -1297,7 +1102,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                 2 to AxisOffset(0f, itemSize / 2), // 3 spans
                 3 to AxisOffset(0f, itemSize * 3 / 2),
                 4 to AxisOffset(itemSize, itemSize * 3 / 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1308,37 +1113,26 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val gridSize = itemSize * 2
         val gridSizeDp = with(rule.density) { gridSize.toDp() }
         rule.setContent {
-            LazyStaggeredGrid(1, maxSize = gridSizeDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
+            LazyStaggeredGrid(1, maxSize = gridSizeDp) { items(list, key = { it }) { Item(it) } }
         }
 
-        assertLayoutInfoPositions(
-            0 to AxisOffset(0f, 0f),
-            1 to AxisOffset(0f, itemSize),
-        )
+        assertLayoutInfoPositions(0 to AxisOffset(0f, 0f), 1 to AxisOffset(0f, itemSize))
 
-        rule.runOnUiThread {
-            list = listOf(0, 6)
-        }
+        rule.runOnUiThread { list = listOf(0, 6) }
 
         onAnimationFrame { fraction ->
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                val item6MainAxis = gridSize - (gridSize - itemSize) * fraction
-                if (item6MainAxis < gridSize) {
-                    add(6 to AxisOffset(0f, item6MainAxis))
-                } else {
-                    rule.onNodeWithTag("6").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    val item6MainAxis = gridSize - (gridSize - itemSize) * fraction
+                    if (item6MainAxis < gridSize) {
+                        add(6 to AxisOffset(0f, item6MainAxis))
+                    } else {
+                        rule.onNodeWithTag("6").assertIsNotDisplayed()
+                    }
                 }
-            }
 
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -1349,13 +1143,17 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val gridSizeDp = with(rule.density) { gridSize.toDp() }
         rule.setContent {
             LazyStaggeredGrid(2, maxSize = gridSizeDp) {
-                items(list, key = { it }, span = {
-                    if (it == 6) {
-                        StaggeredGridItemSpan.FullLine
-                    } else {
-                        StaggeredGridItemSpan.SingleLane
-                    }
-                }) {
+                items(
+                    list,
+                    key = { it },
+                    span = {
+                        if (it == 6) {
+                            StaggeredGridItemSpan.FullLine
+                        } else {
+                            StaggeredGridItemSpan.SingleLane
+                        }
+                    },
+                ) {
                     Item(it)
                 }
             }
@@ -1365,40 +1163,32 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             0 to AxisOffset(0f, 0f),
             1 to AxisOffset(itemSize, 0f),
             2 to AxisOffset(0f, itemSize),
-            3 to AxisOffset(itemSize, itemSize)
+            3 to AxisOffset(itemSize, itemSize),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 4, 6)
-        }
+        rule.runOnUiThread { list = listOf(0, 4, 6) }
 
         onAnimationFrame { fraction ->
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                // item 4 starts at gridSize
-                val item4MainAxis = gridSize - gridSize * fraction
-                if (item4MainAxis < gridSize) {
-                    add(
-                        4 to AxisOffset(itemSize, item4MainAxis)
-                    )
-                } else {
-                    rule.onNodeWithTag("4").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    // item 4 starts at gridSize
+                    val item4MainAxis = gridSize - gridSize * fraction
+                    if (item4MainAxis < gridSize) {
+                        add(4 to AxisOffset(itemSize, item4MainAxis))
+                    } else {
+                        rule.onNodeWithTag("4").assertIsNotDisplayed()
+                    }
+                    // item 6 starts below item 4 (gridSize + itemSize for the size of 4th item)
+                    val item6MainAxis = gridSize + itemSize - gridSize * fraction
+                    if (item6MainAxis < gridSize) {
+                        add(6 to AxisOffset(0f, item6MainAxis))
+                    } else {
+                        rule.onNodeWithTag("6").assertIsNotDisplayed()
+                    }
                 }
-                // item 6 starts below item 4 (gridSize + itemSize for the size of 4th item)
-                val item6MainAxis = gridSize + itemSize - gridSize * fraction
-                if (item6MainAxis < gridSize) {
-                    add(
-                        6 to AxisOffset(0f, item6MainAxis)
-                    )
-                } else {
-                    rule.onNodeWithTag("6").assertIsNotDisplayed()
-                }
-            }
 
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -1409,31 +1199,25 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val gridSizeDp = with(rule.density) { gridSize.toDp() }
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = gridSizeDp) {
-                items(list, key = { it }) {
-                    Item(it, animSpec = if (it == 1) AnimSpec else null)
-                }
+                items(list, key = { it }) { Item(it, animSpec = if (it == 1) AnimSpec else null) }
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(0, 2, 3, 1)
-        }
+        rule.runOnUiThread { list = listOf(0, 2, 3, 1) }
 
         onAnimationFrame { fraction ->
             // item 1 moves to `gridSize`
             val item1Offset = itemSize + (gridSize - itemSize) * fraction
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                if (item1Offset < gridSize) {
-                    add(1 to AxisOffset(0f, item1Offset))
-                } else {
-                    rule.onNodeWithTag("1").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    if (item1Offset < gridSize) {
+                        add(1 to AxisOffset(0f, item1Offset))
+                    } else {
+                        rule.onNodeWithTag("1").assertIsNotDisplayed()
+                    }
                 }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -1442,21 +1226,17 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         var list by mutableStateOf(listOf(0, 1, 2, 3, 4, 5))
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = itemSizeDp * 3f, startIndex = 3) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
         assertPositions(
             3 to AxisOffset(0f, 0f),
             4 to AxisOffset(0f, itemSize),
-            5 to AxisOffset(0f, itemSize * 2)
+            5 to AxisOffset(0f, itemSize * 2),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 4, 5, 3, 1, 2)
-        }
+        rule.runOnUiThread { list = listOf(0, 4, 5, 3, 1, 2) }
 
         onAnimationFrame { fraction ->
             // item 2 moves from and item 5 moves to `-itemSize`, right before the start edge
@@ -1465,33 +1245,31 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             // item 1 moves from and item 4 moves to `-itemSize * 2`, right before item 2
             val item1Offset = -itemSize * 2 + itemSize * 3 * fraction
             val item4Offset = itemSize - itemSize * 3 * fraction
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                if (item1Offset > -itemSize) {
-                    add(1 to AxisOffset(0f, item1Offset))
-                } else {
-                    rule.onNodeWithTag("1").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    if (item1Offset > -itemSize) {
+                        add(1 to AxisOffset(0f, item1Offset))
+                    } else {
+                        rule.onNodeWithTag("1").assertIsNotDisplayed()
+                    }
+                    if (item2Offset > -itemSize) {
+                        add(2 to AxisOffset(0f, item2Offset))
+                    } else {
+                        rule.onNodeWithTag("2").assertIsNotDisplayed()
+                    }
+                    add(3 to AxisOffset(0f, 0f))
+                    if (item4Offset > -itemSize) {
+                        add(4 to AxisOffset(0f, item4Offset))
+                    } else {
+                        rule.onNodeWithTag("4").assertIsNotDisplayed()
+                    }
+                    if (item5Offset > -itemSize) {
+                        add(5 to AxisOffset(0f, item5Offset))
+                    } else {
+                        rule.onNodeWithTag("5").assertIsNotDisplayed()
+                    }
                 }
-                if (item2Offset > -itemSize) {
-                    add(2 to AxisOffset(0f, item2Offset))
-                } else {
-                    rule.onNodeWithTag("2").assertIsNotDisplayed()
-                }
-                add(3 to AxisOffset(0f, 0f))
-                if (item4Offset > -itemSize) {
-                    add(4 to AxisOffset(0f, item4Offset))
-                } else {
-                    rule.onNodeWithTag("4").assertIsNotDisplayed()
-                }
-                if (item5Offset > -itemSize) {
-                    add(5 to AxisOffset(0f, item5Offset))
-                } else {
-                    rule.onNodeWithTag("5").assertIsNotDisplayed()
-                }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -1500,21 +1278,17 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         var list by mutableStateOf(listOf(0, 1, 2, 3, 4, 5))
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = itemSizeDp * 3f, startIndex = 3) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
         assertPositions(
             3 to AxisOffset(0f, 0f),
             4 to AxisOffset(0f, itemSize),
-            5 to AxisOffset(0f, itemSize * 2)
+            5 to AxisOffset(0f, itemSize * 2),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 5, 4, 3, 2, 1)
-        }
+        rule.runOnUiThread { list = listOf(0, 5, 4, 3, 2, 1) }
 
         onAnimationFrame { fraction ->
             // item 2 moves from and item 4 moves to `-itemSize`, right before the start edge
@@ -1523,33 +1297,31 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             // item 1 moves from and item 5 moves to `-itemSize * 2`, right before item 2
             val item1Offset = -itemSize * 2 + itemSize * 4 * fraction
             val item5Offset = itemSize * 2 - itemSize * 4 * fraction
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                if (item1Offset > -itemSize) {
-                    add(1 to AxisOffset(0f, item1Offset))
-                } else {
-                    rule.onNodeWithTag("1").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    if (item1Offset > -itemSize) {
+                        add(1 to AxisOffset(0f, item1Offset))
+                    } else {
+                        rule.onNodeWithTag("1").assertIsNotDisplayed()
+                    }
+                    if (item2Offset > -itemSize) {
+                        add(2 to AxisOffset(0f, item2Offset))
+                    } else {
+                        rule.onNodeWithTag("2").assertIsNotDisplayed()
+                    }
+                    add(3 to AxisOffset(0f, 0f))
+                    if (item4Offset > -itemSize) {
+                        add(4 to AxisOffset(0f, item4Offset))
+                    } else {
+                        rule.onNodeWithTag("4").assertIsNotDisplayed()
+                    }
+                    if (item5Offset > -itemSize) {
+                        add(5 to AxisOffset(0f, item5Offset))
+                    } else {
+                        rule.onNodeWithTag("5").assertIsNotDisplayed()
+                    }
                 }
-                if (item2Offset > -itemSize) {
-                    add(2 to AxisOffset(0f, item2Offset))
-                } else {
-                    rule.onNodeWithTag("2").assertIsNotDisplayed()
-                }
-                add(3 to AxisOffset(0f, 0f))
-                if (item4Offset > -itemSize) {
-                    add(4 to AxisOffset(0f, item4Offset))
-                } else {
-                    rule.onNodeWithTag("4").assertIsNotDisplayed()
-                }
-                if (item5Offset > -itemSize) {
-                    add(5 to AxisOffset(0f, item5Offset))
-                } else {
-                    rule.onNodeWithTag("5").assertIsNotDisplayed()
-                }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -1558,9 +1330,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         var list by mutableStateOf(listOf(0, 1, 2, 3, 4, 5))
         rule.setContent {
             LazyStaggeredGrid(2, maxSize = itemSizeDp * 2f, startIndex = 2) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
@@ -1568,40 +1338,36 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             2 to AxisOffset(0f, 0f),
             3 to AxisOffset(itemSize, 0f),
             4 to AxisOffset(0f, itemSize),
-            5 to AxisOffset(itemSize, itemSize)
+            5 to AxisOffset(itemSize, itemSize),
         )
 
-        rule.runOnUiThread {
-            list = listOf(4, 5, 2, 3, 0, 1)
-        }
+        rule.runOnUiThread { list = listOf(4, 5, 2, 3, 0, 1) }
 
         onAnimationFrame { fraction ->
             // items 0 and 1 moves from and items 4 and 5 moves to `-itemSize`,
             // right before the start edge
             val items0and1Offset = -itemSize + itemSize * 2 * fraction
             val items4and5Offset = itemSize - itemSize * 2 * fraction
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                if (items0and1Offset > -itemSize) {
-                    add(0 to AxisOffset(0f, items0and1Offset))
-                    add(1 to AxisOffset(itemSize, items0and1Offset))
-                } else {
-                    rule.onNodeWithTag("0").assertIsNotDisplayed()
-                    rule.onNodeWithTag("1").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    if (items0and1Offset > -itemSize) {
+                        add(0 to AxisOffset(0f, items0and1Offset))
+                        add(1 to AxisOffset(itemSize, items0and1Offset))
+                    } else {
+                        rule.onNodeWithTag("0").assertIsNotDisplayed()
+                        rule.onNodeWithTag("1").assertIsNotDisplayed()
+                    }
+                    add(2 to AxisOffset(0f, 0f))
+                    add(3 to AxisOffset(itemSize, 0f))
+                    if (items4and5Offset > -itemSize) {
+                        add(4 to AxisOffset(0f, items4and5Offset))
+                        add(5 to AxisOffset(itemSize, items4and5Offset))
+                    } else {
+                        rule.onNodeWithTag("4").assertIsNotDisplayed()
+                        rule.onNodeWithTag("5").assertIsNotDisplayed()
+                    }
                 }
-                add(2 to AxisOffset(0f, 0f))
-                add(3 to AxisOffset(itemSize, 0f))
-                if (items4and5Offset > -itemSize) {
-                    add(4 to AxisOffset(0f, items4and5Offset))
-                    add(5 to AxisOffset(itemSize, items4and5Offset))
-                } else {
-                    rule.onNodeWithTag("4").assertIsNotDisplayed()
-                    rule.onNodeWithTag("5").assertIsNotDisplayed()
-                }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -1611,22 +1377,16 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val gridSize = itemSize * 3
         val gridSizeDp = with(rule.density) { gridSize.toDp() }
         rule.setContent {
-            LazyStaggeredGrid(1, maxSize = gridSizeDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
+            LazyStaggeredGrid(1, maxSize = gridSizeDp) { items(list, key = { it }) { Item(it) } }
         }
 
         assertPositions(
             0 to AxisOffset(0f, 0f),
             1 to AxisOffset(0f, itemSize),
-            2 to AxisOffset(0f, itemSize * 2)
+            2 to AxisOffset(0f, itemSize * 2),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 3, 4, 1, 2)
-        }
+        rule.runOnUiThread { list = listOf(0, 3, 4, 1, 2) }
 
         onAnimationFrame { fraction ->
             // item 1 moves to and item 3 moves from `gridSize`, right after the end edge
@@ -1635,33 +1395,31 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             // item 2 moves to and item 4 moves from `gridSize + itemSize`, right after item 4
             val item2Offset = itemSize * 2 + (gridSize - itemSize) * fraction
             val item4Offset = gridSize + itemSize - (gridSize - itemSize) * fraction
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                if (item1Offset < gridSize) {
-                    add(1 to AxisOffset(0f, item1Offset))
-                } else {
-                    rule.onNodeWithTag("1").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    if (item1Offset < gridSize) {
+                        add(1 to AxisOffset(0f, item1Offset))
+                    } else {
+                        rule.onNodeWithTag("1").assertIsNotDisplayed()
+                    }
+                    if (item2Offset < gridSize) {
+                        add(2 to AxisOffset(0f, item2Offset))
+                    } else {
+                        rule.onNodeWithTag("2").assertIsNotDisplayed()
+                    }
+                    if (item3Offset < gridSize) {
+                        add(3 to AxisOffset(0f, item3Offset))
+                    } else {
+                        rule.onNodeWithTag("3").assertIsNotDisplayed()
+                    }
+                    if (item4Offset < gridSize) {
+                        add(4 to AxisOffset(0f, item4Offset))
+                    } else {
+                        rule.onNodeWithTag("4").assertIsNotDisplayed()
+                    }
                 }
-                if (item2Offset < gridSize) {
-                    add(2 to AxisOffset(0f, item2Offset))
-                } else {
-                    rule.onNodeWithTag("2").assertIsNotDisplayed()
-                }
-                if (item3Offset < gridSize) {
-                    add(3 to AxisOffset(0f, item3Offset))
-                } else {
-                    rule.onNodeWithTag("3").assertIsNotDisplayed()
-                }
-                if (item4Offset < gridSize) {
-                    add(4 to AxisOffset(0f, item4Offset))
-                } else {
-                    rule.onNodeWithTag("4").assertIsNotDisplayed()
-                }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -1671,22 +1429,16 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val gridSize = itemSize * 3
         val gridSizeDp = with(rule.density) { gridSize.toDp() }
         rule.setContent {
-            LazyStaggeredGrid(1, maxSize = gridSizeDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
+            LazyStaggeredGrid(1, maxSize = gridSizeDp) { items(list, key = { it }) { Item(it) } }
         }
 
         assertPositions(
             0 to AxisOffset(0f, 0f),
             1 to AxisOffset(0f, itemSize),
-            2 to AxisOffset(0f, itemSize * 2)
+            2 to AxisOffset(0f, itemSize * 2),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 4, 3, 2, 1)
-        }
+        rule.runOnUiThread { list = listOf(0, 4, 3, 2, 1) }
 
         onAnimationFrame { fraction ->
             // item 2 moves to and item 3 moves from `gridSize`, right after the end edge
@@ -1694,35 +1446,32 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             val item3Offset = gridSize - (gridSize - itemSize * 2) * fraction
             // item 1 moves to and item 4 moves from `gridSize + itemSize`, right after item 4
             val item1Offset = itemSize + (gridSize + itemSize - itemSize) * fraction
-            val item4Offset =
-                gridSize + itemSize - (gridSize + itemSize - itemSize) * fraction
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                if (item1Offset < gridSize) {
-                    add(1 to AxisOffset(0f, item1Offset))
-                } else {
-                    rule.onNodeWithTag("1").assertIsNotDisplayed()
+            val item4Offset = gridSize + itemSize - (gridSize + itemSize - itemSize) * fraction
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    if (item1Offset < gridSize) {
+                        add(1 to AxisOffset(0f, item1Offset))
+                    } else {
+                        rule.onNodeWithTag("1").assertIsNotDisplayed()
+                    }
+                    if (item2Offset < gridSize) {
+                        add(2 to AxisOffset(0f, item2Offset))
+                    } else {
+                        rule.onNodeWithTag("2").assertIsNotDisplayed()
+                    }
+                    if (item3Offset < gridSize) {
+                        add(3 to AxisOffset(0f, item3Offset))
+                    } else {
+                        rule.onNodeWithTag("3").assertIsNotDisplayed()
+                    }
+                    if (item4Offset < gridSize) {
+                        add(4 to AxisOffset(0f, item4Offset))
+                    } else {
+                        rule.onNodeWithTag("4").assertIsNotDisplayed()
+                    }
                 }
-                if (item2Offset < gridSize) {
-                    add(2 to AxisOffset(0f, item2Offset))
-                } else {
-                    rule.onNodeWithTag("2").assertIsNotDisplayed()
-                }
-                if (item3Offset < gridSize) {
-                    add(3 to AxisOffset(0f, item3Offset))
-                } else {
-                    rule.onNodeWithTag("3").assertIsNotDisplayed()
-                }
-                if (item4Offset < gridSize) {
-                    add(4 to AxisOffset(0f, item4Offset))
-                } else {
-                    rule.onNodeWithTag("4").assertIsNotDisplayed()
-                }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -1732,51 +1481,43 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val gridSize = itemSize * 2
         val gridSizeDp = with(rule.density) { gridSize.toDp() }
         rule.setContent {
-            LazyStaggeredGrid(2, maxSize = gridSizeDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
-            }
+            LazyStaggeredGrid(2, maxSize = gridSizeDp) { items(list, key = { it }) { Item(it) } }
         }
 
         assertPositions(
             0 to AxisOffset(0f, 0f),
             1 to AxisOffset(itemSize, 0f),
             2 to AxisOffset(0f, itemSize),
-            3 to AxisOffset(itemSize, itemSize)
+            3 to AxisOffset(itemSize, itemSize),
         )
 
-        rule.runOnUiThread {
-            list = listOf(0, 1, 4, 5, 2, 3)
-        }
+        rule.runOnUiThread { list = listOf(0, 1, 4, 5, 2, 3) }
 
         onAnimationFrame { fraction ->
             // items 4 and 5 moves from and items 2 and 3 moves to `gridSize`,
             // right before the start edge
             val items4and5Offset = gridSize - (gridSize - itemSize) * fraction
             val items2and3Offset = itemSize + (gridSize - itemSize) * fraction
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                add(1 to AxisOffset(itemSize, 0f))
-                if (items2and3Offset < gridSize) {
-                    add(2 to AxisOffset(0f, items2and3Offset))
-                    add(3 to AxisOffset(itemSize, items2and3Offset))
-                } else {
-                    rule.onNodeWithTag("2").assertIsNotDisplayed()
-                    rule.onNodeWithTag("3").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    add(1 to AxisOffset(itemSize, 0f))
+                    if (items2and3Offset < gridSize) {
+                        add(2 to AxisOffset(0f, items2and3Offset))
+                        add(3 to AxisOffset(itemSize, items2and3Offset))
+                    } else {
+                        rule.onNodeWithTag("2").assertIsNotDisplayed()
+                        rule.onNodeWithTag("3").assertIsNotDisplayed()
+                    }
+                    if (items4and5Offset < gridSize) {
+                        add(4 to AxisOffset(0f, items4and5Offset))
+                        add(5 to AxisOffset(itemSize, items4and5Offset))
+                    } else {
+                        rule.onNodeWithTag("4").assertIsNotDisplayed()
+                        rule.onNodeWithTag("5").assertIsNotDisplayed()
+                    }
                 }
-                if (items4and5Offset < gridSize) {
-                    add(4 to AxisOffset(0f, items4and5Offset))
-                    add(5 to AxisOffset(itemSize, items4and5Offset))
-                } else {
-                    rule.onNodeWithTag("4").assertIsNotDisplayed()
-                    rule.onNodeWithTag("5").assertIsNotDisplayed()
-                }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
@@ -1785,21 +1526,17 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         var size by mutableStateOf(itemSizeDp * 3)
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = size) {
-                items(listOf(0, 1, 2), key = { it }) {
-                    Item(it)
-                }
+                items(listOf(0, 1, 2), key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            size = itemSizeDp * 2
-        }
+        rule.runOnUiThread { size = itemSizeDp * 2 }
 
         onAnimationFrame { fraction ->
             assertPositions(
                 0 to AxisOffset(0f, 0f),
                 1 to AxisOffset(0f, itemSize),
-                fraction = fraction
+                fraction = fraction,
             )
             rule.onNodeWithTag("2").assertIsNotDisplayed()
         }
@@ -1810,22 +1547,18 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         var size by mutableStateOf(itemSizeDp * 2)
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = size) {
-                items(listOf(0, 1, 2), key = { it }) {
-                    Item(it)
-                }
+                items(listOf(0, 1, 2), key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            size = itemSizeDp * 3
-        }
+        rule.runOnUiThread { size = itemSizeDp * 3 }
 
         onAnimationFrame { fraction ->
             assertPositions(
                 0 to AxisOffset(0f, 0f),
                 1 to AxisOffset(0f, itemSize),
                 2 to AxisOffset(0f, itemSize * 2),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1836,15 +1569,11 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val scrollDelta = spacing
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = itemSizeDp * 2) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(0, 2, 1, 3)
-        }
+        rule.runOnUiThread { list = listOf(0, 2, 1, 3) }
 
         onAnimationFrame { fraction ->
             if (fraction == 0f) {
@@ -1852,17 +1581,15 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                     0 to AxisOffset(0f, 0f),
                     1 to AxisOffset(0f, itemSize),
                     2 to AxisOffset(0f, itemSize * 2),
-                    fraction = fraction
+                    fraction = fraction,
                 )
-                rule.runOnUiThread {
-                    runBlocking { state.scrollBy(scrollDelta) }
-                }
+                rule.runOnUiThread { runBlocking { state.scrollBy(scrollDelta) } }
             }
             assertPositions(
                 0 to AxisOffset(0f, -scrollDelta),
                 1 to AxisOffset(0f, itemSize - scrollDelta + itemSize * fraction),
                 2 to AxisOffset(0f, itemSize * 2 - scrollDelta - itemSize * fraction),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1875,31 +1602,25 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val containerSize = itemSize * 2
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = containerSizeDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(0, 4, 2, 3, 1)
-        }
+        rule.runOnUiThread { list = listOf(0, 4, 2, 3, 1) }
 
         onAnimationFrame { fraction ->
             if (fraction == 0f) {
                 assertPositions(
                     0 to AxisOffset(0f, 0f),
                     1 to AxisOffset(0f, itemSize),
-                    fraction = fraction
+                    fraction = fraction,
                 )
-                rule.runOnUiThread {
-                    runBlocking { state.scrollBy(scrollDelta) }
-                }
+                rule.runOnUiThread { runBlocking { state.scrollBy(scrollDelta) } }
             }
             assertPositions(
                 0 to AxisOffset(0f, -scrollDelta),
                 1 to AxisOffset(0f, itemSize + (containerSize - itemSize) * fraction),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1911,31 +1632,25 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val containerSizeDp = itemSizeDp * 2
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = containerSizeDp, startIndex = 2) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(3, 0, 1, 2, 4)
-        }
+        rule.runOnUiThread { list = listOf(3, 0, 1, 2, 4) }
 
         onAnimationFrame { fraction ->
             if (fraction == 0f) {
                 assertPositions(
                     2 to AxisOffset(0f, 0f),
                     3 to AxisOffset(0f, itemSize),
-                    fraction = fraction
+                    fraction = fraction,
                 )
-                rule.runOnUiThread {
-                    runBlocking { state.scrollBy(scrollDelta) }
-                }
+                rule.runOnUiThread { runBlocking { state.scrollBy(scrollDelta) } }
             }
             assertPositions(
                 2 to AxisOffset(0f, -scrollDelta),
                 3 to AxisOffset(0f, itemSize - (itemSize * 2 * fraction)),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -1947,37 +1662,29 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val scrollDelta = spacing
         rule.setContent {
             LazyStaggeredGrid(1, maxSize = containerSizeDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(0, 4, 2, 3, 1)
-        }
+        rule.runOnUiThread { list = listOf(0, 4, 2, 3, 1) }
 
         onAnimationFrame { fraction ->
             if (fraction == 0f) {
                 assertPositions(
                     0 to AxisOffset(0f, 0f),
                     1 to AxisOffset(0f, itemSize),
-                    fraction = fraction
+                    fraction = fraction,
                 )
-                rule.runOnUiThread {
-                    runBlocking { state.scrollBy(itemSize * 2) }
-                }
+                rule.runOnUiThread { runBlocking { state.scrollBy(itemSize * 2) } }
                 assertPositions(
                     2 to AxisOffset(0f, 0f),
                     3 to AxisOffset(0f, itemSize),
                     // after the first scroll the new position of item 1 is still not reached
                     // so the target didn't change, we still aim to end right after the bounds
                     1 to AxisOffset(0f, itemSize),
-                    fraction = fraction
+                    fraction = fraction,
                 )
-                rule.runOnUiThread {
-                    runBlocking { state.scrollBy(scrollDelta) }
-                }
+                rule.runOnUiThread { runBlocking { state.scrollBy(scrollDelta) } }
                 assertPositions(
                     2 to AxisOffset(0f, 0f - scrollDelta),
                     3 to AxisOffset(0f, itemSize - scrollDelta),
@@ -1985,14 +1692,14 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                     // position. the animation is now targeting the real end position and now
                     // we are reacting on the scroll deltas
                     1 to AxisOffset(0f, itemSize - scrollDelta),
-                    fraction = fraction
+                    fraction = fraction,
                 )
             }
             assertPositions(
                 2 to AxisOffset(0f, -scrollDelta),
                 3 to AxisOffset(0f, itemSize - scrollDelta),
                 1 to AxisOffset(0f, itemSize - scrollDelta + itemSize * fraction),
-                fraction = fraction
+                fraction = fraction,
             )
         }
     }
@@ -2009,54 +1716,39 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             }
         }
 
-        rule.runOnUiThread {
-            item0Size = itemSize2Dp
-        }
+        rule.runOnUiThread { item0Size = itemSize2Dp }
 
         rule.waitForIdle()
         rule.mainClock.advanceTimeByFrame()
         onAnimationFrame(duration = FrameDuration) { fraction ->
             if (fraction == 0f) {
-                assertPositions(
-                    0 to AxisOffset(0f, 0f),
-                    1 to AxisOffset(0f, itemSize)
-                )
+                assertPositions(0 to AxisOffset(0f, 0f), 1 to AxisOffset(0f, itemSize))
             } else {
                 assertThat(fraction).isEqualTo(1f)
                 val valueAfterOneFrame =
                     animSpec.getValueAtFrame(1, from = itemSize, to = itemSize2)
-                assertPositions(
-                    0 to AxisOffset(0f, 0f),
-                    1 to AxisOffset(0f, valueAfterOneFrame)
-                )
+                assertPositions(0 to AxisOffset(0f, 0f), 1 to AxisOffset(0f, valueAfterOneFrame))
             }
         }
 
-        rule.runOnUiThread {
-            item0Size = 0.dp
-        }
+        rule.runOnUiThread { item0Size = 0.dp }
 
         rule.waitForIdle()
         val startValue = animSpec.getValueAtFrame(2, from = itemSize, to = itemSize2)
         val startVelocity = animSpec.getVelocityAtFrame(2, from = itemSize, to = itemSize2)
         onAnimationFrame(duration = FrameDuration) { fraction ->
             if (fraction == 0f) {
-                assertPositions(
-                    0 to AxisOffset(0f, 0f),
-                    1 to AxisOffset(0f, startValue)
-                )
+                assertPositions(0 to AxisOffset(0f, 0f), 1 to AxisOffset(0f, startValue))
             } else {
                 assertThat(fraction).isEqualTo(1f)
-                val valueAfterThreeFrames = animSpec.getValueAtFrame(
-                    1,
-                    from = startValue,
-                    to = 0f,
-                    initialVelocity = startVelocity
-                )
-                assertPositions(
-                    0 to AxisOffset(0f, 0f),
-                    1 to AxisOffset(0f, valueAfterThreeFrames)
-                )
+                val valueAfterThreeFrames =
+                    animSpec.getValueAtFrame(
+                        1,
+                        from = startValue,
+                        to = 0f,
+                        initialVelocity = startVelocity,
+                    )
+                assertPositions(0 to AxisOffset(0f, 0f), 1 to AxisOffset(0f, valueAfterThreeFrames))
             }
         }
     }
@@ -2069,24 +1761,17 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
             LazyStaggeredGrid(
                 cells = columnCount,
                 maxSize = itemSizeDp,
-                crossAxisSize = containerCrossAxisSize
+                crossAxisSize = containerCrossAxisSize,
             ) {
-                items(10, key = { it }) {
-                    Item(it)
-                }
+                items(10, key = { it }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            columnCount = 1
-        }
+        rule.runOnUiThread { columnCount = 1 }
 
         onAnimationFrame { _ ->
             // todo: proper animations when removal is supported
-            assertPositions(
-                0 to AxisOffset(0f, 0f),
-                1 to AxisOffset(itemSize, 0f)
-            )
+            assertPositions(0 to AxisOffset(0f, 0f), 1 to AxisOffset(itemSize, 0f))
         }
     }
 
@@ -2097,64 +1782,61 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         val listSizeDp = itemSizeDp * 3f
         rule.setContent {
             LazyStaggeredGrid(cells = 1, maxSize = listSizeDp) {
-                items(list, key = { it }) {
-                    Item(it)
-                }
+                items(list, key = { it }) { Item(it) }
             }
         }
 
         rule.runOnUiThread {
             list = listOf(0, 1, 2, 3)
-            runBlocking {
-                state.scrollToItem(0, 0)
-            }
+            runBlocking { state.scrollToItem(0, 0) }
         }
 
         onAnimationFrame { fraction ->
-            val expected = mutableListOf<Pair<Any, Offset>>().apply {
-                add(0 to AxisOffset(0f, 0f))
-                add(1 to AxisOffset(0f, itemSize * fraction))
-                add(2 to AxisOffset(0f, itemSize + itemSize * fraction))
-                val item3Offset = itemSize * 2 + itemSize * fraction
-                if (item3Offset < listSize) {
-                    add(3 to AxisOffset(0f, item3Offset))
-                } else {
-                    rule.onNodeWithTag("4").assertIsNotDisplayed()
+            val expected =
+                mutableListOf<Pair<Any, Offset>>().apply {
+                    add(0 to AxisOffset(0f, 0f))
+                    add(1 to AxisOffset(0f, itemSize * fraction))
+                    add(2 to AxisOffset(0f, itemSize + itemSize * fraction))
+                    val item3Offset = itemSize * 2 + itemSize * fraction
+                    if (item3Offset < listSize) {
+                        add(3 to AxisOffset(0f, item3Offset))
+                    } else {
+                        rule.onNodeWithTag("4").assertIsNotDisplayed()
+                    }
                 }
-            }
-            assertPositions(
-                expected = expected.toTypedArray(),
-                fraction = fraction
-            )
+            assertPositions(expected = expected.toTypedArray(), fraction = fraction)
         }
     }
 
     private fun AxisOffset(crossAxis: Float, mainAxis: Float) =
         if (isVertical) Offset(crossAxis, mainAxis) else Offset(mainAxis, crossAxis)
 
-    private val Offset.mainAxis: Float get() = if (isVertical) y else x
+    private val Offset.mainAxis: Float
+        get() = if (isVertical) y else x
 
     private fun assertPositions(
         vararg expected: Pair<Any, Offset>,
         crossAxis: List<Pair<Any, Float>>? = null,
         fraction: Float? = null,
-        autoReverse: Boolean = reverseLayout
+        autoReverse: Boolean = reverseLayout,
     ) {
         val roundedExpected = expected.map { it.first to it.second.round() }
-        val actualBounds = rule.onAllNodes(NodesWithTagMatcher)
-            .fetchSemanticsNodes()
-            .associateBy(
-                keySelector = { it.config[SemanticsProperties.TestTag] },
-                valueTransform = { IntRect(it.positionInRoot.round(), it.size) }
-            )
-        val actualPositions = expected.map {
-            it.first to actualBounds.getValue(it.first.toString()).topLeft
-        }
-        val subject = if (fraction == null) {
-            assertThat(actualPositions)
-        } else {
-            Truth.assertWithMessage("Fraction=$fraction").that(actualPositions)
-        }
+        val actualBounds =
+            rule
+                .onAllNodes(NodesWithTagMatcher)
+                .fetchSemanticsNodes()
+                .associateBy(
+                    keySelector = { it.config[SemanticsProperties.TestTag] },
+                    valueTransform = { IntRect(it.positionInRoot.round(), it.size) },
+                )
+        val actualPositions =
+            expected.map { it.first to actualBounds.getValue(it.first.toString()).topLeft }
+        val subject =
+            if (fraction == null) {
+                assertThat(actualPositions)
+            } else {
+                Truth.assertWithMessage("Fraction=$fraction").that(actualPositions)
+            }
         subject.isEqualTo(
             roundedExpected.let { list ->
                 if (!autoReverse) {
@@ -2174,20 +1856,23 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
                                     it.second.y
                                 } else {
                                     containerSize.height - itemSize.height - it.second.y
-                                }
+                                },
                             )
                     }
                 }
             }
         )
         if (crossAxis != null) {
-            val actualCross = expected.map {
-                it.first to actualBounds.getValue(it.first.toString()).topLeft
-                    .let { offset -> if (isVertical) offset.x else offset.y }
-            }
+            val actualCross =
+                expected.map {
+                    it.first to
+                        actualBounds.getValue(it.first.toString()).topLeft.let { offset ->
+                            if (isVertical) offset.x else offset.y
+                        }
+                }
             Truth.assertWithMessage(
-                "CrossAxis" + if (fraction != null) "for fraction=$fraction" else ""
-            )
+                    "CrossAxis" + if (fraction != null) "for fraction=$fraction" else ""
+                )
                 .that(actualCross)
                 .isEqualTo(crossAxis.map { it.first to it.second.roundToInt() })
         }
@@ -2200,9 +1885,7 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     }
 
     private val visibleItemsOffsets: List<Pair<Any, IntOffset>>
-        get() = state.layoutInfo.visibleItemsInfo.map {
-            it.key to it.offset
-        }
+        get() = state.layoutInfo.visibleItemsInfo.map { it.key to it.offset }
 
     private fun onAnimationFrame(duration: Long = Duration, onFrame: (fraction: Float) -> Unit) {
         require(duration.mod(FrameDuration) == 0L)
@@ -2230,34 +1913,32 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
         endPadding: Dp = 0.dp,
         spacing: Dp = 0.dp,
         crossAxisSize: Dp? = null,
-        content: LazyStaggeredGridScope.() -> Unit
+        content: LazyStaggeredGridScope.() -> Unit,
     ) {
         state = rememberLazyStaggeredGridState(startIndex)
         if (isVertical) {
             LazyVerticalStaggeredGrid(
                 StaggeredGridCells.Fixed(cells),
-                Modifier
-                    .requiredHeightIn(minSize, maxSize)
+                Modifier.requiredHeightIn(minSize, maxSize)
                     .requiredWidth(crossAxisSize ?: (itemSizeDp * cells))
                     .testTag(ContainerTag),
                 state = state,
                 verticalItemSpacing = spacing,
                 reverseLayout = reverseLayout,
                 contentPadding = PaddingValues(top = startPadding, bottom = endPadding),
-                content = content
+                content = content,
             )
         } else {
             LazyHorizontalStaggeredGrid(
                 StaggeredGridCells.Fixed(cells),
-                Modifier
-                    .requiredWidthIn(minSize, maxSize)
+                Modifier.requiredWidthIn(minSize, maxSize)
                     .requiredHeight(itemSizeDp * cells)
                     .testTag(ContainerTag),
                 state = state,
                 reverseLayout = reverseLayout,
                 horizontalItemSpacing = spacing,
                 contentPadding = PaddingValues(start = startPadding, end = endPadding),
-                content = content
+                content = content,
             )
         }
     }
@@ -2266,18 +1947,18 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     private fun LazyStaggeredGridItemScope.Item(
         tag: Int,
         size: Dp = itemSizeDp,
-        animSpec: FiniteAnimationSpec<IntOffset>? = AnimSpec
+        animSpec: FiniteAnimationSpec<IntOffset>? = AnimSpec,
     ) {
         Box(
             if (animSpec != null) {
-                Modifier.animateItem(
-                    fadeInSpec = null,
-                    fadeOutSpec = null,
-                    placementSpec = animSpec
-                )
-            } else {
-                Modifier
-            }
+                    Modifier.animateItem(
+                        fadeInSpec = null,
+                        fadeOutSpec = null,
+                        placementSpec = animSpec,
+                    )
+                } else {
+                    Modifier
+                }
                 .then(
                     if (isVertical) {
                         Modifier.requiredHeight(size)
@@ -2298,17 +1979,15 @@ class LazyStaggeredGridItemPlacementAnimationTest(private val config: Config) {
     companion object {
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
-        fun params() = arrayOf(
-            Config(isVertical = true, reverseLayout = false),
-            Config(isVertical = false, reverseLayout = false),
-            Config(isVertical = true, reverseLayout = true),
-            Config(isVertical = false, reverseLayout = true),
-        )
+        fun params() =
+            arrayOf(
+                Config(isVertical = true, reverseLayout = false),
+                Config(isVertical = false, reverseLayout = false),
+                Config(isVertical = true, reverseLayout = true),
+                Config(isVertical = false, reverseLayout = true),
+            )
 
-        class Config(
-            val isVertical: Boolean,
-            val reverseLayout: Boolean
-        ) {
+        class Config(val isVertical: Boolean, val reverseLayout: Boolean) {
             override fun toString() =
                 (if (isVertical) "LazyVerticalGrid" else "LazyHorizontalGrid") +
                     (if (reverseLayout) "(reverse)" else "")
@@ -2320,6 +1999,5 @@ private val FrameDuration = 16L
 private val Duration = 64L // 4 frames, so we get 0f, 0.25f, 0.5f, 0.75f and 1f fractions
 private val AnimSpec = tween<IntOffset>(Duration.toInt(), easing = LinearEasing)
 private val ContainerTag = "container"
-private val NodesWithTagMatcher = SemanticsMatcher("NodesWithTag") {
-    it.config.contains(SemanticsProperties.TestTag)
-}
+private val NodesWithTagMatcher =
+    SemanticsMatcher("NodesWithTag") { it.config.contains(SemanticsProperties.TestTag) }

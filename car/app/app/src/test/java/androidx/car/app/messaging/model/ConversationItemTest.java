@@ -22,7 +22,6 @@ import static org.junit.Assert.assertThrows;
 
 import android.os.Bundle;
 
-import androidx.annotation.NonNull;
 import androidx.car.app.TestUtils;
 import androidx.car.app.model.Action;
 import androidx.car.app.model.CarIcon;
@@ -31,9 +30,11 @@ import androidx.car.app.serialization.Bundler;
 import androidx.car.app.serialization.BundlerException;
 import androidx.test.core.app.ApplicationProvider;
 
+import org.jspecify.annotations.NonNull;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 import org.robolectric.annotation.internal.DoNotInstrument;
 
 import java.util.ArrayList;
@@ -41,6 +42,7 @@ import java.util.List;
 
 /** Tests for {@link ConversationItem}. */
 @RunWith(RobolectricTestRunner.class)
+@Config(sdk = {Config.TARGET_SDK})
 @DoNotInstrument
 public class ConversationItemTest {
     /** Ensure the builder does not fail for the minimum set of required fields. */
@@ -65,6 +67,19 @@ public class ConversationItemTest {
                 IllegalStateException.class,
                 () -> TestConversationFactory.createMinimalConversationItemBuilder()
                         .setMessages(new ArrayList<>())
+                        .build()
+        );
+    }
+
+    @Test
+    public void build_throwsException_ifMessageListContainsNull() {
+        List<CarMessage> messages = new ArrayList<>(1);
+        messages.add(null);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> TestConversationFactory.createMinimalConversationItemBuilder()
+                        .setMessages(messages)
                         .build()
         );
     }

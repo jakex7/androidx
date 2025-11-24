@@ -39,6 +39,7 @@ import androidx.test.rule.GrantPermissionRule
 import androidx.test.uiautomator.UiDevice
 import androidx.testutils.withActivity
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -47,41 +48,41 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
-/**
- * The tests to verify that Preview can work well when extension modes are enabled.
- */
+/** The tests to verify that Preview can work well when extension modes are enabled. */
 @LargeTest
 @RunWith(Parameterized::class)
 class PreviewTest(private val config: CameraXExtensionTestParams) {
     private val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
 
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = config.implName == CAMERA_PIPE_IMPLEMENTATION_OPTION
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = config.implName == CAMERA_PIPE_IMPLEMENTATION_OPTION)
 
     @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        PreTestCameraIdList(config.cameraXConfig)
-    )
+    val useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            PreTestCameraIdList(config.cameraXConfig)
+        )
 
     @get:Rule
-    val permissionRule = GrantPermissionRule.grant(
-        Manifest.permission.WRITE_EXTERNAL_STORAGE,
-        Manifest.permission.RECORD_AUDIO,
-    )
+    val permissionRule =
+        GrantPermissionRule.grant(
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.RECORD_AUDIO,
+        )
 
-    private val context = ApplicationProvider.getApplicationContext<Context>()
     private lateinit var extensionsManager: ExtensionsManager
 
     companion object {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
         @Parameterized.Parameters(name = "config = {0}")
         @JvmStatic
         fun parameters() = CameraXExtensionsTestUtil.getAllCameraIdExtensionModeCombinations()
     }
 
     @Before
-    fun setup() {
+    fun setup(): Unit = runBlocking {
         assumeTrue(CameraUtil.deviceHasCamera())
         assumeTrue(CameraXExtensionsTestUtil.isTargetDeviceAvailableForExtensions())
         // Clear the device UI and check if there is no dialog or lock screen on the top of the
@@ -97,24 +98,18 @@ class PreviewTest(private val config: CameraXExtensionTestParams) {
         val cameraProvider =
             ProcessCameraProvider.getInstance(context)[10000, TimeUnit.MILLISECONDS]
 
-        extensionsManager = ExtensionsManager.getInstanceAsync(
-            context,
-            cameraProvider
-        )[10000, TimeUnit.MILLISECONDS]
+        extensionsManager = ExtensionsManager.getInstance(context, cameraProvider)
 
         assumeExtensionModeSupported(extensionsManager, config.cameraId, config.extensionMode)
     }
 
     @After
-    fun tearDown() {
+    fun tearDown(): Unit = runBlocking {
         val cameraProvider =
             ProcessCameraProvider.getInstance(context)[10000, TimeUnit.MILLISECONDS]
         cameraProvider.shutdownAsync()
 
-        val extensionsManager = ExtensionsManager.getInstanceAsync(
-            context,
-            cameraProvider
-        )[10000, TimeUnit.MILLISECONDS]
+        val extensionsManager = ExtensionsManager.getInstance(context, cameraProvider)
         extensionsManager.shutdown()
 
         // Unfreeze rotation so the device can choose the orientation via its own policy. Be nice
@@ -132,23 +127,20 @@ class PreviewTest(private val config: CameraXExtensionTestParams) {
     fun previewWithExtensionModeCanEnterStreamingState() {
         val activityScenario = launchCameraExtensionsActivity(config.cameraId, config.extensionMode)
 
-        with(activityScenario) {
-            use {
-                waitForPreviewViewStreaming()
-            }
-        }
+        with(activityScenario) { use { waitForPreviewViewStreaming() } }
     }
 
     private fun assumeNextCameraIdExtensionModeSupported(cameraId: String, extensionsMode: Int) {
-        val nextCameraId = CameraSelectorUtil.findNextSupportedCameraId(
-            ApplicationProvider.getApplicationContext(),
-            extensionsManager,
-            cameraId,
-            config.extensionMode
-        )
+        val nextCameraId =
+            CameraSelectorUtil.findNextSupportedCameraId(
+                ApplicationProvider.getApplicationContext(),
+                extensionsManager,
+                cameraId,
+                config.extensionMode,
+            )
         assumeTrue(
             "Cannot find next camera id that supports extensions mode($extensionsMode)",
-            nextCameraId != null
+            nextCameraId != null,
         )
     }
 

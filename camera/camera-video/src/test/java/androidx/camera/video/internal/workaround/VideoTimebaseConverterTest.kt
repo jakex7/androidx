@@ -16,7 +16,6 @@
 
 package androidx.camera.video.internal.workaround
 
-import android.os.Build
 import androidx.camera.core.impl.Timebase
 import androidx.camera.video.internal.compat.quirk.CameraUseInconsistentTimebaseQuirk
 import com.google.common.truth.Truth.assertThat
@@ -29,7 +28,7 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class VideoTimebaseConverterTest {
 
     private val systemTimeProvider =
@@ -68,11 +67,12 @@ class VideoTimebaseConverterTest {
     @Test
     fun hasQuirk_closeToUptime_noConversion() {
         // Arrange.
-        val videoTimebaseConverter = VideoTimebaseConverter(
-            systemTimeProvider,
-            Timebase.REALTIME,
-            CameraUseInconsistentTimebaseQuirk()
-        )
+        val videoTimebaseConverter =
+            VideoTimebaseConverter(
+                systemTimeProvider,
+                Timebase.REALTIME,
+                CameraUseInconsistentTimebaseQuirk(),
+            )
 
         // Act.
         val outputTime1 = videoTimebaseConverter.convertToUptimeUs(800L)
@@ -86,11 +86,12 @@ class VideoTimebaseConverterTest {
     @Test
     fun hasQuirk_closeToRealtime_doConversion() {
         // Arrange.
-        val videoTimebaseConverter = VideoTimebaseConverter(
-            systemTimeProvider,
-            Timebase.UPTIME,
-            CameraUseInconsistentTimebaseQuirk()
-        )
+        val videoTimebaseConverter =
+            VideoTimebaseConverter(
+                systemTimeProvider,
+                Timebase.UPTIME,
+                CameraUseInconsistentTimebaseQuirk(),
+            )
 
         // Act.
         val outputTime1 = videoTimebaseConverter.convertToUptimeUs(1800L)
@@ -104,10 +105,8 @@ class VideoTimebaseConverterTest {
     @Test
     fun systemTimeDiverged_closeToUptime_noConversion() {
         // Arrange.
-        val systemTimeProvider = FakeTimeProvider(
-            TimeUnit.SECONDS.toNanos(3),
-            TimeUnit.SECONDS.toNanos(8)
-        )
+        val systemTimeProvider =
+            FakeTimeProvider(TimeUnit.SECONDS.toNanos(3), TimeUnit.SECONDS.toNanos(8))
         val videoTimebaseConverter =
             VideoTimebaseConverter(systemTimeProvider, Timebase.REALTIME, null)
 
@@ -123,10 +122,8 @@ class VideoTimebaseConverterTest {
     @Test
     fun systemTimeDiverged_closeToRealtime_doConversion() {
         // Arrange.
-        val systemTimeProvider = FakeTimeProvider(
-            TimeUnit.SECONDS.toNanos(3),
-            TimeUnit.SECONDS.toNanos(8)
-        )
+        val systemTimeProvider =
+            FakeTimeProvider(TimeUnit.SECONDS.toNanos(3), TimeUnit.SECONDS.toNanos(8))
         val videoTimebaseConverter =
             VideoTimebaseConverter(systemTimeProvider, Timebase.UPTIME, null)
 

@@ -23,24 +23,21 @@ import android.os.Build
 import android.util.Size
 import androidx.camera.camera2.Camera2Config
 import androidx.camera.camera2.pipe.integration.CameraPipeConfig
-import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraXConfig
 import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.core.impl.utils.executor.CameraXExecutors
 import androidx.camera.core.internal.CameraUseCaseAdapter
+import androidx.camera.testing.impl.AndroidUtil.isEmulator
 import androidx.camera.testing.impl.AudioUtil
 import androidx.camera.testing.impl.CameraPipeConfigTestRule
 import androidx.camera.testing.impl.CameraUtil
 import androidx.camera.testing.impl.CameraXUtil
 import androidx.camera.testing.impl.LabTestRule
 import androidx.camera.testing.impl.SurfaceTextureProvider
-import androidx.camera.video.internal.compat.quirk.DeactivateEncoderSurfaceBeforeStopEncoderQuirk
-import androidx.camera.video.internal.compat.quirk.DeviceQuirks
 import androidx.core.util.Consumer
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.google.common.truth.Truth.assertThat
@@ -59,34 +56,29 @@ import org.mockito.Mockito
 
 @LargeTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
-class AudioVideoSyncTest(
-    private val implName: String,
-    private val cameraConfig: CameraXConfig,
-) {
+class AudioVideoSyncTest(private val implName: String, private val cameraConfig: CameraXConfig) {
 
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = implName == CameraPipeConfig::class.simpleName,
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = implName == CameraPipeConfig::class.simpleName)
 
     @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        CameraUtil.PreTestCameraIdList(Camera2Config.defaultConfig())
-    )
+    val useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            CameraUtil.PreTestCameraIdList(Camera2Config.defaultConfig())
+        )
 
     @get:Rule
-    val grantPermissionRule: GrantPermissionRule = GrantPermissionRule.grant(
-        android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-        android.Manifest.permission.RECORD_AUDIO
-    )
+    val grantPermissionRule: GrantPermissionRule =
+        GrantPermissionRule.grant(
+            android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            android.Manifest.permission.RECORD_AUDIO,
+        )
 
-    @get:Rule
-    val labTest: LabTestRule = LabTestRule()
+    @get:Rule val labTest: LabTestRule = LabTestRule()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context: Context = ApplicationProvider.getApplicationContext()
-    private val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
     @Suppress("UNCHECKED_CAST")
     private val videoRecordEventListener =
@@ -99,19 +91,22 @@ class AudioVideoSyncTest(
 
     @Before
     fun setUp() {
-        Assume.assumeTrue(CameraUtil.hasCameraWithLensFacing(CameraSelector.LENS_FACING_BACK))
+        // Skip for b/264902324
+        Assume.assumeFalse(
+            "Emulator API 30 crashes running this test.",
+            Build.VERSION.SDK_INT == 30 && isEmulator(),
+        )
+
+        val cameraSelector = CameraUtil.assumeFirstAvailableCameraSelector()
         // Skip for b/168175357, b/233661493
         Assume.assumeFalse(
             "Skip tests for Cuttlefish MediaCodec issues",
             Build.MODEL.contains("Cuttlefish") &&
-                (Build.VERSION.SDK_INT == 29 || Build.VERSION.SDK_INT == 33)
+                (Build.VERSION.SDK_INT == 29 || Build.VERSION.SDK_INT == 33),
         )
         Assume.assumeTrue(AudioUtil.canStartAudioRecord(MediaRecorder.AudioSource.CAMCORDER))
 
-        CameraXUtil.initialize(
-            context,
-            cameraConfig
-        ).get()
+        CameraXUtil.initialize(context, cameraConfig).get()
         cameraUseCaseAdapter = CameraUtil.createCameraUseCaseAdapter(context, cameraSelector)
 
         recorder = Recorder.Builder().build()
@@ -128,7 +123,7 @@ class AudioVideoSyncTest(
                     object : SurfaceTextureProvider.SurfaceTextureCallback {
                         override fun onSurfaceTextureReady(
                             surfaceTexture: SurfaceTexture,
-                            resolution: Size
+                            resolution: Size,
                         ) {
                             // No-op
                         }
@@ -143,20 +138,18 @@ class AudioVideoSyncTest(
 
         Assume.assumeTrue(
             "This combination (preview, surfaceTexturePreview) is not supported.",
-            cameraUseCaseAdapter.isUseCasesCombinationSupported(
-                preview,
-                surfaceTexturePreview
-            )
+            cameraUseCaseAdapter.isUseCasesCombinationSupported(preview, surfaceTexturePreview),
         )
 
-        cameraUseCaseAdapter = CameraUtil.createCameraAndAttachUseCase(
-            context,
-            cameraSelector,
-            // Must put surfaceTexturePreview before preview while addUseCases, otherwise
-            // an issue on Samsung device will occur. See b/196755459.
-            surfaceTexturePreview,
-            preview
-        )
+        cameraUseCaseAdapter =
+            CameraUtil.createCameraAndAttachUseCase(
+                context,
+                cameraSelector,
+                // Must put surfaceTexturePreview before preview while addUseCases, otherwise
+                // an issue on Samsung device will occur. See b/196755459.
+                surfaceTexturePreview,
+                preview,
+            )
         recorder.onSourceStateChanged(VideoOutput.SourceState.ACTIVE_NON_STREAMING)
     }
 
@@ -180,15 +173,18 @@ class AudioVideoSyncTest(
         Mockito.clearInvocations(videoRecordEventListener)
         invokeSurfaceRequest(recorder)
         val file = File.createTempFile("CameraX", ".tmp").apply { deleteOnExit() }
-        val recording = recorder.prepareRecording(context, FileOutputOptions.Builder(file).build())
-            .withAudioEnabled()
-            .start(CameraXExecutors.directExecutor(), videoRecordEventListener)
+        val recording =
+            recorder
+                .prepareRecording(context, FileOutputOptions.Builder(file).build())
+                .withAudioEnabled()
+                .start(CameraXExecutors.directExecutor(), videoRecordEventListener)
 
         val inOrder = Mockito.inOrder(videoRecordEventListener)
-        inOrder.verify(videoRecordEventListener, Mockito.timeout(5000L))
+        inOrder
+            .verify(videoRecordEventListener, Mockito.timeout(5000L))
             .accept(ArgumentMatchers.any(VideoRecordEvent.Start::class.java))
-        inOrder.verify(videoRecordEventListener, Mockito.timeout(15000L)
-            .atLeast(5))
+        inOrder
+            .verify(videoRecordEventListener, Mockito.timeout(15000L).atLeast(5))
             .accept(ArgumentMatchers.any(VideoRecordEvent.Status::class.java))
 
         // check if the time difference between the first video and audio data is within a threshold
@@ -197,8 +193,9 @@ class AudioVideoSyncTest(
         val timeDiff = abs(firstAudioTime - firstVideoTime)
         assertThat(timeDiff).isLessThan(diffThresholdUs)
 
-        recording.stopSafely()
-        inOrder.verify(videoRecordEventListener, Mockito.timeout(5000L))
+        recording.stop()
+        inOrder
+            .verify(videoRecordEventListener, Mockito.timeout(5000L))
             .accept(ArgumentMatchers.any(VideoRecordEvent.Finalize::class.java))
         file.delete()
     }
@@ -212,29 +209,13 @@ class AudioVideoSyncTest(
         }
     }
 
-    // It fails on devices with certain chipset if the codec is stopped when the camera is still
-    // producing frames to the provided surface. This method first stop the camera from
-    // producing frames then stops the recording safely on the problematic devices.
-    private fun Recording.stopSafely() {
-        val deactivateSurfaceBeforeStop =
-            DeviceQuirks.get(DeactivateEncoderSurfaceBeforeStopEncoderQuirk::class.java) != null
-        if (deactivateSurfaceBeforeStop) {
-            instrumentation.runOnMainSync {
-                preview.setSurfaceProvider(null)
-            }
-        }
-        stop()
-        if (deactivateSurfaceBeforeStop && Build.VERSION.SDK_INT >= 23) {
-            invokeSurfaceRequest(recorder)
-        }
-    }
-
     companion object {
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
-        fun data() = listOf(
-            arrayOf(Camera2Config::class.simpleName, Camera2Config.defaultConfig()),
-            arrayOf(CameraPipeConfig::class.simpleName, CameraPipeConfig.defaultConfig())
-        )
+        fun data() =
+            listOf(
+                arrayOf(Camera2Config::class.simpleName, Camera2Config.defaultConfig()),
+                arrayOf(CameraPipeConfig::class.simpleName, CameraPipeConfig.defaultConfig()),
+            )
     }
 }

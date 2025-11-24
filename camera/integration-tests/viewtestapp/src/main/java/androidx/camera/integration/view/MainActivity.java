@@ -28,17 +28,21 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.camera2.Camera2Config;
 import androidx.camera.camera2.pipe.integration.CameraPipeConfig;
 import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.testing.impl.util.EdgeToEdgeUtil;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Collections;
 
 /** The main activity. */
 public class MainActivity extends AppCompatActivity {
@@ -50,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String COMPOSE_UI_FRAGMENT = "ComposeUi";
 
     private static final String[] REQUIRED_PERMISSIONS;
+
     static {
         // From Android T, skips the permission check of WRITE_EXTERNAL_STORAGE since it won't be
         // granted any more.
@@ -66,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
             };
         }
     }
+
     private static final int REQUEST_CODE_PERMISSIONS = 10;
 
     // Possible values for this intent key are the name values of LensFacing encoded as
@@ -100,6 +106,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        EdgeToEdgeUtil.enableEdgeToEdge(this, R.id.content, Collections.emptyList());
         // Get extra option for checking whether it needs to be implemented with PreviewView
         Bundle bundle = getIntent().getExtras();
         if (bundle != null) {
@@ -148,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onRequestPermissionsResult(
-            int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+            int requestCode, String @NonNull [] permissions, int @NonNull [] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
@@ -182,6 +189,10 @@ public class MainActivity extends AppCompatActivity {
             mFragmentType = FragmentType.MLKIT;
         } else if (itemId == R.id.effects) {
             mFragmentType = FragmentType.EFFECTS;
+        } else if (itemId == R.id.overlay_effect) {
+            mFragmentType = FragmentType.OVERLAY_EFFECTS;
+        } else if (itemId == R.id.media3effect) {
+            mFragmentType = FragmentType.MEDIA3_EFFECT;
         }
         startFragment();
         return true;
@@ -226,6 +237,12 @@ public class MainActivity extends AppCompatActivity {
             case EFFECTS:
                 startFragment(R.string.effects, new EffectsFragment());
                 break;
+            case OVERLAY_EFFECTS:
+                startFragment(R.string.overlay_effect, new OverlayEffectFragment());
+                break;
+            case MEDIA3_EFFECT:
+                startFragment(R.string.media3_effect, new Media3EffectsFragment());
+                break;
         }
     }
 
@@ -247,6 +264,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private enum FragmentType {
-        PREVIEW_VIEW, CAMERA_CONTROLLER, TRANSFORM, COMPOSE_UI, MLKIT, EFFECTS
+        PREVIEW_VIEW, CAMERA_CONTROLLER, TRANSFORM, COMPOSE_UI, MLKIT, EFFECTS, OVERLAY_EFFECTS,
+        MEDIA3_EFFECT
     }
 }

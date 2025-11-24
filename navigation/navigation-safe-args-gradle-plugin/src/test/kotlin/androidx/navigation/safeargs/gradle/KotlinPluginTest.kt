@@ -29,23 +29,26 @@ class KotlinPluginTest : BasePluginTest() {
         setupSimpleKotlinBuildGradle()
         runGradle("assembleDebug").assertSuccessfulTask("assembleDebug")
 
-        assertGenerated("debug/$NEXT_DIRECTIONS.kt")
-        assertGenerated("debug/$NEXT_ARGUMENTS.kt")
-        assertGenerated("debug/$MAIN_DIRECTIONS.kt")
+        assertGenerated("Debug/$NEXT_DIRECTIONS.kt")
+        assertGenerated("Debug/$NEXT_ARGUMENTS.kt")
+        assertGenerated("Debug/$MAIN_DIRECTIONS.kt")
     }
 
     @Test
     fun runGenerateTaskForKotlinWithSuffix() {
         testData("app-project-kotlin").copyRecursively(projectRoot())
         projectSetup.writeDefaultBuildGradle(
-            prefix = """
+            prefix =
+                """
                 plugins {
                     id('com.android.application')
                     id('kotlin-android')
                     id('androidx.navigation.safeargs.kotlin')
                 }
-            """.trimIndent(),
-            suffix = """
+            """
+                    .trimIndent(),
+            suffix =
+                """
                 android {
                     namespace 'androidx.navigation.testapp'
                     buildTypes {
@@ -60,7 +63,7 @@ class KotlinPluginTest : BasePluginTest() {
                 }
                 dependencies {
                     implementation "${projectSetup.props.kotlinStblib}"
-                    implementation "${projectSetup.props.navigationRuntime}"
+                    implementation "$NAVIGATION_RUNTIME"
                 }
                 tasks.withType(
                     org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -69,12 +72,13 @@ class KotlinPluginTest : BasePluginTest() {
                         jvmTarget = "1.8"
                     }
                 }
-            """.trimIndent()
+            """
+                    .trimIndent(),
         )
         runGradle("assembleDebug").assertSuccessfulTask("assembleDebug")
 
-        assertGenerated("debug/$FOO_NEXT_DIRECTIONS.kt")
-        assertGenerated("debug/$FOO_NEXT_ARGUMENTS.kt")
-        assertGenerated("debug/$FOO_MAIN_DIRECTIONS.kt")
+        assertGenerated("Debug/$FOO_NEXT_DIRECTIONS.kt")
+        assertGenerated("Debug/$FOO_NEXT_ARGUMENTS.kt")
+        assertGenerated("Debug/$FOO_MAIN_DIRECTIONS.kt")
     }
 }

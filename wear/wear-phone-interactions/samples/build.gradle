@@ -21,16 +21,15 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.LibraryType
+import androidx.build.SoftwareType
 
 plugins {
     id("AndroidXPlugin")
     id("com.android.library")
-    id("kotlin-android")
+    id("com.android.experimental.built-in-kotlin")
 }
 
 dependencies {
-    implementation(libs.kotlinStdlib)
     implementation(project(":wear:wear-phone-interactions"))
 
     compileOnly(project(":annotation:annotation-sampled"))
@@ -38,14 +37,14 @@ dependencies {
 
 android {
     defaultConfig {
-        minSdkVersion 25
+        minSdk = 25
     }
-    namespace "androidx.wear.phone.interactions.samples"
+    namespace = "androidx.wear.phone.interactions.samples"
 }
 
 androidx {
     name = "Android Wear Phone Interactions Samples"
-    type = LibraryType.SAMPLES
+    type = SoftwareType.SAMPLES
     mavenVersion = LibraryVersions.WEAR_PHONE_INTERACTIONS
     inceptionYear = "2023"
     description = "Contains the sample code for the Android Wear Phone Interactions Classes"

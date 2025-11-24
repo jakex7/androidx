@@ -21,42 +21,44 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.LibraryType
+
+import androidx.build.SoftwareType
 
 plugins {
     id("AndroidXPlugin")
     id("com.android.library")
     id("AndroidXComposePlugin")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.experimental.built-in-kotlin")
     id("androidx.benchmark")
 }
 
 android {
+    compileSdk = 35
+
     defaultConfig {
-        minSdkVersion 25
+        minSdk = 25
     }
-    buildTypes.all {
-        consumerProguardFiles "benchmark-proguard-rules.pro"
+    buildTypes.configureEach {
+        testProguardFile "benchmark-proguard-rules.pro"
     }
-    namespace "androidx.wear.compose.foundation.benchmark"
+    namespace = "androidx.wear.compose.foundation.benchmark"
 }
 
 dependencies {
 
-    androidTestImplementation project(":benchmark:benchmark-junit4")
-    androidTestImplementation project(":compose:runtime:runtime")
-    androidTestImplementation project(":compose:ui:ui-text:ui-text-benchmark")
-    androidTestImplementation project(":compose:foundation:foundation")
-    androidTestImplementation project(":compose:runtime:runtime")
-    androidTestImplementation project(":compose:benchmark-utils")
-    androidTestImplementation project(":wear:compose:compose-foundation")
+    androidTestImplementation(project(":benchmark:benchmark-junit4"))
+    androidTestImplementation(project(":compose:runtime:runtime"))
+    androidTestImplementation(project(":compose:ui:ui-text:ui-text-benchmark"))
+    androidTestImplementation(project(":compose:foundation:foundation"))
+    androidTestImplementation(project(":compose:runtime:runtime"))
+    androidTestImplementation(project(":compose:benchmark-utils"))
+    androidTestImplementation(project(":wear:compose:compose-foundation"))
     androidTestImplementation(libs.testRules)
     androidTestImplementation(libs.junit)
-    androidTestImplementation(libs.kotlinStdlib)
     androidTestImplementation(libs.kotlinReflect)
-    androidTestImplementation(libs.kotlinTestCommon)
+    androidTestImplementation(libs.kotlinTest)
     androidTestImplementation(libs.truth)
 }
 androidx {
-    type = LibraryType.INTERNAL_TEST_LIBRARY
+    type = SoftwareType.BENCHMARK
 }

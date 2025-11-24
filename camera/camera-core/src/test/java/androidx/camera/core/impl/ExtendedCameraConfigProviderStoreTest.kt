@@ -16,7 +16,6 @@
 
 package androidx.camera.core.impl
 
-import android.os.Build
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,14 +25,13 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 public class ExtendedCameraConfigProviderStoreTest {
 
     @Test
     public fun canRetrieveStoredCameraConfigProvider() {
-        val id = Object()
-        val cameraConfigProvider =
-            CameraConfigProvider { _, _ -> CameraConfigs.defaultConfig() }
+        val id = Any()
+        val cameraConfigProvider = CameraConfigProvider { _, _ -> CameraConfigs.defaultConfig() }
 
         ExtendedCameraConfigProviderStore.addConfig(id, cameraConfigProvider)
 
@@ -43,8 +41,7 @@ public class ExtendedCameraConfigProviderStoreTest {
 
     @Test
     public fun returnDefaultEmptyCameraConfigProvider_whenNoDataStored() {
-        assertThat(ExtendedCameraConfigProviderStore.getConfigProvider(Object())).isEqualTo(
-            CameraConfigProvider.EMPTY
-        )
+        assertThat(ExtendedCameraConfigProviderStore.getConfigProvider(Any()))
+            .isEqualTo(CameraConfigProvider.EMPTY)
     }
 }

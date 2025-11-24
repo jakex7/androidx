@@ -35,23 +35,19 @@ import java.util.concurrent.Executor
 import kotlin.reflect.KClass
 import kotlinx.atomicfu.atomic
 
-/**
- * Implements an [ImageReaderWrapper] using an [ImageReader].
- */
-@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
-class AndroidImageReader private constructor(
+/** Implements an [ImageReaderWrapper] using an [ImageReader]. */
+public class AndroidImageReader
+private constructor(
     private val imageReader: ImageReader,
     override val capacity: Int,
     private val streamId: StreamId,
-    private val outputId: OutputId
+    private val outputId: OutputId,
 ) : ImageReaderWrapper, ImageReader.OnImageAvailableListener {
     private val onImageListener = atomic<ImageReaderWrapper.OnImageListener?>(null)
 
     override val surface: Surface = imageReader.surface
 
-    override fun setOnImageListener(
-        onImageListener: ImageReaderWrapper.OnImageListener
-    ) {
+    override fun setOnImageListener(onImageListener: ImageReaderWrapper.OnImageListener) {
         this.onImageListener.value = onImageListener
     }
 
@@ -67,7 +63,7 @@ class AndroidImageReader private constructor(
         }
     }
 
-    override fun close() = imageReader.close()
+    override fun close(): Unit = imageReader.close()
 
     override fun flush() {
         // acquireLatestImage will acquire the most recent image and internally close any image that
@@ -84,10 +80,11 @@ class AndroidImageReader private constructor(
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : Any> unwrapAs(type: KClass<T>): T? = when (type) {
-        ImageReader::class -> imageReader as T?
-        else -> null
-    }
+    override fun <T : Any> unwrapAs(type: KClass<T>): T? =
+        when (type) {
+            ImageReader::class -> imageReader as T?
+            else -> null
+        }
 
     override fun toString(): String {
         return "ImageReader@${super.hashCode().toString(16)}" +
@@ -95,7 +92,7 @@ class AndroidImageReader private constructor(
             "-w${imageReader.width}h${imageReader.height}"
     }
 
-    companion object {
+    public companion object {
         // See: b/172464059
         //
         // The ImageReader has an internal limit of 64 images by design, but depending on the device
@@ -113,7 +110,7 @@ class AndroidImageReader private constructor(
          *
          * See [ImageReader.newInstance] for details.
          */
-        fun create(
+        public fun create(
             width: Int,
             height: Int,
             format: Int,
@@ -123,7 +120,7 @@ class AndroidImageReader private constructor(
             defaultHardwareBufferFormat: Int?,
             streamId: StreamId,
             outputId: OutputId,
-            handler: Handler
+            handler: Handler,
         ): ImageReaderWrapper {
             require(width > 0) { "Width ($width) must be > 0" }
             require(height > 0) { "Height ($height) must be > 0" }
@@ -151,8 +148,9 @@ class AndroidImageReader private constructor(
                         "This may lead to unexpected behaviors."
                 }
             }
-            if (defaultHardwareBufferFormat != null &&
-                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+            if (
+                defaultHardwareBufferFormat != null &&
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
             ) {
                 Log.warn {
                     "Ignoring defaultHardwareBufferFormat ($defaultHardwareBufferFormat) " +
@@ -172,12 +170,16 @@ class AndroidImageReader private constructor(
                         maxImages = capacity,
                         usage = usageFlags,
                         defaultDataSpace = defaultDataSpace,
-                        defaultHardwareBufferFormat = defaultHardwareBufferFormat
+                        defaultHardwareBufferFormat = defaultHardwareBufferFormat,
                     )
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     if (usageFlags != null) {
                         Api29Compat.imageReaderNewInstance(
-                            width, height, format, capacity, usageFlags
+                            width,
+                            height,
+                            format,
+                            capacity,
+                            usageFlags,
                         )
                     } else {
                         ImageReader.newInstance(width, height, format, capacity)
@@ -187,36 +189,28 @@ class AndroidImageReader private constructor(
                 }
 
             // Create the ImageSource and wire it up the onImageAvailableListener
-            val androidImageReader = AndroidImageReader(
-                imageReader, capacity, streamId, outputId
-            )
-            imageReader.setOnImageAvailableListener(
-                androidImageReader, handler
-            )
+            val androidImageReader = AndroidImageReader(imageReader, capacity, streamId, outputId)
+            imageReader.setOnImageAvailableListener(androidImageReader, handler)
             return androidImageReader
         }
     }
 }
 
-/**
- * Implements an [ImageReaderWrapper] using a [MultiResolutionImageReader].
- */
-@RequiresApi(Build.VERSION_CODES.S)
-class AndroidMultiResolutionImageReader(
+/** Implements an [ImageReaderWrapper] using a [MultiResolutionImageReader]. */
+@RequiresApi(31)
+public class AndroidMultiResolutionImageReader(
     private val multiResolutionImageReader: MultiResolutionImageReader,
     private val streamFormat: StreamFormat,
     override val capacity: Int,
     private val streamId: StreamId,
-    private val outputIdMap: Map<MultiResolutionStreamInfo, OutputId>
+    private val outputIdMap: Map<MultiResolutionStreamInfo, OutputId>,
 ) : ImageReaderWrapper, ImageReader.OnImageAvailableListener {
     private val onImageListener = atomic<ImageReaderWrapper.OnImageListener?>(null)
 
     override val surface: Surface
         get() = multiResolutionImageReader.surface
 
-    override fun setOnImageListener(
-        onImageListener: ImageReaderWrapper.OnImageListener
-    ) {
+    override fun setOnImageListener(onImageListener: ImageReaderWrapper.OnImageListener) {
         this.onImageListener.value = onImageListener
     }
 
@@ -234,9 +228,10 @@ class AndroidMultiResolutionImageReader(
             // StreamInfo from the MultiResolutionImageReader instance, and then use it to look it
             // up in the outputMap that was used to create the MultiResolutionImageReader.
             val streamInfo = multiResolutionImageReader.getStreamInfoForImageReader(reader)
-            val outputId = checkNotNull(outputIdMap[streamInfo]) {
-                "$this: Failed to find OutputId for $reader based on streamInfo $streamInfo!"
-            }
+            val outputId =
+                checkNotNull(outputIdMap[streamInfo]) {
+                    "$this: Failed to find OutputId for $reader based on streamInfo $streamInfo!"
+                }
 
             // Note: During camera switches, MultiResolutionImageReaders does not guarantee that
             // images will always be in monotonically increasing order. The primary reason for this
@@ -246,7 +241,7 @@ class AndroidMultiResolutionImageReader(
         }
     }
 
-    override fun close() = multiResolutionImageReader.close()
+    override fun close(): Unit = multiResolutionImageReader.close()
 
     override fun flush() {
         // ImageReaders are pools of shared memory that is not actively released until the
@@ -256,28 +251,31 @@ class AndroidMultiResolutionImageReader(
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : Any> unwrapAs(type: KClass<T>): T? = when (type) {
-        MultiResolutionImageReader::class -> multiResolutionImageReader as T?
-        else -> null
-    }
+    override fun <T : Any> unwrapAs(type: KClass<T>): T? =
+        when (type) {
+            MultiResolutionImageReader::class -> multiResolutionImageReader as T?
+            else -> null
+        }
 
     override fun toString(): String {
-        val sizeString = outputIdMap.keys.joinToString(prefix = "[", postfix = "]") {
-            "${it.physicalCameraId}:w${it.width}h${it.height}"
-        }
+        val sizeString =
+            outputIdMap.keys.joinToString(prefix = "[", postfix = "]") {
+                "${it.physicalCameraId}:w${it.width}h${it.height}"
+            }
         return "MultiResolutionImageReader@${super.hashCode().toString(16)}" +
             "-${streamFormat.name}" +
             "-$sizeString"
     }
 
-    companion object {
-        @RequiresApi(Build.VERSION_CODES.S)
-        fun create(
+    public companion object {
+        @RequiresApi(31)
+        public fun create(
             outputFormat: Int,
             streamId: StreamId,
             outputIdMap: Map<MultiResolutionStreamInfo, OutputId>,
             capacity: Int,
-            executor: Executor
+            executor: Executor,
+            usageFlags: Long?,
         ): ImageReaderWrapper {
             require(capacity > 0) { "Capacity ($capacity) must be > 0" }
             require(capacity <= AndroidImageReader.IMAGEREADER_MAX_CAPACITY) {
@@ -288,39 +286,51 @@ class AndroidMultiResolutionImageReader(
             }
 
             // Create and configure a new MultiResolutionImageReader
-            val multiResolutionImageReader = MultiResolutionImageReader(
-                outputIdMap.keys, outputFormat, capacity
-            )
+            if (usageFlags != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
+                Log.warn {
+                    "Usage flags are only supported for API >= 36. Creating multiresolution image reader without usage flag."
+                }
+            }
 
-            val androidMultiResolutionImageReader = AndroidMultiResolutionImageReader(
-                multiResolutionImageReader,
-                StreamFormat(outputFormat),
-                capacity,
-                streamId,
-                outputIdMap,
-            )
+            val multiResolutionImageReader =
+                if (usageFlags != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+                    MultiResolutionImageReader(outputIdMap.keys, outputFormat, capacity, usageFlags)
+                } else {
+                    MultiResolutionImageReader(outputIdMap.keys, outputFormat, capacity)
+                }
+
+            val androidMultiResolutionImageReader =
+                AndroidMultiResolutionImageReader(
+                    multiResolutionImageReader,
+                    StreamFormat(outputFormat),
+                    capacity,
+                    streamId,
+                    outputIdMap,
+                )
 
             multiResolutionImageReader.setOnImageAvailableListener(
-                androidMultiResolutionImageReader, executor
+                androidMultiResolutionImageReader,
+                executor,
             )
 
             return androidMultiResolutionImageReader
         }
 
-        @RequiresApi(Build.VERSION_CODES.S)
-        fun create(
+        @RequiresApi(31)
+        public fun create(
             cameraStream: CameraStream,
             capacity: Int,
-            executor: Executor
+            executor: Executor,
+            usageFlags: Long?,
         ): ImageReaderWrapper {
             require(cameraStream.outputs.isNotEmpty()) { "$cameraStream outputs cannot be empty!" }
             val format = cameraStream.outputs.first().format
-            val outputMap = cameraStream.outputs.associate {
-                MultiResolutionStreamInfo(
-                    it.size.width, it.size.height, it.camera.value
-                ) to it.id
-            }
-            return create(format.value, cameraStream.id, outputMap, capacity, executor)
+            val outputMap =
+                cameraStream.outputs.associate {
+                    MultiResolutionStreamInfo(it.size.width, it.size.height, it.camera.value) to
+                        it.id
+                }
+            return create(format.value, cameraStream.id, outputMap, capacity, executor, usageFlags)
         }
     }
 }

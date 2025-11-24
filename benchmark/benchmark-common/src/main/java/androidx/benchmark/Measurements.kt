@@ -18,13 +18,11 @@ package androidx.benchmark
 
 import androidx.annotation.RestrictTo
 
-/**
- * Final metric results from a full benchmark test, merged across multiple iterations.
- */
+/** Final metric results from a full benchmark test, merged across multiple iterations. */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 data class Measurements(
     val singleMetrics: List<MetricResult>,
-    val sampledMetrics: List<MetricResult>
+    val sampledMetrics: List<MetricResult>,
 ) {
     fun isNotEmpty() = singleMetrics.isNotEmpty() || sampledMetrics.isNotEmpty()
 }

@@ -21,40 +21,46 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.LibraryType
+
+
 import androidx.build.PlatformIdentifier
+import androidx.build.SoftwareType
 
 plugins {
     id("AndroidXPlugin")
-    id("com.android.library")
 }
 
 androidXMultiplatform {
     jvm()
-    android()
+    androidLibrary {
+        namespace = "androidx.window.core"
+    }
+    mac()
+    linux()
+    ios()
+    watchos()
+    tvos()
+    mingwX64()
+    js()
+    wasmJs()
 
     defaultPlatform(PlatformIdentifier.JVM)
 
     sourceSets {
         commonMain {
             dependencies {
-                api(libs.kotlinStdlib)
-                api("androidx.annotation:annotation:1.7.0")
+                api("androidx.annotation:annotation:1.9.1")
             }
         }
 
         commonTest {
             dependencies {
                 implementation(libs.kotlinTest)
-                implementation(libs.kotlinTestAnnotationsCommon)
                 implementation(libs.kotlinCoroutinesCore)
-                // TODO remove when https://youtrack.jetbrains.com/issue/KT-62368/Kotlin-1.9.X-fails-to-detect-kotlin.test.Test-annotation-reference-on-commonTest-source-set-when-targeting-JVMAndroid
-                // is fixed
-                implementation(libs.kotlinTestJunit)
             }
         }
 
-        androidInstrumentedTest {
+        androidDeviceTest {
             dependencies {
                 implementation(libs.testRunner)
             }
@@ -62,13 +68,22 @@ androidXMultiplatform {
     }
 }
 
-android {
-    namespace "androidx.window.core"
+dependencies {
+    constraints {
+        // Prevents symbols duplication with old versions of JetBrains' fork.
+        // Starting with version 1.5.0-beta01, this module is published as empty artifact with dependency
+        // to this androidx module.
+        // TODO: update this stable version once out
+        commonMainImplementation("org.jetbrains.androidx.window:window-core:1.5.0-beta01") {
+            because "prevents symbols duplication"
+        }
+    }
 }
 
 androidx {
     name = "WindowManager Core"
-    type = LibraryType.PUBLISHED_LIBRARY
+    type = SoftwareType.PUBLISHED_LIBRARY
     inceptionYear = "2022"
     description = "WindowManager Core Library."
+    samples(project(":window:window-core-samples"))
 }

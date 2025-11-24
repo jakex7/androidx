@@ -38,10 +38,11 @@ object SpannableStringBuilderAnnotationExtensions {
 
     private fun SpannableStringBuilder.findAnnotationBounds(
         key: String,
-        value: String
-    ): Pair<Int, Int>? = getSpans(0, length, AnnotationSpan::class.java)
-        .find { it.key == key && it.value == value }
-        ?.let { Pair(getSpanStart(it), getSpanEnd(it)) }
+        value: String,
+    ): Pair<Int, Int>? =
+        getSpans(0, length, AnnotationSpan::class.java)
+            .find { it.key == key && it.value == value }
+            ?.let { Pair(getSpanStart(it), getSpanEnd(it)) }
 
     /**
      * Nests the provided span within an existing [android.text.Annotation].
@@ -53,11 +54,11 @@ object SpannableStringBuilderAnnotationExtensions {
     fun SpannableStringBuilder.addSpanToAnnotatedPosition(
         key: String,
         value: String,
-        span: Any
+        span: Any,
     ): SpannableStringBuilder {
-        findAnnotationBounds(key, value)
-            ?.let { setSpan(span, it.first, it.second, SPAN_INCLUSIVE_INCLUSIVE) }
-            ?: Log.e(TAG, "Unable to find annotation span for $key:$value")
+        findAnnotationBounds(key, value)?.let {
+            setSpan(span, it.first, it.second, SPAN_INCLUSIVE_INCLUSIVE)
+        } ?: Log.e(TAG, "Unable to find annotation span for $key:$value")
 
         return this
     }
@@ -66,7 +67,7 @@ object SpannableStringBuilderAnnotationExtensions {
     fun SpannableStringBuilder.addSpanToAnnotatedPosition(
         key: String,
         value: String,
-        color: CarColor
+        color: CarColor,
     ): SpannableStringBuilder =
         addSpanToAnnotatedPosition(key, value, ForegroundCarColorSpan.create(color))
 
@@ -74,7 +75,7 @@ object SpannableStringBuilderAnnotationExtensions {
     fun SpannableStringBuilder.addSpanToAnnotatedPosition(
         key: String,
         value: String,
-        onClick: () -> Unit
+        onClick: () -> Unit,
     ): SpannableStringBuilder =
         addSpanToAnnotatedPosition(key, value, ClickableSpan.create(onClick))
 }

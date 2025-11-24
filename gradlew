@@ -14,13 +14,15 @@ SCRIPT_PATH="$(cd $(dirname $0) && pwd -P)"
 if [ -n "$OUT_DIR" ] ; then
     mkdir -p "$OUT_DIR"
     OUT_DIR="$(cd $OUT_DIR && pwd -P)"
-    export GRADLE_USER_HOME="$OUT_DIR/.gradle"
     export TMPDIR="$OUT_DIR/tmp"
+elif [[ $SCRIPT_PATH == /google/cog/* ]] ; then
+    export OUT_DIR="$HOME/androidxout"
 else
     CHECKOUT_ROOT="$(cd $SCRIPT_PATH/../.. && pwd -P)"
     export OUT_DIR="$CHECKOUT_ROOT/out"
-    export GRADLE_USER_HOME=~/.gradle
 fi
+export GRADLE_USER_HOME="$OUT_DIR/.gradle"
+export KONAN_DATA_DIR="$OUT_DIR/.konan"
 
 ORG_GRADLE_JVMARGS="$(cd $SCRIPT_PATH && grep org.gradle.jvmargs gradle.properties | sed 's/^/-D/')"
 if [ -n "$DIST_DIR" ]; then
@@ -33,9 +35,6 @@ if [ -n "$DIST_DIR" ]; then
     # We don't set a default DIST_DIR in an else clause here because Studio doesn't use gradlew
     # and doesn't set DIST_DIR and we want gradlew and Studio to match
 fi
-
-# Loading the AIDL lexer requires disabling Lint's bytecode verification
-export ANDROID_LINT_SKIP_BYTECODE_VERIFIER=true
 
 # unset ANDROID_BUILD_TOP so that Lint doesn't think we're building the platform itself
 unset ANDROID_BUILD_TOP
@@ -113,7 +112,6 @@ fi
 # setup from each lint module.
 export ANDROID_HOME="$APP_HOME/../../prebuilts/fullsdk-$plat"
 # override JAVA_HOME, because CI machines have it and it points to very old JDK
-export ANDROIDX_JDK17="$APP_HOME/../../prebuilts/jdk/jdk17/$plat-$platform_suffix"
 export ANDROIDX_JDK21="$APP_HOME/../../prebuilts/jdk/jdk21/$plat-$platform_suffix"
 export JAVA_HOME=$ANDROIDX_JDK21
 export STUDIO_GRADLE_JDK=$JAVA_HOME
@@ -126,6 +124,9 @@ Typically, this means either:
    building a subset of projects. See CONTRIBUTING.md for details.
 2. You are using the repo checkout, but the last repo sync failed. Use repo status
    to check for projects which are partially-synced, e.g. showing ***NO BRANCH***." && exit -1
+
+# Creates/overwrites local.properties with sdk.dir and cmake.dir to avoid invalidating configuration cache
+$APP_HOME/development/write_sdk_path.sh
 
 # ----------------------------------------------------------------------------
 
@@ -317,8 +318,9 @@ fi
 if [ "$raiseMemory" == "true" ]; then
   # Set the initial heap size to match the max heap size,
   # by replacing a string like "-Xmx1g" with one like "-Xms1g -Xmx1g"
-  MAX_MEM=32g
-  ORG_GRADLE_JVMARGS="$(echo $ORG_GRADLE_JVMARGS | sed "s/-Xmx\([^ ]*\)/-Xms$MAX_MEM -Xmx$MAX_MEM/")"
+  MAX_MEM=38g
+  # First sed command replaces Gradle daemon -Xmx and second replaces Kotlin compliler deamon -Xmx
+  ORG_GRADLE_JVMARGS="$(echo $ORG_GRADLE_JVMARGS | sed "s/-Xmx\([^ ]*\)/-Xms$MAX_MEM -Xmx$MAX_MEM/" | sed "s/,-Xmx\([^ ]*\)/,-Xms$MAX_MEM,-Xmx$MAX_MEM/")"
 
   # Increase the compiler cache size: b/260643754 . Remove when updating to JDK 20 ( https://bugs.openjdk.org/browse/JDK-8295724 )
   ORG_GRADLE_JVMARGS="$(echo $ORG_GRADLE_JVMARGS | sed "s|$| -XX:ReservedCodeCacheSize=576M|")"
@@ -418,6 +420,11 @@ function runGradle() {
   if [[ "${@} " =~ " -Pandroidx.printTimestamps " ]]; then
     processOutput=true
   fi
+  # Skip build_log_processor as we are re-running an already successful build but with --dry-run so we can cache it
+  if [[ "${@} " =~ " --dry-run" && $ENABLE_PRESUBMIT_COMPATIBLE_CC_STORE == "true" ]]; then
+    processOutput=false
+  fi
+
   if [ "$processOutput" == "true" ]; then
     wrapper="$SCRIPT_PATH/development/build_log_processor.sh"
   else
@@ -426,9 +433,6 @@ function runGradle() {
 
   RETURN_VALUE=0
   set -- "$@" -Dorg.gradle.projectcachedir="$OUT_DIR/gradle-project-cache"
-  KOTLIN_PROJECT_PERSISTENT_DIR="$OUT_DIR/kotlin-project-persistent-dir"
-  mkdir -p "$KOTLIN_PROJECT_PERSISTENT_DIR"
-  set -- "$@" -Pkotlin.project.persistent.dir="$KOTLIN_PROJECT_PERSISTENT_DIR"
   # Disabled in Studio until these errors become shown (b/268380971) or computed more quickly (https://github.com/gradle/gradle/issues/23272)
   if [[ " ${@} " =~ " --dependency-verification=" ]]; then
     VERIFICATION_ARGUMENT="" # already specified by caller

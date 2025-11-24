@@ -28,6 +28,7 @@ import androidx.camera.integration.uiwidgets.rotations.OrientationConfigChangesO
 import androidx.camera.integration.uiwidgets.rotations.UnlockedOrientationActivity
 import androidx.camera.integration.uiwidgets.viewpager.ViewPager2Activity
 import androidx.camera.integration.uiwidgets.viewpager.ViewPagerActivity
+import androidx.camera.testing.impl.util.EdgeToEdgeUtil
 
 class MainActivity : AppCompatActivity() {
 
@@ -37,27 +38,22 @@ class MainActivity : AppCompatActivity() {
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        EdgeToEdgeUtil.enableEdgeToEdge(
+            activity = this,
+            viewIdsTopPaddingRequired = listOf(R.id.root_layout),
+        )
+
         binding.rotationUnlocked.setOnClickListener {
             launch(UnlockedOrientationActivity::class.java)
         }
-        binding.rotationLocked.setOnClickListener {
-            launch(LockedOrientationActivity::class.java)
-        }
+        binding.rotationLocked.setOnClickListener { launch(LockedOrientationActivity::class.java) }
         binding.rotationConfigChanges.setOnClickListener {
             launch(OrientationConfigChangesOverriddenActivity::class.java)
         }
-        binding.viewpager.setOnClickListener {
-            launch(ViewPagerActivity::class.java)
-        }
-        binding.viewpager2.setOnClickListener {
-            launch(ViewPager2Activity::class.java)
-        }
-        binding.foldable.setOnClickListener {
-            launch(FoldableCameraActivity::class.java)
-        }
-        binding.compose.setOnClickListener {
-            launch(ComposeCameraActivity::class.java)
-        }
+        binding.viewpager.setOnClickListener { launch(ViewPagerActivity::class.java) }
+        binding.viewpager2.setOnClickListener { launch(ViewPager2Activity::class.java) }
+        binding.foldable.setOnClickListener { launch(FoldableCameraActivity::class.java) }
+        binding.compose.setOnClickListener { launch(ComposeCameraActivity::class.java) }
     }
 
     private fun <A : ComponentActivity> launch(activityClass: Class<A>) {

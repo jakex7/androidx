@@ -27,12 +27,9 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Instrumentation tests for [GlContext].
- */
+/** Instrumentation tests for [GlContext]. */
 @SmallTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 21)
 class GlContextDeviceTest {
 
     companion object {
@@ -65,9 +62,7 @@ class GlContextDeviceTest {
 
     @Test(expected = IllegalStateException::class)
     fun drawUnregisteredSurface_throwsException() {
-        instrumentation.runOnMainSync {
-            glContext.drawAndSwap(surface, TIMESTAMP_NS)
-        }
+        instrumentation.runOnMainSync { glContext.drawAndSwap(surface, TIMESTAMP_NS) }
     }
 
     @Test(expected = IllegalStateException::class)
@@ -79,6 +74,7 @@ class GlContextDeviceTest {
         }
     }
 
+    @SdkSuppress(minSdkVersion = 24) // b/441561813
     @Test
     fun drawRegisteredSurface_noException() {
         instrumentation.runOnMainSync {
@@ -89,8 +85,6 @@ class GlContextDeviceTest {
 
     @Test
     fun registerSurfaceWithoutDrawingOrReleasing_noException() {
-        instrumentation.runOnMainSync {
-            glContext.registerSurface(surface)
-        }
+        instrumentation.runOnMainSync { glContext.registerSurface(surface) }
     }
 }

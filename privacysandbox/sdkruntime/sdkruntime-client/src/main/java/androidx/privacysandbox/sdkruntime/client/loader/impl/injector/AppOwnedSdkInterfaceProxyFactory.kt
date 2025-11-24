@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package androidx.privacysandbox.sdkruntime.client.loader.impl.injector
 
@@ -20,9 +21,7 @@ import android.os.IBinder
 import androidx.privacysandbox.sdkruntime.core.AppOwnedSdkSandboxInterfaceCompat
 import java.lang.reflect.Constructor
 
-/**
- * Create instance of [AppOwnedSdkSandboxInterfaceCompat] class loaded by SDK Classloader.
- */
+/** Create instance of [AppOwnedSdkSandboxInterfaceCompat] class loaded by SDK Classloader. */
 internal class AppOwnedSdkInterfaceProxyFactory(
     private val appOwnedSdkSandboxInterfaceCompatConstructor: Constructor<out Any>
 ) {
@@ -37,22 +36,23 @@ internal class AppOwnedSdkInterfaceProxyFactory(
         return appOwnedSdkSandboxInterfaceCompatConstructor.newInstance(
             /* parameter1 */ source.getName(),
             /* parameter2 */ source.getVersion(),
-            /* parameter3 */ source.getInterface()
+            /* parameter3 */ source.getInterface(),
         )
     }
 
     companion object {
         fun createFor(classLoader: ClassLoader): AppOwnedSdkInterfaceProxyFactory {
-            val appOwnedSdkSandboxInterfaceCompatClass = Class.forName(
-                AppOwnedSdkSandboxInterfaceCompat::class.java.name,
-                /* initialize = */ false,
-                classLoader
-            )
+            val appOwnedSdkSandboxInterfaceCompatClass =
+                Class.forName(
+                    "androidx.privacysandbox.sdkruntime.core.AppOwnedSdkSandboxInterfaceCompat",
+                    /* initialize = */ false,
+                    classLoader,
+                )
             val appOwnedSdkSandboxInterfaceCompatConstructor =
                 appOwnedSdkSandboxInterfaceCompatClass.getConstructor(
                     /* name      */ String::class.java,
                     /* version   */ Long::class.java,
-                    /* interface */ IBinder::class.java
+                    /* interface */ IBinder::class.java,
                 )
             return AppOwnedSdkInterfaceProxyFactory(appOwnedSdkSandboxInterfaceCompatConstructor)
         }

@@ -25,11 +25,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(TilesTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class CheckAccessibilityAvailableTest {
     @Test
     fun check_throwsWithNoSemantics() {
-        val entry = buildTimelineEntry(
-            LayoutElementBuilders.Box.Builder().build())
+        val entry = buildTimelineEntry(LayoutElementBuilders.Box.Builder().build())
 
         var exception: CheckerException? = null
 
@@ -102,12 +102,8 @@ class CheckAccessibilityAvailableTest {
         assertThat(exception).isNull()
     }
 
-    private fun buildTimelineEntry(
-        layout: LayoutElementBuilders.LayoutElement
-    ) =
+    private fun buildTimelineEntry(layout: LayoutElementBuilders.LayoutElement) =
         TimelineBuilders.TimelineEntry.Builder()
-            .setLayout(
-                LayoutElementBuilders.Layout.Builder().setRoot(layout).build()
-            )
+            .setLayout(LayoutElementBuilders.Layout.Builder().setRoot(layout).build())
             .build()
 }

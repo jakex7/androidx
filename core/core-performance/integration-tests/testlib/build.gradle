@@ -17,19 +17,18 @@
 plugins {
     id("AndroidXPlugin")
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.experimental.built-in-kotlin")
 }
 
 dependencies {
-    api(libs.kotlinStdlib)
     implementation(project(":core:core-performance"))
     implementation libs.constraintLayout
 }
 
 android {
     defaultConfig {
-        minSdkVersion 24
+        minSdk = 24
     }
 
-    namespace "androidx.core.performance.testlib"
+    namespace = "androidx.core.performance.testlib"
 }

@@ -64,20 +64,16 @@ private const val TabFadeOutAnimationDuration = 100
 fun ComposeCameraScreenTabRow(
     allScreens: List<ComposeCameraScreen>,
     onTabSelected: (ComposeCameraScreen) -> Unit,
-    currentScreen: ComposeCameraScreen
+    currentScreen: ComposeCameraScreen,
 ) {
-    Surface(
-        Modifier
-            .height(TabHeight)
-            .fillMaxWidth()
-    ) {
+    Surface(Modifier.height(TabHeight).fillMaxWidth()) {
         Row(Modifier.selectableGroup()) {
             allScreens.forEach { screen ->
                 ComposeCameraTab(
                     text = screen.name,
                     icon = screen.icon,
                     onSelected = { onTabSelected(screen) },
-                    selected = currentScreen == screen
+                    selected = currentScreen == screen,
                 )
             }
         }
@@ -90,7 +86,7 @@ private fun ComposeCameraTab(
     text: String,
     icon: ImageVector,
     onSelected: () -> Unit,
-    selected: Boolean
+    selected: Boolean,
 ) {
     val color = MaterialTheme.colors.onSurface
     val durationMillis = if (selected) TabFadeInAnimationDuration else TabFadeOutAnimationDuration
@@ -98,32 +94,30 @@ private fun ComposeCameraTab(
         tween<Color>(
             durationMillis = durationMillis,
             easing = LinearEasing,
-            delayMillis = TabFadeInAnimationDelay
+            delayMillis = TabFadeInAnimationDelay,
         )
     }
 
-    val tabTintColor by animateColorAsState(
-        targetValue = if (selected) color else color.copy(alpha = InactiveTabOpacity),
-        animationSpec = animSpec
-    )
+    val tabTintColor by
+        animateColorAsState(
+            targetValue = if (selected) color else color.copy(alpha = InactiveTabOpacity),
+            animationSpec = animSpec,
+        )
 
     Row(
-        modifier = Modifier
-            .padding(TabPadding)
-            .animateContentSize()
-            .height(TabHeight)
-            .selectable(
-                selected = selected,
-                onClick = onSelected,
-                role = Role.Tab,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(
-                    bounded = false,
-                    radius = Dp.Unspecified,
-                    color = Color.Unspecified
+        modifier =
+            Modifier.padding(TabPadding)
+                .animateContentSize()
+                .height(TabHeight)
+                .selectable(
+                    selected = selected,
+                    onClick = onSelected,
+                    role = Role.Tab,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication =
+                        ripple(bounded = false, radius = Dp.Unspecified, color = Color.Unspecified),
                 )
-            )
-            .clearAndSetSemantics { contentDescription = text }
+                .clearAndSetSemantics { contentDescription = text }
     ) {
         Icon(imageVector = icon, contentDescription = text, tint = tabTintColor)
         if (selected) {

@@ -54,11 +54,11 @@ fun ButtonSizes() {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Button(
                 onClick = {},
@@ -67,10 +67,7 @@ fun ButtonSizes() {
             ) {
                 Text("Lrg")
             }
-            Button(
-                onClick = {},
-                enabled = enabled,
-            ) {
+            Button(onClick = {}, enabled = enabled) {
                 // NB Leave size as default for this one.
                 Text("Def")
             }
@@ -81,28 +78,17 @@ fun ButtonSizes() {
             ) {
                 Text("Sml")
             }
-            CompactButton(
-                onClick = {},
-                enabled = enabled,
-            ) {
-                Text("XS")
-            }
+            CompactButton(onClick = {}, enabled = enabled) { Text("XS") }
         }
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "Enabled",
-                style = MaterialTheme.typography.caption2,
-                color = Color.White
-            )
+            Text(text = "Enabled", style = MaterialTheme.typography.caption2, color = Color.White)
             ToggleButton(
                 checked = enabled,
-                onCheckedChange = {
-                    enabled = it
-                },
-                modifier = Modifier.size(ButtonDefaults.SmallButtonSize)
+                onCheckedChange = { enabled = it },
+                modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
             ) {
                 Text(text = if (enabled) "Yes" else "No")
             }
@@ -117,195 +103,190 @@ fun ButtonStyles() {
 
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        item {
-            ListHeader {
-                Text(
-                    text = "Styles (Click for details)",
-                )
-            }
-        }
+        item { ListHeader { Text(text = "Styles (Click for details)") } }
         item {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(
                     onClick = {
-                        Toast.makeText(
-                            context,
-                            "Button: Secondary, $enabled", Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(context, "Button: Secondary, $enabled", Toast.LENGTH_LONG)
+                            .show()
                     },
                     colors = ButtonDefaults.secondaryButtonColors(),
                     enabled = enabled,
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
                 Button(
                     onClick = {
-                        Toast.makeText(
-                            context,
-                            "Button: Primary colors", Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(context, "Button: Primary colors", Toast.LENGTH_LONG).show()
                     },
                     colors = ButtonDefaults.primaryButtonColors(),
                     enabled = enabled,
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
             }
         }
         item {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(
                     onClick = {
                         Toast.makeText(
-                            context,
-                            "Button: Small, icon only, $enabled", Toast.LENGTH_LONG
-                        ).show()
+                                context,
+                                "Button: Small, icon only, $enabled",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
                     },
                     colors = ButtonDefaults.iconButtonColors(),
                     modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
-                    enabled = enabled
+                    enabled = enabled,
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
                 Button(
                     onClick = {
                         Toast.makeText(
-                            context,
-                            "Button: Large, icon only, $enabled", Toast.LENGTH_LONG
-                        ).show()
+                                context,
+                                "Button: Large, icon only, $enabled",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
                     },
                     colors = ButtonDefaults.iconButtonColors(),
                     modifier = Modifier.size(ButtonDefaults.LargeButtonSize),
-                    enabled = enabled
+                    enabled = enabled,
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
             }
         }
         item {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedButton(
                     onClick = {
-                        Toast.makeText(
-                            context,
-                            "Button: Outlined, $enabled", Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(context, "Button: Outlined, $enabled", Toast.LENGTH_LONG)
+                            .show()
                     },
                     enabled = enabled,
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
                 OutlinedCompactButton(
                     onClick = {
                         Toast.makeText(
-                            context,
-                            "Button: Outlined Compact, $enabled", Toast.LENGTH_LONG
-                        ).show()
+                                context,
+                                "Button: Outlined Compact, $enabled",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
                     },
                     enabled = enabled,
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
             }
         }
         item {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(
                     onClick = {
-                        Toast.makeText(
-                            context,
-                            "Button: Custom Shape", Toast.LENGTH_LONG
-                        ).show()
+                        Toast.makeText(context, "Button: Custom Shape", Toast.LENGTH_LONG).show()
                     },
                     colors = ButtonDefaults.secondaryButtonColors(),
                     modifier = Modifier,
                     enabled = enabled,
-                    shape = CutCornerShape(4.dp)
+                    shape = CutCornerShape(4.dp),
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
                 CompactButton(
                     onClick = {
                         Toast.makeText(
-                            context,
-                            "Button: Compact Button with Custom Shape", Toast.LENGTH_LONG
-                        ).show()
+                                context,
+                                "Button: Compact Button with Custom Shape",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
                     },
                     colors = ButtonDefaults.secondaryButtonColors(),
                     modifier = Modifier,
                     enabled = enabled,
-                    shape = CutCornerShape(4.dp)
+                    shape = CutCornerShape(4.dp),
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
             }
         }
         item {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedCompactButton(
                     onClick = {
                         Toast.makeText(
-                            context,
-                            "Button: Outlined Compact Button with Custom Shape", Toast.LENGTH_LONG
-                        ).show()
+                                context,
+                                "Button: Outlined Compact Button with Custom Shape",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
                     },
                     modifier = Modifier,
                     enabled = enabled,
-                    shape = CutCornerShape(4.dp)
+                    shape = CutCornerShape(4.dp),
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
                 Button(
                     onClick = {
                         Toast.makeText(
-                            context,
-                            "Button: Override primary colors", Toast.LENGTH_LONG
-                        ).show()
+                                context,
+                                "Button: Override primary colors",
+                                Toast.LENGTH_LONG,
+                            )
+                            .show()
                     },
-                    colors = ButtonDefaults.primaryButtonColors(
-                        backgroundColor = AlternatePrimaryColor1,
-                    ),
+                    colors =
+                        ButtonDefaults.primaryButtonColors(
+                            backgroundColor = AlternatePrimaryColor1
+                        ),
                     enabled = enabled,
                 ) {
-                    DemoIcon(R.drawable.ic_accessibility_24px)
+                    DemoIcon(R.drawable.icon_accessibility_24px)
                 }
             }
         }
         item {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Buttons Enabled",
                     style = MaterialTheme.typography.caption2,
-                    color = Color.White
+                    color = Color.White,
                 )
                 ToggleButton(
                     checked = enabled,
-                    onCheckedChange = {
-                        enabled = it
-                    },
+                    onCheckedChange = { enabled = it },
                     modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
                 ) {
-                    DemoIcon(R.drawable.ic_check_24px)
+                    DemoIcon(R.drawable.icon_check_24px)
                 }
             }
         }
@@ -320,9 +301,7 @@ fun ButtonGallery() {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize(),
     ) {
-        item {
-            ListHeader { Text("Large - 60 x 60") }
-        }
+        item { ListHeader { Text("Large - 60 x 60") } }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
@@ -330,14 +309,14 @@ fun ButtonGallery() {
                     colors = ButtonDefaults.primaryButtonColors(),
                     modifier = Modifier.size(ButtonDefaults.LargeButtonSize),
                 ) {
-                    DemoIcon(resourceId = R.drawable.ic_play, contentDescription = "Play")
+                    DemoIcon(resourceId = R.drawable.icon_play, contentDescription = "Play")
                 }
                 Button(
                     onClick = {},
                     colors = ButtonDefaults.secondaryButtonColors(),
                     modifier = Modifier.size(ButtonDefaults.LargeButtonSize),
                 ) {
-                    DemoIcon(resourceId = R.drawable.ic_play, contentDescription = "Play")
+                    DemoIcon(resourceId = R.drawable.icon_play, contentDescription = "Play")
                 }
             }
         }
@@ -348,52 +327,36 @@ fun ButtonGallery() {
                     colors = ButtonDefaults.iconButtonColors(),
                     modifier = Modifier.size(ButtonDefaults.LargeButtonSize),
                 ) {
-                    DemoIcon(resourceId = R.drawable.ic_skip_next, contentDescription = "Skip")
+                    DemoIcon(resourceId = R.drawable.icon_skip_next, contentDescription = "Skip")
                 }
                 Spacer(Modifier.width(ButtonDefaults.LargeButtonSize))
             }
         }
 
-        item {
-            ListHeader { Text("Default - 52 x 52") }
-        }
+        item { ListHeader { Text("Default - 52 x 52") } }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(
-                    onClick = {},
-                    colors = ButtonDefaults.primaryButtonColors(),
-                ) {
-                    DemoIcon(resourceId = R.drawable.ic_check_24px, contentDescription = "Tick")
+                Button(onClick = {}, colors = ButtonDefaults.primaryButtonColors()) {
+                    DemoIcon(resourceId = R.drawable.icon_check_24px, contentDescription = "Tick")
                 }
-                Button(
-                    onClick = {},
-                    colors = ButtonDefaults.secondaryButtonColors(),
-                ) {
-                    DemoIcon(
-                        resourceId = R.drawable.ic_clear_24px,
-                        contentDescription = "Cross"
-                    )
+                Button(onClick = {}, colors = ButtonDefaults.secondaryButtonColors()) {
+                    DemoIcon(resourceId = R.drawable.icon_clear_24px, contentDescription = "Cross")
                 }
             }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Button(
-                    onClick = {},
-                    colors = ButtonDefaults.iconButtonColors(),
-                ) {
+                Button(onClick = {}, colors = ButtonDefaults.iconButtonColors()) {
                     DemoIcon(
-                        resourceId = R.drawable.ic_devices_24,
-                        contentDescription = "Devices"
+                        resourceId = R.drawable.icon_devices_24,
+                        contentDescription = "Devices",
                     )
                 }
                 Spacer(Modifier.width(ButtonDefaults.DefaultButtonSize))
             }
         }
 
-        item {
-            ListHeader { Text("Small - 48 x 48") }
-        }
+        item { ListHeader { Text("Small - 48 x 48") } }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
@@ -401,14 +364,14 @@ fun ButtonGallery() {
                     colors = ButtonDefaults.primaryButtonColors(),
                     modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
                 ) {
-                    DemoIcon(resourceId = R.drawable.ic_music_24, contentDescription = "Music")
+                    DemoIcon(resourceId = R.drawable.icon_music_24, contentDescription = "Music")
                 }
                 Button(
                     onClick = {},
                     colors = ButtonDefaults.secondaryButtonColors(),
                     modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
                 ) {
-                    DemoIcon(resourceId = R.drawable.ic_mic_24, contentDescription = "Mic")
+                    DemoIcon(resourceId = R.drawable.icon_mic_24, contentDescription = "Mic")
                 }
             }
         }
@@ -420,34 +383,26 @@ fun ButtonGallery() {
                     modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
                 ) {
                     DemoIcon(
-                        resourceId = R.drawable.ic_volume_up_24px,
-                        contentDescription = "Vol"
+                        resourceId = R.drawable.icon_volume_up_24px,
+                        contentDescription = "Vol",
                     )
                 }
                 Spacer(Modifier.width(ButtonDefaults.SmallButtonSize))
             }
         }
 
-        item {
-            ListHeader { Text("Extra small - 32 x 32") }
-        }
+        item { ListHeader { Text("Extra small - 32 x 32") } }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                CompactButton(
-                    onClick = {},
-                    colors = ButtonDefaults.primaryButtonColors(),
-                ) {
+                CompactButton(onClick = {}, colors = ButtonDefaults.primaryButtonColors()) {
                     DemoIcon(
-                        resourceId = R.drawable.ic_arrow_left_modified,
+                        resourceId = R.drawable.icon_arrow_left_modified,
                         contentDescription = "Left",
                     )
                 }
-                CompactButton(
-                    onClick = {},
-                    colors = ButtonDefaults.secondaryButtonColors(),
-                ) {
+                CompactButton(onClick = {}, colors = ButtonDefaults.secondaryButtonColors()) {
                     DemoIcon(
-                        resourceId = R.drawable.ic_arrow_right_modified,
+                        resourceId = R.drawable.icon_arrow_right_modified,
                         contentDescription = "Right",
                     )
                 }
@@ -455,21 +410,15 @@ fun ButtonGallery() {
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                CompactButton(
-                    onClick = {},
-                    colors = ButtonDefaults.iconButtonColors(),
-                ) {
+                CompactButton(onClick = {}, colors = ButtonDefaults.iconButtonColors()) {
                     DemoIcon(
-                        resourceId = R.drawable.ic_arrow_left_modified,
+                        resourceId = R.drawable.icon_arrow_left_modified,
                         contentDescription = "Left",
                     )
                 }
-                CompactButton(
-                    onClick = {},
-                    colors = ButtonDefaults.iconButtonColors(),
-                ) {
+                CompactButton(onClick = {}, colors = ButtonDefaults.iconButtonColors()) {
                     DemoIcon(
-                        resourceId = R.drawable.ic_arrow_right_modified,
+                        resourceId = R.drawable.icon_arrow_right_modified,
                         contentDescription = "Right",
                     )
                 }

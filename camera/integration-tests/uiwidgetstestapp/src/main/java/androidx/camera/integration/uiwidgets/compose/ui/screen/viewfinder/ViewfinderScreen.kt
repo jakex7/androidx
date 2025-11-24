@@ -55,7 +55,7 @@ private const val TAG = "ViewfinderScreen"
 @Composable
 fun ViewfinderScreen(
     modifier: Modifier = Modifier,
-    state: ViewfinderScreenState = rememberViewfinderScreenState()
+    state: ViewfinderScreenState = rememberViewfinderScreenState(),
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val localContext = LocalContext.current
@@ -72,7 +72,7 @@ fun ViewfinderScreen(
         isCameraReady = state.isCameraReady,
         onFlipCameraIconClicked = state::toggleLensFacing,
         onSurfaceProviderReady = state::setSurfaceProvider,
-        onTouch = state::startTapToFocus
+        onTouch = state::startTapToFocus,
     )
 }
 
@@ -97,10 +97,11 @@ fun ViewfinderScreen(
     // This instance needs to be carefully used in controlled environments (e.g. LaunchedEffect)
     val previewView = remember {
         PreviewView(localContext).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            layoutParams =
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
 
             // Uses TextureView. Required by MLKitAnalyzer to acquire the correct OutputTransform
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
@@ -118,33 +119,26 @@ fun ViewfinderScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { previewView }
-        )
+        AndroidView(factory = { previewView })
 
         Column(
             modifier = Modifier.align(Alignment.BottomCenter),
-            verticalArrangement = Arrangement.Bottom
+            verticalArrangement = Arrangement.Bottom,
         ) {
 
             // Display Zoom Slider only when Camera is ready
             if (isCameraReady) {
                 Row(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(modifier = Modifier.weight(1f)) {
-                        Slider(
-                            value = linearZoom,
-                            onValueChange = onLinearZoomChange
-                        )
+                        Slider(value = linearZoom, onValueChange = onLinearZoomChange)
                     }
 
                     Text(
                         text = "%.2f x".format(zoomRatio),
-                        modifier = Modifier
-                            .padding(horizontal = 10.dp)
-                            .background(Color.White)
+                        modifier = Modifier.padding(horizontal = 10.dp).background(Color.White),
                     )
                 }
             }
@@ -153,7 +147,7 @@ fun ViewfinderScreen(
                 CameraControlButton(
                     imageVector = Icons.Sharp.FlipCameraAndroid,
                     contentDescription = "Toggle Camera Lens",
-                    onClick = onFlipCameraIconClicked
+                    onClick = onFlipCameraIconClicked,
                 )
 
                 // Placeholder for where capture button would reside

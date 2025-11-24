@@ -34,51 +34,48 @@ import org.robolectric.shadows.StreamConfigurationMapBuilder
 
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = 21)
+@Config(sdk = [Config.ALL_SDKS])
 class AfRegionFlipHorizontallyQuirkTest(
     private val brand: String,
     private val lensFacing: Int,
-    private val quirkEnablingExpected: Boolean
+    private val quirkEnablingExpected: Boolean,
 ) {
     companion object {
+        @Suppress("TYPE_INTERSECTION_AS_REIFIED_WARNING")
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "Brand: {0}, LensFacing = {1}")
-        fun data() = listOf(
-            arrayOf("Samsung", CameraCharacteristics.LENS_FACING_BACK, false),
-            arrayOf("Samsung", CameraCharacteristics.LENS_FACING_FRONT, true),
-            arrayOf("SAMSUNG", CameraCharacteristics.LENS_FACING_FRONT, true),
-            arrayOf("Google", CameraCharacteristics.LENS_FACING_BACK, false),
-            arrayOf("Google", CameraCharacteristics.LENS_FACING_FRONT, false),
-            arrayOf("Moto", CameraCharacteristics.LENS_FACING_BACK, false),
-        )
+        fun data() =
+            listOf(
+                arrayOf("Samsung", CameraCharacteristics.LENS_FACING_BACK, false),
+                arrayOf("Samsung", CameraCharacteristics.LENS_FACING_FRONT, true),
+                arrayOf("SAMSUNG", CameraCharacteristics.LENS_FACING_FRONT, true),
+                arrayOf("Google", CameraCharacteristics.LENS_FACING_BACK, false),
+                arrayOf("Google", CameraCharacteristics.LENS_FACING_FRONT, false),
+                arrayOf("Moto", CameraCharacteristics.LENS_FACING_BACK, false),
+            )
     }
 
-    private fun getCameraQuirks(
-        lensFacing: Int
-    ): Quirks {
+    private fun getCameraQuirks(lensFacing: Int): Quirks {
         val characteristics = ShadowCameraCharacteristics.newCameraCharacteristics()
         val shadowCharacteristics = Shadow.extract<ShadowCameraCharacteristics>(characteristics)
-        shadowCharacteristics.set(
-            CameraCharacteristics.LENS_FACING,
-            lensFacing
-        )
+        shadowCharacteristics.set(CameraCharacteristics.LENS_FACING, lensFacing)
 
-        val cameraMetadata = FakeCameraMetadata(
-            characteristics = mapOf(
-                CameraCharacteristics.LENS_FACING to lensFacing
+        val cameraMetadata =
+            FakeCameraMetadata(
+                characteristics = mapOf(CameraCharacteristics.LENS_FACING to lensFacing)
             )
-        )
 
         return CameraQuirks(
-            cameraMetadata,
-            StreamConfigurationMapCompat(
-                StreamConfigurationMapBuilder.newBuilder().build(),
-                OutputSizesCorrector(
-                    cameraMetadata,
-                    StreamConfigurationMapBuilder.newBuilder().build()
-                )
+                cameraMetadata,
+                StreamConfigurationMapCompat(
+                    StreamConfigurationMapBuilder.newBuilder().build(),
+                    OutputSizesCorrector(
+                        cameraMetadata,
+                        StreamConfigurationMapBuilder.newBuilder().build(),
+                    ),
+                ),
             )
-        ).quirks
+            .quirks
     }
 
     @Test

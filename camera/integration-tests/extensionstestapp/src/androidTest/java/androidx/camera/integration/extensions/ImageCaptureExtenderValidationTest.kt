@@ -21,8 +21,8 @@ import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
 import android.os.Build
 import android.util.Rational
-import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.impl.CameraInfoInternal
 import androidx.camera.core.impl.utils.AspectRatioUtil
 import androidx.camera.core.internal.utils.SizeUtil
 import androidx.camera.extensions.ExtensionsManager
@@ -42,6 +42,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.SdkSuppress
 import androidx.test.filters.SmallTest
 import com.google.common.truth.Truth.assertThat
+import java.lang.Long
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -56,19 +57,16 @@ import org.junit.runners.Parameterized
 
 @SmallTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
 class ImageCaptureExtenderValidationTest(private val config: CameraXExtensionTestParams) {
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = config.implName == CAMERA_PIPE_IMPLEMENTATION_OPTION
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = config.implName == CAMERA_PIPE_IMPLEMENTATION_OPTION)
 
     @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        PreTestCameraIdList(config.cameraXConfig)
-    )
-
-    private val context = ApplicationProvider.getApplicationContext<Context>()
+    val useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            PreTestCameraIdList(config.cameraXConfig)
+        )
 
     private lateinit var cameraProvider: ProcessCameraProvider
     private lateinit var extensionsManager: ExtensionsManager
@@ -84,42 +82,35 @@ class ImageCaptureExtenderValidationTest(private val config: CameraXExtensionTes
         val (_, cameraXConfig, cameraId, extensionMode) = config
         ProcessCameraProvider.configureInstance(cameraXConfig)
         cameraProvider = ProcessCameraProvider.getInstance(context)[10000, TimeUnit.MILLISECONDS]
-        extensionsManager = ExtensionsManager.getInstanceAsync(
-            context,
-            cameraProvider
-        )[10000, TimeUnit.MILLISECONDS]
+        extensionsManager = ExtensionsManager.getInstance(context, cameraProvider)
 
         baseCameraSelector = CameraSelectorUtil.createCameraSelectorById(cameraId)
         assumeTrue(extensionsManager.isExtensionAvailable(baseCameraSelector, extensionMode))
 
-        extensionCameraSelector = extensionsManager.getExtensionEnabledCameraSelector(
-            baseCameraSelector,
-            extensionMode
-        )
+        extensionCameraSelector =
+            extensionsManager.getExtensionEnabledCameraSelector(baseCameraSelector, extensionMode)
 
-        val camera = withContext(Dispatchers.Main) {
-            cameraProvider.bindToLifecycle(FakeLifecycleOwner(), extensionCameraSelector)
-        }
+        val camera =
+            withContext(Dispatchers.Main) {
+                cameraProvider.bindToLifecycle(FakeLifecycleOwner(), extensionCameraSelector)
+            }
 
-        cameraCharacteristics = Camera2CameraInfo.extractCameraCharacteristics(camera.cameraInfo)
+        cameraCharacteristics =
+            (camera.cameraInfo as CameraInfoInternal).cameraCharacteristics as CameraCharacteristics
     }
 
     @After
     fun cleanUp(): Unit = runBlocking {
         val cameraProvider =
             ProcessCameraProvider.getInstance(context)[10000, TimeUnit.MILLISECONDS]
-        withContext(Dispatchers.Main) {
-            cameraProvider.shutdownAsync()
-        }
+        withContext(Dispatchers.Main) { cameraProvider.shutdownAsync() }
 
-        val extensionsManager = ExtensionsManager.getInstanceAsync(
-            context,
-            cameraProvider
-        )[10000, TimeUnit.MILLISECONDS]
+        val extensionsManager = ExtensionsManager.getInstance(context, cameraProvider)
         extensionsManager.shutdown()
     }
 
     companion object {
+        val context = ApplicationProvider.getApplicationContext<Context>()
         @JvmStatic
         @get:Parameterized.Parameters(name = "config = {0}")
         val parameters: Collection<CameraXExtensionTestParams>
@@ -134,11 +125,12 @@ class ImageCaptureExtenderValidationTest(private val config: CameraXExtensionTes
 
         // Creates the ImageCaptureExtenderImpl to retrieve the target format/resolutions pair list
         // from vendor library for the target effect mode.
-        val impl = CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
+        val impl =
+            CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
 
         // NoSuchMethodError will be thrown if getSupportedResolutions is not implemented in
         // vendor library, and then the test will fail.
@@ -146,49 +138,47 @@ class ImageCaptureExtenderValidationTest(private val config: CameraXExtensionTes
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 21, maxSdkVersion = Build.VERSION_CODES.O_MR1)
+    @SdkSuppress(maxSdkVersion = Build.VERSION_CODES.O_MR1)
     fun returnsNullFromOnPresetSession_whenAPILevelOlderThan28() {
         // Creates the ImageCaptureExtenderImpl to check that onPresetSession() returns null when
         // API level is older than 28.
-        val impl = CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
+        val impl =
+            CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
         assertThat(impl.onPresetSession()).isNull()
     }
 
     @Test
     fun getEstimatedCaptureLatencyRangeSameAsImplClass_sinceVersion_1_2(): Unit = runBlocking {
-        assumeTrue(
-            ExtensionVersion.getRuntimeVersion()!!.compareTo(Version.VERSION_1_2) >= 0
-        )
-
-        // This call should not cause any exception even if the vendor library doesn't implement
-        // the getEstimatedCaptureLatencyRange function.
-        val latencyInfo = extensionsManager.getEstimatedCaptureLatencyRange(
-            baseCameraSelector,
-            config.extensionMode
-        )
+        assumeTrue(ExtensionVersion.getRuntimeVersion()!!.compareTo(Version.VERSION_1_2) >= 0)
 
         // Creates ImageCaptureExtenderImpl directly to retrieve the capture latency range info
-        val impl = CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
-        val expectedLatencyInfo = impl.getEstimatedCaptureLatencyRange(null)
+        val impl =
+            CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
 
-        // Compares the values obtained from ExtensionsManager and ImageCaptureExtenderImpl are
-        // the same.
-        assertThat(latencyInfo).isEqualTo(expectedLatencyInfo)
+        val supportedOutputSizes = getImageCaptureSupportedResolutions(impl, cameraCharacteristics)
+        val maxCaptureSize =
+            supportedOutputSizes.maxWith { lhs, rhs ->
+                Long.signum(lhs.width.toLong() * lhs.height - rhs.width.toLong() * rhs.height)
+            }
+
+        // Makes sure getEstimatedCaptureLatencyRange API can be called without any exception
+        // occurring when the vendor library is 1.2 or above
+        impl.getEstimatedCaptureLatencyRange(maxCaptureSize)
     }
 
     /**
      * The following 1.4 interface methods are validated by this test.
      * <ol>
-     *   <li>ImageCaptureExtenderImpl#isPostviewAvailable()
-     *   <li>ImageCaptureExtenderImpl#getSupportedPostviewResolutions()
+     * <li>ImageCaptureExtenderImpl#isPostviewAvailable()
+     * <li>ImageCaptureExtenderImpl#getSupportedPostviewResolutions()
      * </ol>
      */
     @Test
@@ -196,11 +186,12 @@ class ImageCaptureExtenderValidationTest(private val config: CameraXExtensionTes
         // Runs the test only when the vendor library implementation is 1.4 or above
         assumeTrue(ExtensionVersion.getRuntimeVersion()!! >= Version.VERSION_1_4)
 
-        val impl = CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
+        val impl =
+            CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
 
         // Runs the test only when postview is available
         assumeTrue(impl.isPostviewAvailable)
@@ -223,11 +214,12 @@ class ImageCaptureExtenderValidationTest(private val config: CameraXExtensionTes
                         .isAtMost(SizeUtil.getArea(captureSize))
                     // The postview size must have the same aspect ratio as the given capture size.
                     assertThat(
-                        AspectRatioUtil.hasMatchingAspectRatio(
-                            postviewSize,
-                            Rational(captureSize.width, captureSize.height)
+                            AspectRatioUtil.hasMatchingAspectRatio(
+                                postviewSize,
+                                Rational(captureSize.width, captureSize.height),
+                            )
                         )
-                    ).isTrue()
+                        .isTrue()
                 }
             }
             // When postview is supported for the capture size, as the javadoc description,
@@ -246,22 +238,24 @@ class ImageCaptureExtenderValidationTest(private val config: CameraXExtensionTes
         // Runs the test only when the vendor library implementation is 1.4 or above
         assumeTrue(ExtensionVersion.getRuntimeVersion()!! >= Version.VERSION_1_4)
 
-        val imageCaptureExtenderImpl = CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
+        val imageCaptureExtenderImpl =
+            CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
 
         // onSessionType is allowed to return any OEM customized session type, therefore, we can
         // only try to invoke this method to make sure that this method correctly exists in the
         // vendor library implementation and checks the returned.
         val imageCaptureSessionType = imageCaptureExtenderImpl.onSessionType()
 
-        val previewExtenderImpl = CameraXExtensionsTestUtil.createPreviewExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
+        val previewExtenderImpl =
+            CameraXExtensionsTestUtil.createPreviewExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
 
         val previewSessionType = previewExtenderImpl.onSessionType()
 
@@ -275,11 +269,12 @@ class ImageCaptureExtenderValidationTest(private val config: CameraXExtensionTes
         // Runs the test only when the vendor library implementation is 1.4 or above
         assumeTrue(ExtensionVersion.getRuntimeVersion()!! >= Version.VERSION_1_4)
 
-        val imageCaptureExtenderImpl = CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
+        val imageCaptureExtenderImpl =
+            CameraXExtensionsTestUtil.createImageCaptureExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
 
         // Makes sure isCaptureProcessProgressAvailable API can be called without any exception
         // occurring when the vendor library is 1.4 or above

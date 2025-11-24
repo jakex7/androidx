@@ -50,18 +50,14 @@ import androidx.constraintlayout.compose.integration.macrobenchmark.target.commo
 @Composable
 private fun CardSamplePreview() {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.LightGray)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier =
+            Modifier.fillMaxSize()
+                .background(Color.LightGray)
+                .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         for (i in 0 until 15) {
-            CardSample(
-                Modifier
-                    .height(80.dp)
-                    .background(Color.White, RoundedCornerShape(10.dp))
-            )
+            CardSample(Modifier.height(80.dp).background(Color.White, RoundedCornerShape(10.dp)))
         }
     }
 }
@@ -103,34 +99,32 @@ fun CardSample(
     @DrawableRes drawableRes: Int = randomAvatarId(),
     title: String = randomFullName(),
     description: String = LoremIpsum.words(50).shuffled().joinToString(" "),
-    timeStamp: String = newHourMinuteTimeStamp()
+    timeStamp: String = newHourMinuteTimeStamp(),
 ) {
     ConstraintLayout(
-        modifier = Modifier
-            .defaultMinSize(minWidth = 200.dp, minHeight = 50.dp)
-            .then(modifier)
-            .padding(4.dp),
-        constraintSet = cardSampleConstraintSet
+        modifier =
+            Modifier.defaultMinSize(minWidth = 200.dp, minHeight = 50.dp)
+                .then(modifier)
+                .padding(4.dp),
+        constraintSet = cardSampleConstraintSet,
     ) {
         Image(
-            modifier = Modifier
-                .layoutId("image")
-                .clip(RoundedCornerShape(10.dp)),
+            modifier = Modifier.layoutId("image").clip(RoundedCornerShape(10.dp)),
             painter = painterResource(id = drawableRes),
-            contentDescription = null
+            contentDescription = null,
         )
         Text(
             modifier = Modifier.layoutId("title"),
             text = title,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
         Text(modifier = Modifier.layoutId("timestamp"), text = timeStamp)
         Text(
             modifier = Modifier.layoutId("description"),
             text = description,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

@@ -32,11 +32,13 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
 /**
- * Add a test for [WindowInfoTrackerCallbackAdapter] to verify adapted methods. Test converting
- * from the kotlin coroutine API to listeners and callbacks.
+ * Add a test for [WindowInfoTrackerCallbackAdapter] to verify adapted methods. Test converting from
+ * the kotlin coroutine API to listeners and callbacks.
+ *
  * @see WindowInfoTracker
  */
 @OptIn(ExperimentalWindowApi::class)
+@Suppress("Deprecation") // WindowInfoTrackerCallbackAdapter is deprecated
 public class WindowInfoTrackerCallbackAdapterTest {
 
     @Test

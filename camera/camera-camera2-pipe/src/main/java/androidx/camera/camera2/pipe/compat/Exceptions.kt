@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 
-@file:RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-
 package androidx.camera.camera2.pipe.compat
 
 import android.hardware.camera2.CameraAccessException
-import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraError
 import androidx.camera.camera2.pipe.CameraId
 import androidx.camera.camera2.pipe.core.Log
@@ -36,7 +33,7 @@ internal class ObjectUnavailableException(e: Throwable) : Exception(e)
 internal inline fun <T> catchAndReportCameraExceptions(
     cameraId: CameraId,
     cameraErrorListener: CameraErrorListener,
-    crossinline block: () -> T
+    crossinline block: () -> T,
 ): T? {
     // Camera2 has, at different points in time, thrown a large number of checked and/or
     // unchecked exceptions under different circumstances that are not listed in the
@@ -56,22 +53,35 @@ internal inline fun <T> catchAndReportCameraExceptions(
     try {
         return block()
     } catch (e: Exception) {
-        Log.warn { "Unexpected error: " + e.message }
         when (e) {
-            is IllegalArgumentException,
-            is IllegalStateException,
-            is CameraAccessException,
-            is SecurityException,
-            is UnsupportedOperationException,
-            is NullPointerException -> {
+            is CameraAccessException -> {
+                Log.warn { "Failed to execute call: Camera encountered an error: " + e.message }
                 cameraErrorListener.onCameraError(
                     cameraId,
-                    CameraError.ERROR_GRAPH_CONFIG,
-                    willAttemptRetry = false
+                    CameraError.from(e),
+                    // CameraAccessException indicates the task failed because the camera is
+                    // unavailable, such as when the camera is in use or disconnected. Such errors
+                    // can be recovered when the camera becomes available.
+                    willAttemptRetry = true,
                 )
                 return null
             }
-
+            is IllegalArgumentException,
+            is SecurityException,
+            is UnsupportedOperationException,
+            is NullPointerException -> {
+                Log.warn { "Failed to execute call: Unexpected exception: " + e.message }
+                cameraErrorListener.onCameraError(
+                    cameraId,
+                    CameraError.ERROR_GRAPH_CONFIG,
+                    willAttemptRetry = false,
+                )
+                return null
+            }
+            is IllegalStateException -> {
+                Log.debug { "Failed to execute call: Camera may be closed" }
+                return null
+            }
             else -> throw e
         }
     }

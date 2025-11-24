@@ -14,28 +14,21 @@
  * limitations under the License.
  */
 
-@file:RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-
 package androidx.camera.camera2.pipe.integration.adapter
 
 import android.hardware.camera2.CameraDevice
 import android.media.MediaCodec
-import androidx.annotation.RequiresApi
 import androidx.annotation.VisibleForTesting
 import androidx.camera.camera2.pipe.OutputStream
-import androidx.camera.camera2.pipe.core.Log
-import androidx.camera.camera2.pipe.core.Log.debug
 import androidx.camera.camera2.pipe.integration.impl.Camera2ImplConfig
-import androidx.camera.camera2.pipe.integration.impl.STREAM_USE_HINT_OPTION
+import androidx.camera.camera2.pipe.integration.impl.Camera2Logger
 import androidx.camera.camera2.pipe.integration.internal.StreamUseCaseUtil
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.Preview
 import androidx.camera.core.UseCase
 import androidx.camera.core.impl.DeferrableSurface
 import androidx.camera.core.impl.SessionConfig
 import androidx.camera.core.impl.UseCaseConfig
 import androidx.camera.core.streamsharing.StreamSharing
+import java.util.Collections
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -44,34 +37,28 @@ import kotlinx.coroutines.launch
  * Aggregate the SessionConfig from a List of [UseCase]s, and provide a validated SessionConfig for
  * operation.
  */
-class SessionConfigAdapter(
+public class SessionConfigAdapter(
     private val useCases: Collection<UseCase>,
-    private val sessionProcessorConfig: SessionConfig? = null,
+    private val isPrimary: Boolean = true,
 ) {
-    val isSessionProcessorEnabled = sessionProcessorConfig != null
-    val surfaceToStreamUseCaseMap: Map<DeferrableSurface, Long> by lazy {
+    public val surfaceToStreamUseCaseMap: Map<DeferrableSurface, Long> by lazy {
         val sessionConfigs = mutableListOf<SessionConfig>()
         val useCaseConfigs = mutableListOf<UseCaseConfig<*>>()
         for (useCase in useCases) {
-            sessionConfigs.add(useCase.sessionConfig)
+            sessionConfigs.add(useCase.getSessionConfig(isPrimary))
             useCaseConfigs.add(useCase.currentConfig)
         }
         getSurfaceToStreamUseCaseMapping(sessionConfigs, useCaseConfigs)
     }
-    val surfaceToStreamUseHintMap: Map<DeferrableSurface, Long> by lazy {
-        val sessionConfigs = useCases.map { it.sessionConfig }
+    public val surfaceToStreamUseHintMap: Map<DeferrableSurface, Long> by lazy {
+        val sessionConfigs = useCases.map { it.getSessionConfig(isPrimary) }
         getSurfaceToStreamUseHintMapping(sessionConfigs)
     }
     private val validatingBuilder: SessionConfig.ValidatingBuilder by lazy {
         val validatingBuilder = SessionConfig.ValidatingBuilder()
 
         for (useCase in useCases) {
-            validatingBuilder.add(useCase.sessionConfig)
-        }
-
-        if (sessionProcessorConfig != null) {
-            validatingBuilder.clearSurfaces()
-            validatingBuilder.add(sessionProcessorConfig)
+            validatingBuilder.add(useCase.getSessionConfig(isPrimary))
         }
 
         validatingBuilder
@@ -83,37 +70,45 @@ class SessionConfigAdapter(
         validatingBuilder.build()
     }
 
-    val deferrableSurfaces: List<DeferrableSurface> by lazy {
+    public val deferrableSurfaces: List<DeferrableSurface> by lazy {
         check(validatingBuilder.isValid)
 
-        sessionConfig.surfaces
+        sessionConfig.postviewOutputConfig?.let {
+            Collections.unmodifiableList(
+                mutableListOf<DeferrableSurface>().apply {
+                    addAll(sessionConfig.surfaces)
+                    add(it.surface)
+                }
+            )
+        } ?: sessionConfig.surfaces
     }
 
-    fun getValidSessionConfigOrNull(): SessionConfig? {
+    public fun getValidSessionConfigOrNull(): SessionConfig? {
         return if (isSessionConfigValid()) sessionConfig else null
     }
 
-    fun isSessionConfigValid(): Boolean {
+    public fun isSessionConfigValid(): Boolean {
         return validatingBuilder.isValid
     }
 
-    fun reportSurfaceInvalid(deferrableSurface: DeferrableSurface) {
-        debug { "Unavailable $deferrableSurface, notify SessionConfig invalid" }
+    public fun reportSurfaceInvalid(deferrableSurface: DeferrableSurface) {
+        Camera2Logger.debug { "Unavailable $deferrableSurface, notify SessionConfig invalid" }
 
         // Only report error to one SessionConfig, CameraInternal#onUseCaseReset()
         // will handle the other failed Surfaces if there are any.
-        val sessionConfig = useCases.firstOrNull { useCase ->
-            useCase.sessionConfig.surfaces.contains(deferrableSurface)
-        }?.sessionConfig
+        val sessionConfig =
+            useCases
+                .firstOrNull { useCase ->
+                    val sessionConfig = useCase.getSessionConfig(isPrimary)
+                    sessionConfig.surfaces.contains(deferrableSurface)
+                }
+                ?.sessionConfig
 
         CoroutineScope(Dispatchers.Main.immediate).launch {
             // The error listener is used to notify the UseCase to recreate the pipeline,
             // and the create pipeline task would be executed on the main thread.
-            sessionConfig?.errorListeners?.forEach {
-                it.onError(
-                    sessionConfig,
-                    SessionConfig.SessionError.SESSION_ERROR_SURFACE_NEEDS_RESET
-                )
+            sessionConfig?.errorListener?.apply {
+                onError(sessionConfig, SessionConfig.SessionError.SESSION_ERROR_SURFACE_NEEDS_RESET)
             }
         }
     }
@@ -126,13 +121,13 @@ class SessionConfigAdapter(
      * @return the mapping between surfaces and Stream Use Case flag
      */
     @VisibleForTesting
-    fun getSurfaceToStreamUseCaseMapping(
+    public fun getSurfaceToStreamUseCaseMapping(
         sessionConfigs: Collection<SessionConfig>,
         useCaseConfigs: Collection<UseCaseConfig<*>>,
     ): Map<DeferrableSurface, Long> {
         if (sessionConfigs.any { it.templateType == CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG }) {
             // If is ZSL, do not populate anything.
-            Log.error { "ZSL in populateSurfaceToStreamUseCaseMapping()" }
+            Camera2Logger.error { "ZSL in populateSurfaceToStreamUseCaseMapping()" }
             return emptyMap()
         }
 
@@ -140,7 +135,7 @@ class SessionConfigAdapter(
         StreamUseCaseUtil.populateSurfaceToStreamUseCaseMapping(
             sessionConfigs,
             useCaseConfigs,
-            mapping
+            mapping,
         )
 
         return mapping
@@ -154,48 +149,60 @@ class SessionConfigAdapter(
      * @return the mapping between surfaces and Stream Use Hint flag
      */
     @VisibleForTesting
-    fun getSurfaceToStreamUseHintMapping(
+    public fun getSurfaceToStreamUseHintMapping(
         sessionConfigs: Collection<SessionConfig>
     ): Map<DeferrableSurface, Long> {
         val mapping = mutableMapOf<DeferrableSurface, Long>()
         for (sessionConfig in sessionConfigs) {
             for (surface in sessionConfig.surfaces) {
-                if (sessionConfig.implementationOptions.containsOption(STREAM_USE_HINT_OPTION) &&
-                    sessionConfig.implementationOptions.retrieveOption(STREAM_USE_HINT_OPTION)
-                    != null
+                if (
+                    sessionConfig.implementationOptions.containsOption(
+                        Camera2ImplConfig.STREAM_USE_HINT_OPTION
+                    ) &&
+                        sessionConfig.implementationOptions.retrieveOption(
+                            Camera2ImplConfig.STREAM_USE_HINT_OPTION
+                        ) != null
                 ) {
                     mapping[surface] =
-                        sessionConfig.implementationOptions
-                            .retrieveOption(STREAM_USE_HINT_OPTION)!!
+                        sessionConfig.implementationOptions.retrieveOption(
+                            Camera2ImplConfig.STREAM_USE_HINT_OPTION
+                        )!!
                     continue
                 }
+
+                mapping[surface] = getStreamUseHintForContainerClass(surface.containerClass)
             }
         }
         return mapping
     }
 
-    private fun getStreamUseCaseForContainerClass(kClass: Class<*>?): Long {
-        return when (kClass) {
-            ImageAnalysis::class.java -> OutputStream.StreamUseCase.PREVIEW.value
-            Preview::class.java -> OutputStream.StreamUseCase.PREVIEW.value
-            ImageCapture::class.java -> OutputStream.StreamUseCase.STILL_CAPTURE.value
-            MediaCodec::class.java -> OutputStream.StreamUseCase.VIDEO_RECORD.value
-            StreamSharing::class.java -> OutputStream.StreamUseCase.VIDEO_RECORD.value
-            else -> OutputStream.StreamUseCase.DEFAULT.value
-        }
-    }
-
+    /**
+     * Determines the appropriate [OutputStream.StreamUseHint] value based on the provided container
+     * class.
+     *
+     * StreamUseHint is used for the following purposes:
+     *
+     * (1) **Surface Ordering:** To ensure [MediaCodec] surfaces are placed at the end of the output
+     * list within [androidx.camera.camera2.pipe.graph.StreamGraphImpl]. Note: [StreamSharing] uses
+     * [android.graphics.SurfaceTexture], not [MediaCodec] surface.
+     *
+     * (2) **High-Speed Session Operation:** To identify the presence of a [MediaCodec] surface in
+     * high-speed capture session scenarios within
+     * [androidx.camera.camera2.pipe.compat.Camera2CaptureSequenceProcessor].
+     *
+     * @param kClass The Kotlin [Class] of the container.
+     * @return The corresponding [OutputStream.StreamUseHint] value.
+     */
     private fun getStreamUseHintForContainerClass(kClass: Class<*>?): Long {
         return when (kClass) {
             MediaCodec::class.java -> OutputStream.StreamUseHint.VIDEO_RECORD.value
-            StreamSharing::class.java -> OutputStream.StreamUseHint.VIDEO_RECORD.value
             else -> OutputStream.StreamUseHint.DEFAULT.value
         }
     }
 
-    companion object {
-        fun SessionConfig.toCamera2ImplConfig(): Camera2ImplConfig {
-            return Camera2ImplConfig(implementationOptions)
+    public companion object {
+        public fun UseCase.getSessionConfig(isPrimary: Boolean): SessionConfig {
+            return if (isPrimary) sessionConfig else secondarySessionConfig
         }
     }
 }

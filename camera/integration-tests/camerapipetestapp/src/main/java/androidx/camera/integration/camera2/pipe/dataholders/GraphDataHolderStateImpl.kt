@@ -20,16 +20,14 @@ package androidx.camera.integration.camera2.pipe.dataholders
 data class GraphDataHolderStateImpl(
     /** Maps integer representing state to its string description */
     private val stateMap: Map<Int, String>,
-    override var graphData: GraphDataSortedRingBuffer
+    override var graphData: GraphDataSortedRingBuffer,
 ) : GraphDataHolder {
 
     init {
         if (stateMap.isEmpty()) throw IllegalArgumentException("Must have at least 1 state")
         stateMap.forEach {
-            if (it.value == "") throw IllegalArgumentException(
-                "State description must not be" +
-                    " empty string"
-            )
+            if (it.value == "")
+                throw IllegalArgumentException("State description must not be" + " empty string")
         }
     }
 

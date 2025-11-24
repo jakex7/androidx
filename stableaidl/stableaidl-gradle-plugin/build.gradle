@@ -21,15 +21,14 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.*
+import androidx.build.SoftwareType
+import androidx.build.KotlinTarget
 
 plugins {
     id("AndroidXPlugin")
     id("kotlin")
     id("java-gradle-plugin")
 }
-
-apply from: "../../buildSrc/kotlin-dsl-dependency.gradle"
 
 configurations {
     // Config for plugin classpath to be used during tests
@@ -40,26 +39,28 @@ configurations {
 }
 
 dependencies {
-    implementation(findGradleKotlinDsl())
-    implementation(gradleApi())
-    implementation(libs.androidGradlePluginApi)
-    implementation(libs.androidToolsCommon)
-    implementation(libs.androidToolsRepository)
-    implementation(libs.androidToolsSdkCommon)
+    compileOnly(libs.kotlinGradlePlugin)
+
+    api(libs.androidGradlePluginApi)
+    api(libs.androidToolsCommon)
+    api(libs.androidToolsSdkCommon)
+    api(libs.androidToolsRepository)
+    api(libs.guava)
+
     implementation(libs.apacheCommonIo)
     implementation(libs.apacheAnt)
-    implementation(libs.guava)
-    implementation(libs.kotlinStdlib)
 
-    testPlugin(libs.androidGradlePluginz)
+    testPlugin(libs.androidGradlePlugin)
 
-    testImplementation(libs.androidGradlePluginz)
+    testImplementation(libs.androidGradlePlugin)
     testImplementation(gradleTestKit())
     testImplementation(project(":internal-testutils-gradle-plugin"))
     testImplementation(libs.androidToolsAnalyticsProtos)
-    testImplementation(libs.gson)
+    testImplementation(libs.asm)
+    testImplementation(libs.builder)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinTest)
+    testImplementation(libs.gson)
     testImplementation(libs.truth)
 }
 
@@ -78,7 +79,8 @@ gradlePlugin {
 
 androidx {
     name = "Stable AIDL Gradle Plugin"
-    type = LibraryType.GRADLE_PLUGIN
+    type = SoftwareType.GRADLE_PLUGIN
     inceptionYear = "2022"
     description = "Stable AIDL Gradle Plugin"
+    kotlinTarget = KotlinTarget.KOTLIN_2_2
 }

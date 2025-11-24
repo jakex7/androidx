@@ -24,7 +24,7 @@ import androidx.appcompat.testutils.NightModeUtils.assertConfigurationNightModeE
 import androidx.appcompat.testutils.NightModeUtils.setNightModeAndWaitForRecreate
 import androidx.lifecycle.Lifecycle
 import androidx.test.filters.LargeTest
-import androidx.testutils.LifecycleOwnerUtils.waitUntilState
+import androidx.testutils.lifecycle.LifecycleOwnerUtils.waitUntilState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -42,15 +42,11 @@ class NightModePreventOverrideConfigTestCase(private val setMode: NightSetMode) 
         waitUntilState(activityRule.activity, Lifecycle.State.RESUMED)
         assertConfigurationNightModeEquals(
             Configuration.UI_MODE_NIGHT_NO,
-            activityRule.activity.resources.configuration
+            activityRule.activity.resources.configuration,
         )
 
         // Simulate the user setting night mode, which should force an activity recreate().
-        setNightModeAndWaitForRecreate(
-            activityRule,
-            MODE_NIGHT_YES,
-            setMode
-        )
+        setNightModeAndWaitForRecreate(activityRule, MODE_NIGHT_YES, setMode)
 
         // Activity should be able to reach fully resumed state again.
         waitUntilState(activityRule.activity, Lifecycle.State.RESUMED)
@@ -59,7 +55,7 @@ class NightModePreventOverrideConfigTestCase(private val setMode: NightSetMode) 
         // updateResourcesConfigurationForNightMode().
         assertConfigurationNightModeEquals(
             Configuration.UI_MODE_NIGHT_YES,
-            activityRule.activity.resources.configuration
+            activityRule.activity.resources.configuration,
         )
     }
 

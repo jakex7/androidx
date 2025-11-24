@@ -31,16 +31,13 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 
 @RunWith(TilesTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class TimelineCheckerTest {
     @Test
     fun doCheck_callsAllCheckersOnSuccess() {
-        val mockChecker1 = mock<TimelineEntryChecker> {
-            on { name } doReturn "MockChecker1"
-        }
+        val mockChecker1 = mock<TimelineEntryChecker> { on { name } doReturn "MockChecker1" }
 
-        val mockChecker2 = mock<TimelineEntryChecker> {
-            on { name } doReturn "MockChecker2"
-        }
+        val mockChecker2 = mock<TimelineEntryChecker> { on { name } doReturn "MockChecker2" }
 
         val checker = TimelineChecker(listOf(mockChecker1, mockChecker2))
         val timeline = buildTimeline()
@@ -63,15 +60,17 @@ class TimelineCheckerTest {
 
     @Test
     fun doCheck_callsAllCheckersOnFailure() {
-        val mockChecker1 = mock<TimelineEntryChecker> {
-            on { name } doReturn "MockChecker1"
-            on { check(any()) } doThrow CheckerException("Invalid...")
-        }
+        val mockChecker1 =
+            mock<TimelineEntryChecker> {
+                on { name } doReturn "MockChecker1"
+                on { check(any()) } doThrow CheckerException("Invalid...")
+            }
 
-        val mockChecker2 = mock<TimelineEntryChecker> {
-            on { name } doReturn "MockChecker2"
-            on { check(any()) } doThrow CheckerException("Invalid...")
-        }
+        val mockChecker2 =
+            mock<TimelineEntryChecker> {
+                on { name } doReturn "MockChecker2"
+                on { check(any()) } doThrow CheckerException("Invalid...")
+            }
 
         val checker = TimelineChecker(listOf(mockChecker1, mockChecker2))
         val timeline = buildTimeline()
@@ -94,21 +93,24 @@ class TimelineCheckerTest {
     }
 
     private fun buildTimeline() =
-        TimelineBuilders.Timeline.Builder().addTimelineEntry(
-            TimelineBuilders.TimelineEntry.Builder().setLayout(
-                LayoutElementBuilders.Layout.Builder().setRoot(
-                    LayoutElementBuilders.Text.Builder()
-                        .setText("Hello")
-                        .build()
-                ).build()
-            ).build()
-        ).addTimelineEntry(
-            TimelineBuilders.TimelineEntry.Builder().setLayout(
-                LayoutElementBuilders.Layout.Builder().setRoot(
-                    LayoutElementBuilders.Text.Builder()
-                        .setText("World")
-                        .build()
-                ).build()
-            ).build()
-        ).build()
+        TimelineBuilders.Timeline.Builder()
+            .addTimelineEntry(
+                TimelineBuilders.TimelineEntry.Builder()
+                    .setLayout(
+                        LayoutElementBuilders.Layout.Builder()
+                            .setRoot(LayoutElementBuilders.Text.Builder().setText("Hello").build())
+                            .build()
+                    )
+                    .build()
+            )
+            .addTimelineEntry(
+                TimelineBuilders.TimelineEntry.Builder()
+                    .setLayout(
+                        LayoutElementBuilders.Layout.Builder()
+                            .setRoot(LayoutElementBuilders.Text.Builder().setText("World").build())
+                            .build()
+                    )
+                    .build()
+            )
+            .build()
 }

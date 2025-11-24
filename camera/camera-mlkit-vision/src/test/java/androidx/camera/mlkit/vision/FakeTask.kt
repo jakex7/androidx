@@ -24,13 +24,11 @@ import com.google.android.gms.tasks.Task
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executor
 
-/**
- * Fake GmsCore [Task] that returns immediately.
- */
+/** Fake GmsCore [Task] that returns immediately. */
 class FakeTask<T>(
     private val result: T?,
     private val exception: Exception? = null,
-    private val canceled: Boolean = false
+    private val canceled: Boolean = false,
 ) : Task<T>() {
 
     override fun isComplete(): Boolean {
@@ -58,7 +56,7 @@ class FakeTask<T>(
 
     override fun addOnCompleteListener(
         executor: Executor,
-        listener: OnCompleteListener<T>
+        listener: OnCompleteListener<T>,
     ): Task<T> {
         executor.execute { listener.onComplete(this) }
         return this
@@ -74,14 +72,14 @@ class FakeTask<T>(
 
     override fun addOnSuccessListener(
         executor: Executor,
-        listener: OnSuccessListener<in T>
+        listener: OnSuccessListener<in T>,
     ): Task<T> {
         TODO("Not yet implemented")
     }
 
     override fun addOnSuccessListener(
         activity: Activity,
-        listener: OnSuccessListener<in T>
+        listener: OnSuccessListener<in T>,
     ): Task<T> {
         TODO("Not yet implemented")
     }
@@ -90,17 +88,11 @@ class FakeTask<T>(
         TODO("Not yet implemented")
     }
 
-    override fun addOnFailureListener(
-        executor: Executor,
-        listener: OnFailureListener
-    ): Task<T> {
+    override fun addOnFailureListener(executor: Executor, listener: OnFailureListener): Task<T> {
         TODO("Not yet implemented")
     }
 
-    override fun addOnFailureListener(
-        activity: Activity,
-        listener: OnFailureListener
-    ): Task<T> {
+    override fun addOnFailureListener(activity: Activity, listener: OnFailureListener): Task<T> {
         TODO("Not yet implemented")
     }
 }

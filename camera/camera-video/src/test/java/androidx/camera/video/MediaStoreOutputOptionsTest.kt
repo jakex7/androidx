@@ -18,7 +18,6 @@ package androidx.camera.video
 
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -29,7 +28,7 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class MediaStoreOutputOptionsTest {
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
@@ -62,9 +61,10 @@ class MediaStoreOutputOptionsTest {
     fun equals_consistent() {
         val options1 = MediaStoreOutputOptions.Builder(context.contentResolver, Uri.EMPTY).build()
         val options2 = MediaStoreOutputOptions.Builder(context.contentResolver, Uri.EMPTY).build()
-        val options3 = MediaStoreOutputOptions.Builder(context.contentResolver, Uri.EMPTY)
-            .setFileSizeLimit(100)
-            .build()
+        val options3 =
+            MediaStoreOutputOptions.Builder(context.contentResolver, Uri.EMPTY)
+                .setFileSizeLimit(100)
+                .build()
 
         assertThat(options1 == options2 && options1 == options2).isTrue()
         assertThat(options1 != options3 && options1 != options3).isTrue()

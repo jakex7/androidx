@@ -20,10 +20,8 @@ import android.content.ContentValues
 import android.content.Context
 import android.provider.MediaStore
 import android.view.View
-import androidx.camera.camera2.Camera2Config
 import androidx.camera.camera2.pipe.integration.CameraPipeConfig
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.CameraSelector.LENS_FACING_BACK
 import androidx.camera.core.CameraSelector.LENS_FACING_FRONT
 import androidx.camera.core.CameraXConfig
 import androidx.camera.core.ImageCapture
@@ -33,6 +31,7 @@ import androidx.camera.testing.impl.CameraPipeConfigTestRule
 import androidx.camera.testing.impl.CameraUtil
 import androidx.camera.testing.impl.CameraUtil.PreTestCameraIdList
 import androidx.camera.testing.impl.CoreAppTestUtil
+import androidx.camera.testing.impl.ParameterizedTestConfigUtil
 import androidx.camera.testing.impl.fakes.FakeActivity
 import androidx.camera.testing.impl.fakes.FakeLifecycleOwner
 import androidx.camera.testing.impl.fakes.FakeSurfaceEffect
@@ -40,7 +39,6 @@ import androidx.camera.testing.impl.fakes.FakeSurfaceProcessor
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.CountDownLatch
@@ -53,15 +51,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
-/**
- * Instrumentation tests for [CameraController].
- */
+/** Instrumentation tests for [CameraController]. */
 @LargeTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
 class CameraControllerDeviceTest(
     private val implName: String,
-    private val cameraConfig: CameraXConfig
+    private val cameraConfig: CameraXConfig,
 ) {
 
     companion object {
@@ -69,36 +64,37 @@ class CameraControllerDeviceTest(
 
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
-        fun data() = listOf(
-            arrayOf(Camera2Config::class.simpleName, Camera2Config.defaultConfig()),
-            arrayOf(CameraPipeConfig::class.simpleName, CameraPipeConfig.defaultConfig())
-        )
+        fun data() =
+            ParameterizedTestConfigUtil.generateCameraXConfigParameterizedTestConfigs(
+                inLabTestRequired = true
+            )
     }
 
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = implName == CameraPipeConfig::class.simpleName,
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = implName == CameraPipeConfig::class.simpleName)
 
     @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        PreTestCameraIdList(cameraConfig)
-    )
+    val useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(PreTestCameraIdList(cameraConfig))
 
     private var controller: LifecycleCameraController? = null
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private var activityScenario: ActivityScenario<FakeActivity>? = null
     private lateinit var context: Context
     private var cameraProvider: ProcessCameraProvider? = null
+    private lateinit var defaultCameraSelector: CameraSelector
 
     @Before
     fun setUp() {
-        context = ApplicationProvider.getApplicationContext<Context>()
+        context = ApplicationProvider.getApplicationContext()
         CoreAppTestUtil.prepareDeviceUI(instrumentation)
         ProcessCameraProvider.configureInstance(cameraConfig)
+        defaultCameraSelector = CameraUtil.assumeFirstAvailableCameraSelector()
         cameraProvider = ProcessCameraProvider.getInstance(context).get()
         activityScenario = ActivityScenario.launch(FakeActivity::class.java)
         controller = LifecycleCameraController(context)
+        instrumentation.runOnMainSync { controller!!.cameraSelector = defaultCameraSelector }
         controller!!.initializationFuture.get()
     }
 
@@ -119,28 +115,19 @@ class CameraControllerDeviceTest(
             // Arrange.
             previewView = PreviewView(context)
             it.setContentView(previewView)
-            previewView!!.controller = controller
+            previewView.controller = controller
             controller!!.bindToLifecycle(FakeLifecycleOwner())
             controller!!.initializationFuture.get()
         }
         waitUtilPreviewViewIsReady(previewView!!)
 
         // Act: set the same effect twice, which is invalid.
-        val previewEffect1 = FakeSurfaceEffect(
-            mainThreadExecutor(),
-            FakeSurfaceProcessor(mainThreadExecutor())
-        )
-        val previewEffect2 = FakeSurfaceEffect(
-            mainThreadExecutor(),
-            FakeSurfaceProcessor(mainThreadExecutor())
-        )
+        val previewEffect1 =
+            FakeSurfaceEffect(mainThreadExecutor(), FakeSurfaceProcessor(mainThreadExecutor()))
+        val previewEffect2 =
+            FakeSurfaceEffect(mainThreadExecutor(), FakeSurfaceProcessor(mainThreadExecutor()))
         instrumentation.runOnMainSync {
-            controller!!.setEffects(
-                setOf(
-                    previewEffect1,
-                    previewEffect2
-                )
-            )
+            controller!!.setEffects(setOf(previewEffect1, previewEffect2))
         }
     }
 
@@ -152,16 +139,15 @@ class CameraControllerDeviceTest(
             // Arrange.
             previewView = PreviewView(context)
             it.setContentView(previewView)
-            previewView!!.controller = controller
+            previewView.controller = controller
             controller!!.bindToLifecycle(FakeLifecycleOwner())
             controller!!.initializationFuture.get()
         }
         waitUtilPreviewViewIsReady(previewView!!)
 
         // Act: set an effect
-        val effect = FakeSurfaceEffect(
-            mainThreadExecutor(), FakeSurfaceProcessor(mainThreadExecutor())
-        )
+        val effect =
+            FakeSurfaceEffect(mainThreadExecutor(), FakeSurfaceProcessor(mainThreadExecutor()))
         instrumentation.runOnMainSync { controller!!.setEffects(setOf(effect)) }
 
         // Assert: preview has effect
@@ -176,15 +162,20 @@ class CameraControllerDeviceTest(
 
     @Test
     fun setSelectorAfterBound_selectorSet() {
+        val cameraSelectors = CameraUtil.getAvailableCameraSelectors()
+        assumeTrue("No enough cameras to test.", cameraSelectors.size >= 2)
+        val cameraSelector0 = cameraSelectors[0]
+        val cameraSelector1 = cameraSelectors[1]
+
         // Act
         instrumentation.runOnMainSync {
-            assertThat(controller!!.cameraSelector.lensFacing)
-                .isEqualTo(CameraSelector.LENS_FACING_BACK)
-            controller!!.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+            controller!!.cameraSelector = cameraSelector0
+
+            assertThat(controller!!.cameraSelector.lensFacing).isEqualTo(cameraSelector0.lensFacing)
+            controller!!.cameraSelector = cameraSelector1
 
             // Assert.
-            assertThat(controller!!.cameraSelector.lensFacing)
-                .isEqualTo(CameraSelector.LENS_FACING_FRONT)
+            assertThat(controller!!.cameraSelector.lensFacing).isEqualTo(cameraSelector1.lensFacing)
         }
     }
 
@@ -195,6 +186,8 @@ class CameraControllerDeviceTest(
 
     @Test
     fun frontCameraFlipNotSet_imageIsMirrored() {
+        assumeTrue(CameraUtil.hasCameraWithLensFacing(LENS_FACING_FRONT))
+
         // Arrange.
         instrumentation.runOnMainSync {
             controller!!.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
@@ -210,6 +203,8 @@ class CameraControllerDeviceTest(
 
     @Test
     fun frontCameraFlipSetToFalse_imageIsNotMirrored() {
+        assumeTrue(CameraUtil.hasCameraWithLensFacing(LENS_FACING_FRONT))
+
         // Arrange.
         instrumentation.runOnMainSync {
             controller!!.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
@@ -227,6 +222,8 @@ class CameraControllerDeviceTest(
 
     @Test
     fun frontCameraFlipSetToTrue_imageIsMirrored() {
+        assumeTrue(CameraUtil.hasCameraWithLensFacing(LENS_FACING_FRONT))
+
         // Arrange.
         instrumentation.runOnMainSync {
             controller!!.cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
@@ -246,22 +243,18 @@ class CameraControllerDeviceTest(
         return ImageCapture.OutputFileOptions.Builder(
             instrumentation.context.contentResolver,
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            ContentValues()
+            ContentValues(),
         )
     }
 
     @Test
     fun analysisIsEnabledByDefault() {
-        instrumentation.runOnMainSync {
-            assertThat(controller!!.isImageAnalysisEnabled).isTrue()
-        }
+        instrumentation.runOnMainSync { assertThat(controller!!.isImageAnalysisEnabled).isTrue() }
     }
 
     @Test
     fun captureIsEnabledByDefault() {
-        instrumentation.runOnMainSync {
-            assertThat(controller!!.isImageCaptureEnabled).isTrue()
-        }
+        instrumentation.runOnMainSync { assertThat(controller!!.isImageCaptureEnabled).isTrue() }
     }
 
     @Test
@@ -277,17 +270,16 @@ class CameraControllerDeviceTest(
     @Test
     fun clearPreviewSurface_wontUnbindOthersUseCases() {
         // Arrange.
-        assumeTrue(CameraUtil.hasCameraWithLensFacing(LENS_FACING_BACK))
-        var cameraProvider = ProcessCameraProvider.getInstance(
-            ApplicationProvider
-                .getApplicationContext()
-        )[10000, TimeUnit.MILLISECONDS]
+        val cameraProvider =
+            ProcessCameraProvider.getInstance(ApplicationProvider.getApplicationContext())[
+                    10000, TimeUnit.MILLISECONDS]
 
-        var imageCapture = ImageCapture.Builder().build()
+        val imageCapture = ImageCapture.Builder().build()
         instrumentation.runOnMainSync {
             cameraProvider.bindToLifecycle(
-                FakeLifecycleOwner(), CameraSelector.DEFAULT_BACK_CAMERA,
-                imageCapture
+                FakeLifecycleOwner(),
+                defaultCameraSelector,
+                imageCapture,
             )
         }
 
@@ -296,9 +288,7 @@ class CameraControllerDeviceTest(
         controller!!.initializationFuture[10000, TimeUnit.MILLISECONDS]
 
         // Act.
-        instrumentation.runOnMainSync {
-            controller!!.clearPreviewSurface()
-        }
+        instrumentation.runOnMainSync { controller!!.clearPreviewSurface() }
 
         // Assert.
         assertThat(cameraProvider.isBound(imageCapture)).isTrue()
@@ -306,42 +296,34 @@ class CameraControllerDeviceTest(
 
     @Test
     fun setCameraSelector_wontUnbindOthersUseCases() {
-        testCameraSelectorWontUnbindUseCases(
-            CameraSelector.DEFAULT_BACK_CAMERA,
-            CameraSelector.DEFAULT_BACK_CAMERA
-        )
-        testCameraSelectorWontUnbindUseCases(
-            CameraSelector.DEFAULT_FRONT_CAMERA,
-            CameraSelector.DEFAULT_FRONT_CAMERA
-        )
-        testCameraSelectorWontUnbindUseCases(
-            CameraSelector.DEFAULT_BACK_CAMERA,
-            CameraSelector.DEFAULT_FRONT_CAMERA
-        )
-        testCameraSelectorWontUnbindUseCases(
-            CameraSelector.DEFAULT_FRONT_CAMERA,
-            CameraSelector.DEFAULT_BACK_CAMERA
-        )
+        val cameraSelectors = CameraUtil.getAvailableCameraSelectors()
+        if (cameraSelectors.isNotEmpty()) {
+            val cameraSelector0 = cameraSelectors[0]
+            testCameraSelectorWontUnbindUseCases(cameraSelector0, cameraSelector0)
+        }
+        if (cameraSelectors.size > 1) {
+            val cameraSelector0 = cameraSelectors[0]
+            val cameraSelector1 = cameraSelectors[1]
+            testCameraSelectorWontUnbindUseCases(cameraSelector1, cameraSelector1)
+            testCameraSelectorWontUnbindUseCases(cameraSelector0, cameraSelector1)
+            testCameraSelectorWontUnbindUseCases(cameraSelector1, cameraSelector0)
+        }
     }
 
     private fun testCameraSelectorWontUnbindUseCases(
         firstCamera: CameraSelector,
-        secondCamera: CameraSelector
+        secondCamera: CameraSelector,
     ) {
         // Arrange.
-        assumeTrue(CameraUtil.hasCameraWithLensFacing(LENS_FACING_BACK))
-        assumeTrue(CameraUtil.hasCameraWithLensFacing(LENS_FACING_FRONT))
-        var cameraProvider = ProcessCameraProvider.getInstance(
-            ApplicationProvider
-                .getApplicationContext()
-        )[10000, TimeUnit.MILLISECONDS]
+        assumeTrue(CameraUtil.hasCameraWithLensFacing(firstCamera.lensFacing!!))
+        assumeTrue(CameraUtil.hasCameraWithLensFacing(secondCamera.lensFacing!!))
+        val cameraProvider =
+            ProcessCameraProvider.getInstance(ApplicationProvider.getApplicationContext())[
+                    10000, TimeUnit.MILLISECONDS]
 
-        var imageCapture = ImageCapture.Builder().build()
+        val imageCapture = ImageCapture.Builder().build()
         instrumentation.runOnMainSync {
-            cameraProvider.bindToLifecycle(
-                FakeLifecycleOwner(), firstCamera,
-                imageCapture
-            )
+            cameraProvider.bindToLifecycle(FakeLifecycleOwner(), firstCamera, imageCapture)
         }
 
         assertThat(cameraProvider.isBound(imageCapture)).isTrue()
@@ -349,9 +331,7 @@ class CameraControllerDeviceTest(
         controller!!.initializationFuture[10000, TimeUnit.MILLISECONDS]
 
         // Act.
-        instrumentation.runOnMainSync {
-            controller!!.cameraSelector = secondCamera
-        }
+        instrumentation.runOnMainSync { controller!!.cameraSelector = secondCamera }
 
         // Assert.
         assertThat(cameraProvider.isBound(imageCapture)).isTrue()
@@ -359,24 +339,26 @@ class CameraControllerDeviceTest(
 
     private fun waitUtilPreviewViewIsReady(previewView: PreviewView) {
         val countDownLatch = CountDownLatch(1)
-        previewView.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
-            override fun onLayoutChange(
-                v: View,
-                left: Int,
-                top: Int,
-                right: Int,
-                bottom: Int,
-                oldLeft: Int,
-                oldTop: Int,
-                oldRight: Int,
-                oldBottom: Int
-            ) {
-                if (v.width > 0 && v.height > 0) {
-                    countDownLatch.countDown()
-                    previewView.removeOnLayoutChangeListener(this)
+        previewView.addOnLayoutChangeListener(
+            object : View.OnLayoutChangeListener {
+                override fun onLayoutChange(
+                    v: View,
+                    left: Int,
+                    top: Int,
+                    right: Int,
+                    bottom: Int,
+                    oldLeft: Int,
+                    oldTop: Int,
+                    oldRight: Int,
+                    oldBottom: Int,
+                ) {
+                    if (v.width > 0 && v.height > 0) {
+                        countDownLatch.countDown()
+                        previewView.removeOnLayoutChangeListener(this)
+                    }
                 }
             }
-        })
+        )
         assertThat(countDownLatch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue()
     }
 }

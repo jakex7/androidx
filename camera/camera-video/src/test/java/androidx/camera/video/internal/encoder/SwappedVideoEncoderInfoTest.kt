@@ -16,7 +16,6 @@
 
 package androidx.camera.video.internal.encoder
 
-import android.os.Build
 import android.util.Range
 import androidx.camera.testing.impl.fakes.FakeVideoEncoderInfo
 import com.google.common.truth.Truth.assertThat
@@ -29,18 +28,14 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class SwappedVideoEncoderInfoTest {
 
     @Test
     fun canNotSwapWidthHeight_throwException() {
-        val videoEncoder = FakeVideoEncoderInfo(
-            canSwapWidthHeight = false
-        )
+        val videoEncoder = FakeVideoEncoderInfo(canSwapWidthHeight = false)
 
-        assertThrows(IllegalArgumentException::class.java) {
-            SwappedVideoEncoderInfo(videoEncoder)
-        }
+        assertThrows(IllegalArgumentException::class.java) { SwappedVideoEncoderInfo(videoEncoder) }
     }
 
     @Test
@@ -48,12 +43,13 @@ class SwappedVideoEncoderInfoTest {
         val anyLength = 10
         val widths = Range.create(2, 400)
         val heights = Range.create(4, 300)
-        val videoEncoderInfo = FakeVideoEncoderInfo(
-            supportedWidths = widths,
-            supportedHeights = heights,
-            widthAlignment = 2,
-            heightAlignment = 4,
-        )
+        val videoEncoderInfo =
+            FakeVideoEncoderInfo(
+                supportedWidths = widths,
+                supportedHeights = heights,
+                widthAlignment = 2,
+                heightAlignment = 4,
+            )
 
         val swappedVideoEncoderInfo = SwappedVideoEncoderInfo(videoEncoderInfo)
 

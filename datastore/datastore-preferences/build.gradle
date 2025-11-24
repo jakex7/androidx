@@ -21,30 +21,30 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
+
+import androidx.build.SoftwareType
 import androidx.build.PlatformIdentifier
-import androidx.build.Publish
 
 plugins {
     id("AndroidXPlugin")
-    id("com.android.library")
 }
 
-android{
-    namespace "androidx.datastore.preferences"
-}
 androidXMultiplatform {
     jvm()
     mac()
     linux()
     ios()
-    android()
+    watchos()
+    tvos()
+    androidLibrary {
+        namespace = "androidx.datastore.preferences"
+    }
 
     defaultPlatform(PlatformIdentifier.ANDROID)
 
     sourceSets {
         commonMain {
             dependencies {
-                api(libs.kotlinStdlib)
                 api(libs.kotlinCoroutinesCore)
                 api(project(":datastore:datastore"))
                 api(project(":datastore:datastore-preferences-core"))
@@ -52,8 +52,7 @@ androidXMultiplatform {
         }
         commonTest {
             dependencies {
-                implementation(libs.kotlinTestCommon)
-                implementation(libs.kotlinTestAnnotationsCommon)
+                implementation(libs.kotlinTest)
                 implementation(libs.kotlinCoroutinesTest)
             }
         }
@@ -76,10 +75,10 @@ androidXMultiplatform {
         androidMain {
             dependsOn(commonJvmMain)
         }
-        androidUnitTest {
+        androidHostTest {
             dependsOn(commonJvmTest)
         }
-        androidInstrumentedTest {
+        androidDeviceTest {
             dependsOn(commonJvmTest)
             dependencies {
                 implementation(libs.testRunner)
@@ -89,10 +88,9 @@ androidXMultiplatform {
     }
 }
 
-
 androidx {
     name = "Preferences DataStore"
-    publish = Publish.SNAPSHOT_AND_RELEASE
+    type = SoftwareType.PUBLISHED_LIBRARY
     inceptionYear = "2020"
     description = "Android Preferences DataStore"
     legacyDisableKotlinStrictApiMode = true

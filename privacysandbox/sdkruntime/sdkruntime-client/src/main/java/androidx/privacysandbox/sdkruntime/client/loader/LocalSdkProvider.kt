@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
+
 package androidx.privacysandbox.sdkruntime.client.loader
 
 import android.os.Bundle
@@ -20,13 +22,10 @@ import androidx.privacysandbox.sdkruntime.core.SandboxedSdkCompat
 import org.jetbrains.annotations.TestOnly
 
 /**
- * Provides interface for interaction with locally loaded SDK.
- * Handle different protocol versions inside.
- *
+ * Provides interface for interaction with locally loaded SDK. Handle different protocol versions
+ * inside.
  */
-internal abstract class LocalSdkProvider protected constructor(
-    @get:TestOnly val sdkProvider: Any
-) {
+internal abstract class LocalSdkProvider protected constructor(@get:TestOnly val sdkProvider: Any) {
 
     abstract fun onLoadSdk(params: Bundle): SandboxedSdkCompat
 

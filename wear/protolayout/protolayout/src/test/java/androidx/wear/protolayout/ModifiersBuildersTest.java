@@ -16,6 +16,7 @@
 
 package androidx.wear.protolayout;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static androidx.wear.protolayout.ColorBuilders.argb;
 import static androidx.wear.protolayout.DimensionBuilders.dp;
 
@@ -23,11 +24,22 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
 
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.graphics.Color;
+import android.os.Bundle;
 
+import androidx.core.os.BundleCompat;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.wear.protolayout.ActionBuilders.LoadAction;
+import androidx.wear.protolayout.ActionBuilders.PendingIntentAction;
+import androidx.wear.protolayout.ColorBuilders.ColorProp;
+import androidx.wear.protolayout.ColorBuilders.LinearGradient;
+import androidx.wear.protolayout.ColorBuilders.SweepGradient;
+import androidx.wear.protolayout.ModifiersBuilders.Background;
 import androidx.wear.protolayout.expression.AppDataKey;
 import androidx.wear.protolayout.expression.DynamicBuilders;
+import androidx.wear.protolayout.proto.ColorProto;
 import androidx.wear.protolayout.proto.ModifiersProto;
 
 import org.junit.Test;
@@ -36,10 +48,14 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ModifiersBuildersTest {
     private static final String STATE_KEY = "state-key";
-    private static final ColorBuilders.ColorProp COLOR =
-            new ColorBuilders.ColorProp.Builder(Color.RED)
+    private static final ColorProp COLOR =
+            new ColorProp.Builder(Color.RED)
                     .setDynamicValue(DynamicBuilders.DynamicColor.from(new AppDataKey<>(STATE_KEY)))
                     .build();
+
+    private static final PendingIntent TEST_PENDING_INTENT =
+            PendingIntent.getActivity(
+                    getApplicationContext(), 0, new Intent(), PendingIntent.FLAG_IMMUTABLE);
 
     @Test
     public void borderSupportsDynamicColor() {
@@ -54,8 +70,7 @@ public class ModifiersBuildersTest {
 
     @Test
     public void backgroundSupportsDynamicColor() {
-        ModifiersBuilders.Background background1 =
-                new ModifiersBuilders.Background.Builder().setColor(COLOR).build();
+        Background background1 = new Background.Builder().setColor(COLOR).build();
 
         ModifiersProto.Background background1Proto = background1.toProto();
         assertThat(background1Proto.getColor().getArgb()).isEqualTo(COLOR.getArgb());
@@ -95,7 +110,7 @@ public class ModifiersBuildersTest {
                 () ->
                         new ModifiersBuilders.Shadow.Builder()
                                 .setColor(
-                                        new ColorBuilders.ColorProp.Builder(Color.BLACK)
+                                        new ColorProp.Builder(Color.BLACK)
                                                 .setDynamicValue(
                                                         DynamicBuilders.DynamicColor.constant(
                                                                 Color.GRAY))
@@ -165,5 +180,147 @@ public class ModifiersBuildersTest {
                 new ModifiersBuilders.Clickable.Builder().setVisualFeedbackEnabled(false).build();
 
         assertThat(clickableRippleDisabled.isVisualFeedbackEnabled()).isFalse();
+    }
+
+    @Test
+    public void buildAsymmetricalCornerModifier() {
+        float[] values = new float[] {1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f};
+        ModifiersBuilders.Corner cornerModifier =
+                new ModifiersBuilders.Corner.Builder()
+                        .setTopLeftRadius(dp(values[0]), dp(values[1]))
+                        .setTopRightRadius(dp(values[2]), dp(values[3]))
+                        .setBottomRightRadius(dp(values[4]), dp(values[5]))
+                        .setBottomLeftRadius(dp(values[6]), dp(values[7]))
+                        .build();
+
+        ModifiersProto.Corner cornerProto = cornerModifier.toProto();
+        ModifiersProto.CornerRadius cornerRadius = cornerProto.getTopLeftRadius();
+        assertThat(cornerRadius.getX().getValue()).isEqualTo(values[0]);
+        assertThat(cornerRadius.getY().getValue()).isEqualTo(values[1]);
+        cornerRadius = cornerProto.getTopRightRadius();
+        assertThat(cornerRadius.getX().getValue()).isEqualTo(values[2]);
+        assertThat(cornerRadius.getY().getValue()).isEqualTo(values[3]);
+        cornerRadius = cornerProto.getBottomRightRadius();
+        assertThat(cornerRadius.getX().getValue()).isEqualTo(values[4]);
+        assertThat(cornerRadius.getY().getValue()).isEqualTo(values[5]);
+        cornerRadius = cornerProto.getBottomLeftRadius();
+        assertThat(cornerRadius.getX().getValue()).isEqualTo(values[6]);
+        assertThat(cornerRadius.getY().getValue()).isEqualTo(values[7]);
+    }
+
+    @Test
+    public void buildAsymmetricalCornerModifier_dynamicValueX_throws() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new ModifiersBuilders.Corner.Builder()
+                                .setTopLeftRadius(
+                                        new DimensionBuilders.DpProp.Builder(2.f)
+                                                .setDynamicValue(
+                                                        DynamicBuilders.DynamicFloat.animate(
+                                                                2.f, 5.f))
+                                                .build(),
+                                        dp(1f)));
+    }
+
+    @Test
+    public void buildAsymmetricalCornerModifier_dynamicValueY_throws() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new ModifiersBuilders.Corner.Builder()
+                                .setTopLeftRadius(
+                                        dp(1f),
+                                        new DimensionBuilders.DpProp.Builder(2.f)
+                                                .setDynamicValue(
+                                                        DynamicBuilders.DynamicFloat.animate(
+                                                                2.f, 5.f))
+                                                .build()));
+    }
+
+    @Test
+    public void asymmetricalCornerModifierGetters_returnDefaultValues() {
+        ModifiersBuilders.Corner cornerModifier =
+                new ModifiersBuilders.Corner.Builder()
+                        .setRadius(dp(5f))
+                        .setTopLeftRadius(dp(1f), dp(2f))
+                        .build();
+
+        ModifiersBuilders.CornerRadius cornerRadius = cornerModifier.getTopLeftRadius();
+        assertThat(cornerRadius.getX().getValue()).isEqualTo(1f);
+        assertThat(cornerRadius.getY().getValue()).isEqualTo(2f);
+        cornerRadius = cornerModifier.getTopRightRadius();
+        assertThat(cornerRadius.getX().getValue()).isEqualTo(5f);
+        assertThat(cornerRadius.getY().getValue()).isEqualTo(5f);
+        cornerRadius = cornerModifier.getBottomRightRadius();
+        assertThat(cornerRadius.getX().getValue()).isEqualTo(5f);
+        assertThat(cornerRadius.getY().getValue()).isEqualTo(5f);
+        cornerRadius = cornerModifier.getBottomLeftRadius();
+        assertThat(cornerRadius.getX().getValue()).isEqualTo(5f);
+        assertThat(cornerRadius.getY().getValue()).isEqualTo(5f);
+    }
+
+    @Test
+    public void backgroundSupportsLinearGradient() {
+        Background backgroundLinear =
+                new Background.Builder()
+                        .setBrush(
+                                new LinearGradient.Builder(argb(Color.BLUE), argb(Color.RED))
+                                        .build())
+                        .build();
+        ModifiersProto.Background backgroundLinearProto = backgroundLinear.toProto();
+        assertThat(backgroundLinearProto.getBrush().getInnerCase())
+                .isEqualTo(ColorProto.Brush.InnerCase.LINEAR_GRADIENT);
+    }
+
+    @Test
+    public void background_withSweepGradient_throws() {
+        SweepGradient sweep = new SweepGradient.Builder(argb(Color.BLUE), argb(Color.RED)).build();
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new Background.Builder().setBrush(sweep).build());
+    }
+
+    @Test
+    public void clickable_withPendingIntent_withoutScope_throws() {
+        ModifiersBuilders.Clickable.Builder builder = new ModifiersBuilders.Clickable.Builder();
+
+        assertThrows(IllegalStateException.class, () -> builder.setOnClick(TEST_PENDING_INTENT));
+    }
+
+    @Test
+    public void clickable_withPendingIntent_registeredToScope() {
+        ProtoLayoutScope scope = new ProtoLayoutScope();
+        String clickableId = "test_id";
+        ModifiersBuilders.Clickable clickable =
+                new ModifiersBuilders.Clickable.Builder(scope, clickableId)
+                        .setOnClick(TEST_PENDING_INTENT)
+                        .build();
+
+        Bundle collectedPendingIntents = scope.collectPendingIntents();
+
+        assertThat(clickable.getOnClick()).isInstanceOf(PendingIntentAction.class);
+        assertThat(collectedPendingIntents.containsKey(clickableId)).isTrue();
+        assertThat(
+                        BundleCompat.getParcelable(
+                                collectedPendingIntents, clickableId, PendingIntent.class))
+                .isEqualTo(TEST_PENDING_INTENT);
+    }
+
+    @Test
+    public void clickable_withPendingIntent_overrideByLoadAction() {
+        ProtoLayoutScope scope = new ProtoLayoutScope();
+        String clickableId = "test_id";
+        ModifiersBuilders.Clickable clickable =
+                new ModifiersBuilders.Clickable.Builder(scope, clickableId)
+                        .setOnClick(TEST_PENDING_INTENT)
+                        .setOnClick(new LoadAction.Builder().build())
+                        .build();
+
+        Bundle collectedPendingIntents = scope.collectPendingIntents();
+
+        // verify that the setOnClick(loadAction) clears the PendingIntent
+        assertThat(clickable.getOnClick()).isInstanceOf(LoadAction.class);
+        assertThat(collectedPendingIntents.containsKey(clickableId)).isFalse();
     }
 }

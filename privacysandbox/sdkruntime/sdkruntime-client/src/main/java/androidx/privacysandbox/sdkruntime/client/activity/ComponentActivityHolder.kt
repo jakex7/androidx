@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package androidx.privacysandbox.sdkruntime.client.activity
 
@@ -22,12 +23,8 @@ import androidx.activity.OnBackPressedDispatcher
 import androidx.lifecycle.Lifecycle
 import androidx.privacysandbox.sdkruntime.core.activity.ActivityHolder
 
-/**
- * Simple implementation of [ActivityHolder] for [ComponentActivity].
- */
-internal class ComponentActivityHolder(
-    private val activity: ComponentActivity
-) : ActivityHolder {
+/** Simple implementation of [ActivityHolder] for [ComponentActivity]. */
+internal class ComponentActivityHolder(private val activity: ComponentActivity) : ActivityHolder {
     override fun getActivity(): Activity = activity
 
     override fun getOnBackPressedDispatcher(): OnBackPressedDispatcher =

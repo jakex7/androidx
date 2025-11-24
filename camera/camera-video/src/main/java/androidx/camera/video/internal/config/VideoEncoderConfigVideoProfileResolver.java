@@ -19,8 +19,6 @@ package androidx.camera.video.internal.config;
 import android.util.Range;
 import android.util.Size;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.camera.core.DynamicRange;
 import androidx.camera.core.Logger;
 import androidx.camera.core.SurfaceRequest;
@@ -31,14 +29,13 @@ import androidx.camera.video.internal.encoder.VideoEncoderConfig;
 import androidx.camera.video.internal.encoder.VideoEncoderDataSpace;
 import androidx.core.util.Supplier;
 
-import java.util.Objects;
+import org.jspecify.annotations.NonNull;
 
 /**
  * A {@link VideoEncoderConfig} supplier that resolves requested encoder settings from a
  * {@link VideoSpec} for the given surface {@link Size} using the provided
  * {@link VideoProfileProxy}.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 public class VideoEncoderConfigVideoProfileResolver implements Supplier<VideoEncoderConfig> {
     private static final String TAG = "VidEncVdPrflRslvr";
 
@@ -86,20 +83,27 @@ public class VideoEncoderConfigVideoProfileResolver implements Supplier<VideoEnc
     }
 
     @Override
-    @NonNull
-    public VideoEncoderConfig get() {
-        int resolvedFrameRate = resolveFrameRate();
-        Logger.d(TAG, "Resolved VIDEO frame rate: " + resolvedFrameRate + "fps");
+    public @NonNull VideoEncoderConfig get() {
+        CaptureEncodeRates resolvedFrameRates = VideoConfigUtil.resolveFrameRates(mVideoSpec,
+                mExpectedFrameRateRange);
+        Logger.d(TAG, "Resolved VIDEO frame rates: "
+                + "Capture frame rate = " + resolvedFrameRates.getCaptureRate() + "fps. "
+                + "Encode frame rate = " + resolvedFrameRates.getEncodeRate() + "fps.");
 
-        Range<Integer> videoSpecBitrateRange = mVideoSpec.getBitrate();
-        Logger.d(TAG, "Using resolved VIDEO bitrate from EncoderProfiles");
-        int resolvedBitrate = VideoConfigUtil.scaleAndClampBitrate(
-                mVideoProfile.getBitrate(),
-                mDynamicRange.getBitDepth(), mVideoProfile.getBitDepth(),
-                resolvedFrameRate, mVideoProfile.getFrameRate(),
-                mSurfaceSize.getWidth(), mVideoProfile.getWidth(),
-                mSurfaceSize.getHeight(), mVideoProfile.getHeight(),
-                videoSpecBitrateRange);
+        int resolvedBitrate;
+        int videoSpecBitrate = mVideoSpec.getBitrate();
+        if (videoSpecBitrate != VideoSpec.BITRATE_AUTO) {
+            resolvedBitrate = videoSpecBitrate;
+        } else {
+            Logger.d(TAG, "Using resolved VIDEO bitrate from EncoderProfiles");
+            resolvedBitrate = VideoConfigUtil.scaleBitrate(
+                    mVideoProfile.getBitrate(),
+                    mDynamicRange.getBitDepth(), mVideoProfile.getBitDepth(),
+                    resolvedFrameRates.getEncodeRate(), mVideoProfile.getFrameRate(),
+                    mSurfaceSize.getWidth(), mVideoProfile.getWidth(),
+                    mSurfaceSize.getHeight(), mVideoProfile.getHeight()
+            );
+        }
 
         int resolvedProfile = mVideoProfile.getProfile();
         VideoEncoderDataSpace dataSpace =
@@ -110,28 +114,10 @@ public class VideoEncoderConfigVideoProfileResolver implements Supplier<VideoEnc
                 .setInputTimebase(mInputTimebase)
                 .setResolution(mSurfaceSize)
                 .setBitrate(resolvedBitrate)
-                .setFrameRate(resolvedFrameRate)
+                .setCaptureFrameRate(resolvedFrameRates.getCaptureRate())
+                .setEncodeFrameRate(resolvedFrameRates.getEncodeRate())
                 .setProfile(resolvedProfile)
                 .setDataSpace(dataSpace)
                 .build();
-    }
-
-    private int resolveFrameRate() {
-        int videoProfileFrameRate = mVideoProfile.getFrameRate();
-        int resolvedFrameRate;
-        if (!Objects.equals(mExpectedFrameRateRange, SurfaceRequest.FRAME_RATE_RANGE_UNSPECIFIED)) {
-            resolvedFrameRate = mExpectedFrameRateRange.clamp(videoProfileFrameRate);
-        } else {
-            resolvedFrameRate = videoProfileFrameRate;
-        }
-
-        Logger.d(TAG,
-                String.format("Resolved frame rate %dfps [Video profile frame rate: %dfps, "
-                                + "Expected operating range: %s]", resolvedFrameRate,
-                        videoProfileFrameRate, Objects.equals(mExpectedFrameRateRange,
-                                SurfaceRequest.FRAME_RATE_RANGE_UNSPECIFIED)
-                                ? mExpectedFrameRateRange : "<UNSPECIFIED>"));
-
-        return resolvedFrameRate;
     }
 }

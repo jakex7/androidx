@@ -20,7 +20,6 @@ import android.util.Rational
 import androidx.camera.camera2.Camera2Config
 import androidx.camera.camera2.pipe.integration.CameraPipeConfig
 import androidx.camera.core.AspectRatio
-import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraXConfig
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.MeteringPointFactory
@@ -29,12 +28,10 @@ import androidx.camera.testing.impl.CameraUtil
 import androidx.camera.testing.impl.CameraXUtil
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth
 import java.util.concurrent.TimeUnit
 import org.junit.After
-import org.junit.Assume
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -43,18 +40,19 @@ import org.junit.runners.Parameterized
 
 @LargeTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
 class SurfaceOrientedMeteringPointFactoryTest(
     private val implName: String,
-    private val cameraConfig: CameraXConfig
+    private val cameraConfig: CameraXConfig,
 ) {
     @get:Rule
-    val cameraRule = CameraUtil.grantCameraPermissionAndPreTest(
-        CameraUtil.PreTestCameraIdList(cameraConfig)
-    )
+    val cameraRule =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            CameraUtil.PreTestCameraIdList(cameraConfig)
+        )
 
     private var pointFactory: SurfaceOrientedMeteringPointFactory? = null
     private var context: Context? = null
+
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -112,56 +110,45 @@ class SurfaceOrientedMeteringPointFactoryTest(
 
     @Test
     fun createPointWithFoVUseCase_success() {
-        Assume.assumeTrue(CameraUtil.hasCameraWithLensFacing(CameraSelector.LENS_FACING_BACK))
-        val imageAnalysis = ImageAnalysis.Builder()
-            .setTargetName("ImageAnalysis")
-            .build()
-        val cameraSelector = CameraSelector.Builder().requireLensFacing(
-            CameraSelector.LENS_FACING_BACK
-        ).build()
-        val camera = CameraUtil.createCameraAndAttachUseCase(
-            context!!,
-            cameraSelector, imageAnalysis
-        )
+        val cameraSelector = CameraUtil.assumeFirstAvailableCameraSelector()
+        val imageAnalysis = ImageAnalysis.Builder().setTargetName("ImageAnalysis").build()
+        val camera =
+            CameraUtil.createCameraAndAttachUseCase(context!!, cameraSelector, imageAnalysis)
         val surfaceResolution = imageAnalysis.attachedSurfaceResolution
-        val factory = SurfaceOrientedMeteringPointFactory(
-            WIDTH, HEIGHT, imageAnalysis
-        )
+        val factory = SurfaceOrientedMeteringPointFactory(WIDTH, HEIGHT, imageAnalysis)
         val point = factory.createPoint(0f, 0f)
-        Truth.assertThat(point.surfaceAspectRatio).isEqualTo(
-            Rational(surfaceResolution!!.width, surfaceResolution.height)
-        )
-        InstrumentationRegistry.getInstrumentation()
-            .runOnMainSync {
-                // TODO: The removeUseCases() call might be removed after clarifying the
-                //  abortCaptures() issue in b/162314023.
-                camera.removeUseCases(camera.useCases)
-            }
+        Truth.assertThat(point.surfaceAspectRatio)
+            .isEqualTo(Rational(surfaceResolution!!.width, surfaceResolution.height))
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            // TODO: The removeUseCases() call might be removed after clarifying the
+            //  abortCaptures() issue in b/162314023.
+            camera.removeUseCases(camera.useCases)
+        }
     }
 
     @Suppress("DEPRECATION") // test for legacy resolution API
     @Test(expected = IllegalStateException::class)
     fun createPointWithFoVUseCase_FailedNotBound() {
-        Assume.assumeTrue(CameraUtil.hasCameraWithLensFacing(CameraSelector.LENS_FACING_BACK))
-        val imageAnalysis = ImageAnalysis.Builder()
-            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-            .setTargetName("ImageAnalysis")
-            .build()
+        val imageAnalysis =
+            ImageAnalysis.Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                .setTargetName("ImageAnalysis")
+                .build()
 
         // This will throw IllegalStateException.
-        SurfaceOrientedMeteringPointFactory(
-            WIDTH, HEIGHT, imageAnalysis
-        )
+        SurfaceOrientedMeteringPointFactory(WIDTH, HEIGHT, imageAnalysis)
     }
 
     companion object {
         private const val WIDTH = 480f
         private const val HEIGHT = 640f
+
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
-        fun data() = listOf(
-            arrayOf(Camera2Config::class.simpleName, Camera2Config.defaultConfig()),
-            arrayOf(CameraPipeConfig::class.simpleName, CameraPipeConfig.defaultConfig())
-        )
+        fun data() =
+            listOf(
+                arrayOf(Camera2Config::class.simpleName, Camera2Config.defaultConfig()),
+                arrayOf(CameraPipeConfig::class.simpleName, CameraPipeConfig.defaultConfig()),
+            )
     }
 }

@@ -15,6 +15,7 @@
  */
 package androidx.collection
 
+import kotlin.js.JsName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -31,6 +32,7 @@ import kotlin.test.assertTrue
 // to ensure the change is available on all versions of the map.
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+@Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD")
 class FloatSetTest {
     @Test
     fun emptyFloatSetConstructor() {
@@ -82,9 +84,7 @@ class FloatSetTest {
         assertEquals(2, set.size)
         val elements = FloatArray(2)
         var index = 0
-        set.forEach { element ->
-            elements[index++] = element
-        }
+        set.forEach { element -> elements[index++] = element }
         elements.sort()
         assertEquals(1f, elements[0])
         assertEquals(2f, elements[1])
@@ -305,9 +305,7 @@ class FloatSetTest {
 
             val elements = FloatArray(i)
             var index = 0
-            set.forEach { element ->
-                elements[index++] = element
-            }
+            set.forEach { element -> elements[index++] = element }
             elements.sort()
 
             index = 0
@@ -340,10 +338,7 @@ class FloatSetTest {
 
         set += 1f
         set += 5f
-        assertTrue(
-            "[${1f}, ${5f}]" == set.toString() ||
-                "[${5f}, ${1f}]" == set.toString()
-        )
+        assertTrue("[${1f}, ${5f}]" == set.toString() || "[${5f}, ${1f}]" == set.toString())
     }
 
     @Test
@@ -351,31 +346,30 @@ class FloatSetTest {
         val set = floatSetOf(1f, 2f, 3f, 4f, 5f)
         val order = IntArray(5)
         var index = 0
-        set.forEach { element ->
-            order[index++] = element.toInt()
-        }
+        set.forEach { element -> order[index++] = element.toInt() }
         assertEquals(
             "${order[0].toFloat()}, ${order[1].toFloat()}, ${order[2].toFloat()}, " +
-            "${order[3].toFloat()}, ${order[4].toFloat()}",
-            set.joinToString()
+                "${order[3].toFloat()}, ${order[4].toFloat()}",
+            set.joinToString(),
         )
         assertEquals(
-            "x${order[0].toFloat()}, ${order[1].toFloat()}, ${order[2].toFloat()}...",
-            set.joinToString(prefix = "x", postfix = "y", limit = 3)
+            "x${order[0].toFloat()}, ${order[1].toFloat()}, ${order[2].toFloat()}, ...y",
+            set.joinToString(prefix = "x", postfix = "y", limit = 3),
         )
         assertEquals(
             ">${order[0].toFloat()}-${order[1].toFloat()}-${order[2].toFloat()}-" +
-            "${order[3].toFloat()}-${order[4].toFloat()}<",
-            set.joinToString(separator = "-", prefix = ">", postfix = "<")
+                "${order[3].toFloat()}-${order[4].toFloat()}<",
+            set.joinToString(separator = "-", prefix = ">", postfix = "<"),
         )
         val names = arrayOf("one", "two", "three", "four", "five")
         assertEquals(
-            "${names[order[0]]}, ${names[order[1]]}, ${names[order[2]]}...",
-            set.joinToString(limit = 3) { names[it.toInt()] }
+            "${names[order[0]]}, ${names[order[1]]}, ${names[order[2]]}, ...",
+            set.joinToString(limit = 3) { names[it.toInt()] },
         )
     }
 
     @Test
+    @JsName("jsEquals")
     fun equals() {
         val set = MutableFloatSet()
         set += 1f
@@ -474,8 +468,7 @@ class FloatSetTest {
         set.clear()
         assertEquals(capacity, set.trim())
         assertEquals(0, set.capacity)
-        set.addAll(floatArrayOf(1f, 2f, 3f, 4f, 5f, 7f, 6f, 8f,
-            9f, 10f, 11f, 12f, 13f, 14f))
+        set.addAll(floatArrayOf(1f, 2f, 3f, 4f, 5f, 7f, 6f, 8f, 9f, 10f, 11f, 12f, 13f, 14f))
         set.removeAll(floatArrayOf(6f, 8f, 9f, 10f, 11f, 12f, 13f, 14f))
         assertTrue(set.trim() > 0)
         assertEquals(capacity, set.capacity)
@@ -559,5 +552,46 @@ class FloatSetTest {
         assertTrue(3f in set)
         assertTrue(4f in set)
         assertFalse(5f in set)
+    }
+
+    @Test
+    fun buildFloatSetFunction() {
+        val contract: Boolean
+        val set = buildFloatSet {
+            contract = true
+            add(1f)
+            add(2f)
+        }
+        assertTrue(contract)
+        assertEquals(2, set.size)
+        assertTrue(1f in set)
+        assertTrue(2f in set)
+    }
+
+    @Test
+    fun buildFloatSetWithCapacityFunction() {
+        val contract: Boolean
+        val set =
+            buildFloatSet(20) {
+                contract = true
+                add(1f)
+                add(2f)
+            }
+        assertTrue(contract)
+        assertEquals(2, set.size)
+        assertTrue(set.capacity >= 18)
+        assertTrue(1f in set)
+        assertTrue(2f in set)
+    }
+
+    @Test
+    fun insertManyRemoveMany() {
+        val set = mutableFloatSetOf()
+
+        for (i in 0..1000000) {
+            set.add(i.toFloat())
+            set.remove(i.toFloat())
+            assertTrue(set.capacity < 16, "Set grew larger than 16 after step $i")
+        }
     }
 }

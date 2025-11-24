@@ -17,7 +17,6 @@
 package androidx.wear.compose.material
 
 import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,62 +45,46 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import androidx.test.filters.SdkSuppress
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 
 class ToggleControlTest {
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     fun checkbox_supports_testtag() {
-        rule.setContentWithTheme {
-            Checkbox(
-                checked = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
-        }
+        rule.setContentWithTheme { Checkbox(checked = true, modifier = Modifier.testTag(TEST_TAG)) }
 
         rule.onNodeWithTag(TEST_TAG).assertExists()
     }
 
     @Test
     fun checkbox_is_expected_size() {
-        rule.setContentWithThemeForSizeAssertions {
-            Checkbox(
-                checked = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
-        }.assertHeightIsEqualTo(24.dp).assertWidthIsEqualTo(24.dp)
+        rule
+            .setContentWithThemeForSizeAssertions {
+                Checkbox(checked = true, modifier = Modifier.testTag(TEST_TAG))
+            }
+            .assertHeightIsEqualTo(24.dp)
+            .assertWidthIsEqualTo(24.dp)
     }
 
     @Test
     fun checkbox_has_role_checkbox_when_oncheckedchange_defined() {
         rule.setContentWithTheme {
-            Checkbox(
-                checked = true,
-                onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Checkbox(checked = true, onCheckedChange = {}, modifier = Modifier.testTag(TEST_TAG))
         }
 
-        rule.onNodeWithTag(TEST_TAG)
-            .assert(
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.Role,
-                    Role.Checkbox
-                )
-            )
+        rule
+            .onNodeWithTag(TEST_TAG)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Checkbox))
     }
 
     @Test
     fun checkbox_has_no_clickaction_by_default() {
         rule.setContentWithTheme {
-            Checkbox(
-                checked = true,
-                enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Checkbox(checked = true, enabled = true, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertHasNoClickAction()
@@ -114,7 +97,7 @@ class ToggleControlTest {
                 checked = true,
                 enabled = true,
                 onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -128,7 +111,7 @@ class ToggleControlTest {
                 checked = true,
                 enabled = true,
                 onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -138,11 +121,7 @@ class ToggleControlTest {
     @Test
     fun checkbox_is_correctly_enabled_when_enabled_equals_true() {
         rule.setContentWithTheme {
-            Checkbox(
-                checked = true,
-                enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Checkbox(checked = true, enabled = true, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertIsEnabled()
@@ -156,7 +135,7 @@ class ToggleControlTest {
                 checked = true,
                 enabled = false,
                 onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -167,11 +146,7 @@ class ToggleControlTest {
     fun checkbox_is_on_when_checked() {
         // This test only applies when onCheckedChange is defined.
         rule.setContentWithTheme {
-            Checkbox(
-                checked = true,
-                onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Checkbox(checked = true, onCheckedChange = {}, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertIsOn()
@@ -181,11 +156,7 @@ class ToggleControlTest {
     fun checkbox_is_off_when_checked() {
         // This test only applies when onCheckedChange is defined.
         rule.setContentWithTheme {
-            Checkbox(
-                checked = false,
-                onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Checkbox(checked = false, onCheckedChange = {}, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertIsOff()
@@ -199,15 +170,11 @@ class ToggleControlTest {
             Checkbox(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-        rule
-            .onNodeWithTag(TEST_TAG)
-            .assertIsOff()
-            .performClick()
-            .assertIsOn()
+        rule.onNodeWithTag(TEST_TAG).assertIsOff().performClick().assertIsOn()
     }
 
     @Test
@@ -218,18 +185,14 @@ class ToggleControlTest {
             Checkbox(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-        rule
-            .onNodeWithTag(TEST_TAG)
-            .assertIsOn()
-            .performClick()
-            .assertIsOff()
+        rule.onNodeWithTag(TEST_TAG).assertIsOn().performClick().assertIsOff()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun checkbox_checked_colors_are_customisable() {
         val boxColor = Color.Green
@@ -237,11 +200,12 @@ class ToggleControlTest {
         rule.setContentWithTheme {
             Checkbox(
                 checked = true,
-                colors = CheckboxDefaults.colors(
-                    checkedBoxColor = boxColor,
-                    checkedCheckmarkColor = checkmarkColor
-                ),
-                modifier = Modifier.testTag(TEST_TAG)
+                colors =
+                    CheckboxDefaults.colors(
+                        checkedBoxColor = boxColor,
+                        checkedCheckmarkColor = checkmarkColor,
+                    ),
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -250,7 +214,7 @@ class ToggleControlTest {
         checkboxImage.assertContainsColor(checkmarkColor, minPercent = 1f)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun checkbox_unchecked_colors_are_customisable() {
         // NB checkmark is erased during animation, so we don't test uncheckedCheckmarkColor
@@ -259,10 +223,8 @@ class ToggleControlTest {
         rule.setContentWithTheme {
             Checkbox(
                 checked = false,
-                colors = CheckboxDefaults.colors(
-                    uncheckedBoxColor = boxColor,
-                ),
-                modifier = Modifier.testTag(TEST_TAG)
+                colors = CheckboxDefaults.colors(uncheckedBoxColor = boxColor),
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -272,53 +234,36 @@ class ToggleControlTest {
 
     @Test
     fun switch_supports_testtag() {
-        rule.setContentWithTheme {
-            Switch(
-                checked = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
-        }
+        rule.setContentWithTheme { Switch(checked = true, modifier = Modifier.testTag(TEST_TAG)) }
 
         rule.onNodeWithTag(TEST_TAG).assertExists()
     }
 
     @Test
     fun switch_is_expected_size() {
-        rule.setContentWithThemeForSizeAssertions {
-            Switch(
-                checked = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
-        }.assertHeightIsEqualTo(24.dp).assertWidthIsEqualTo(24.dp)
+        rule
+            .setContentWithThemeForSizeAssertions {
+                Switch(checked = true, modifier = Modifier.testTag(TEST_TAG))
+            }
+            .assertHeightIsEqualTo(24.dp)
+            .assertWidthIsEqualTo(24.dp)
     }
 
     @Test
     fun switch_has_role_switch_when_oncheckedchange_defined() {
         rule.setContentWithTheme {
-            Switch(
-                checked = true,
-                onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Switch(checked = true, onCheckedChange = {}, modifier = Modifier.testTag(TEST_TAG))
         }
 
-        rule.onNodeWithTag(TEST_TAG)
-            .assert(
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.Role,
-                    Role.Switch
-                )
-            )
+        rule
+            .onNodeWithTag(TEST_TAG)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch))
     }
 
     @Test
     fun switch_has_no_clickaction_by_default() {
         rule.setContentWithTheme {
-            Switch(
-                checked = true,
-                enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Switch(checked = true, enabled = true, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertHasNoClickAction()
@@ -331,7 +276,7 @@ class ToggleControlTest {
                 checked = true,
                 enabled = true,
                 onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -345,7 +290,7 @@ class ToggleControlTest {
                 checked = true,
                 enabled = true,
                 onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -355,11 +300,7 @@ class ToggleControlTest {
     @Test
     fun switch_is_correctly_enabled_when_enabled_equals_true() {
         rule.setContentWithTheme {
-            Switch(
-                checked = true,
-                enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Switch(checked = true, enabled = true, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertIsEnabled()
@@ -372,7 +313,7 @@ class ToggleControlTest {
                 checked = true,
                 enabled = false,
                 onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -383,11 +324,7 @@ class ToggleControlTest {
     fun switch_is_on_when_checked() {
         // This test only applies when onCheckedChange is defined.
         rule.setContentWithTheme {
-            Switch(
-                checked = true,
-                onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Switch(checked = true, onCheckedChange = {}, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertIsOn()
@@ -397,11 +334,7 @@ class ToggleControlTest {
     fun switch_is_off_when_checked() {
         // This test only applies when onCheckedChange is defined.
         rule.setContentWithTheme {
-            Switch(
-                checked = false,
-                onCheckedChange = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            Switch(checked = false, onCheckedChange = {}, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertIsOff()
@@ -415,15 +348,11 @@ class ToggleControlTest {
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-        rule
-            .onNodeWithTag(TEST_TAG)
-            .assertIsOff()
-            .performClick()
-            .assertIsOn()
+        rule.onNodeWithTag(TEST_TAG).assertIsOff().performClick().assertIsOn()
     }
 
     @Test
@@ -434,18 +363,14 @@ class ToggleControlTest {
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-        rule
-            .onNodeWithTag(TEST_TAG)
-            .assertIsOn()
-            .performClick()
-            .assertIsOff()
+        rule.onNodeWithTag(TEST_TAG).assertIsOn().performClick().assertIsOff()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun switch_checked_colors_are_customisable() {
         val thumbColor = Color.Green
@@ -453,11 +378,12 @@ class ToggleControlTest {
         rule.setContentWithTheme {
             Switch(
                 checked = true,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = thumbColor,
-                    checkedTrackColor = trackColor
-                ),
-                modifier = Modifier.testTag(TEST_TAG)
+                colors =
+                    SwitchDefaults.colors(
+                        checkedThumbColor = thumbColor,
+                        checkedTrackColor = trackColor,
+                    ),
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -466,7 +392,7 @@ class ToggleControlTest {
         image.assertContainsColor(trackColor, minPercent = 1f)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun switch_unchecked_colors_are_customisable() {
         val thumbColor = Color.Green
@@ -474,11 +400,12 @@ class ToggleControlTest {
         rule.setContentWithTheme {
             Switch(
                 checked = false,
-                colors = SwitchDefaults.colors(
-                    uncheckedThumbColor = thumbColor,
-                    uncheckedTrackColor = trackColor
-                ),
-                modifier = Modifier.testTag(TEST_TAG)
+                colors =
+                    SwitchDefaults.colors(
+                        uncheckedThumbColor = thumbColor,
+                        uncheckedTrackColor = trackColor,
+                    ),
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -490,10 +417,7 @@ class ToggleControlTest {
     @Test
     fun radiobutton_supports_testtag() {
         rule.setContentWithTheme {
-            RadioButton(
-                selected = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            RadioButton(selected = true, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertExists()
@@ -501,41 +425,29 @@ class ToggleControlTest {
 
     @Test
     fun radiobutton_is_expected_size() {
-        rule.setContentWithThemeForSizeAssertions {
-            Switch(
-                checked = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
-        }.assertHeightIsEqualTo(24.dp).assertWidthIsEqualTo(24.dp)
+        rule
+            .setContentWithThemeForSizeAssertions {
+                Switch(checked = true, modifier = Modifier.testTag(TEST_TAG))
+            }
+            .assertHeightIsEqualTo(24.dp)
+            .assertWidthIsEqualTo(24.dp)
     }
 
     @Test
     fun radiobutton_has_role_radiobutton_when_onclick_defined() {
         rule.setContentWithTheme {
-            RadioButton(
-                selected = true,
-                onClick = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            RadioButton(selected = true, onClick = {}, modifier = Modifier.testTag(TEST_TAG))
         }
 
-        rule.onNodeWithTag(TEST_TAG)
-            .assert(
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.Role,
-                    Role.RadioButton
-                )
-            )
+        rule
+            .onNodeWithTag(TEST_TAG)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
     }
 
     @Test
     fun radiobutton_has_no_clickaction_by_default() {
         rule.setContentWithTheme {
-            RadioButton(
-                selected = true,
-                enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            RadioButton(selected = true, enabled = true, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertHasNoClickAction()
@@ -548,7 +460,7 @@ class ToggleControlTest {
                 selected = true,
                 enabled = true,
                 onClick = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -562,7 +474,7 @@ class ToggleControlTest {
                 selected = true,
                 enabled = true,
                 onClick = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -572,11 +484,7 @@ class ToggleControlTest {
     @Test
     fun radiobutton_is_correctly_enabled_when_enabled_equals_true() {
         rule.setContentWithTheme {
-            RadioButton(
-                selected = true,
-                enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            RadioButton(selected = true, enabled = true, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertIsEnabled()
@@ -590,7 +498,7 @@ class ToggleControlTest {
                 selected = true,
                 enabled = false,
                 onClick = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -601,11 +509,7 @@ class ToggleControlTest {
     fun radiobutton_is_on_when_checked() {
         // This test only applies when onClick is provided and the RadioButton itself is selectable.
         rule.setContentWithTheme {
-            RadioButton(
-                selected = true,
-                onClick = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            RadioButton(selected = true, onClick = {}, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertIsSelected()
@@ -615,11 +519,7 @@ class ToggleControlTest {
     fun radiobutton_is_off_when_checked() {
         // This test only applies when onClick is provided and the RadioButton itself is selectable.
         rule.setContentWithTheme {
-            RadioButton(
-                selected = false,
-                onClick = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            )
+            RadioButton(selected = false, onClick = {}, modifier = Modifier.testTag(TEST_TAG))
         }
 
         rule.onNodeWithTag(TEST_TAG).assertIsNotSelected()
@@ -633,15 +533,11 @@ class ToggleControlTest {
             RadioButton(
                 selected = selected,
                 onClick = { selected = !selected },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-        rule
-            .onNodeWithTag(TEST_TAG)
-            .assertIsNotSelected()
-            .performClick()
-            .assertIsSelected()
+        rule.onNodeWithTag(TEST_TAG).assertIsNotSelected().performClick().assertIsSelected()
     }
 
     @Test
@@ -652,18 +548,14 @@ class ToggleControlTest {
             RadioButton(
                 selected = selected,
                 onClick = { selected = !selected },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-        rule
-            .onNodeWithTag(TEST_TAG)
-            .assertIsSelected()
-            .performClick()
-            .assertIsNotSelected()
+        rule.onNodeWithTag(TEST_TAG).assertIsSelected().performClick().assertIsNotSelected()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun radiobutton_selected_colors_are_customisable() {
         val ringColor = Color.Green
@@ -671,11 +563,12 @@ class ToggleControlTest {
         rule.setContentWithTheme {
             RadioButton(
                 selected = true,
-                colors = RadioButtonDefaults.colors(
-                    selectedRingColor = ringColor,
-                    selectedDotColor = dotColor
-                ),
-                modifier = Modifier.testTag(TEST_TAG)
+                colors =
+                    RadioButtonDefaults.colors(
+                        selectedRingColor = ringColor,
+                        selectedDotColor = dotColor,
+                    ),
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -684,7 +577,7 @@ class ToggleControlTest {
         image.assertContainsColor(dotColor, minPercent = 1f)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun radiobutton_unselected_colors_are_customisable() {
         // NB Dot is erased during animation, so we don't test uncheckedDotColor
@@ -693,10 +586,8 @@ class ToggleControlTest {
         rule.setContentWithTheme {
             RadioButton(
                 selected = false,
-                colors = RadioButtonDefaults.colors(
-                    unselectedRingColor = ringColor,
-                ),
-                modifier = Modifier.testTag(TEST_TAG)
+                colors = RadioButtonDefaults.colors(unselectedRingColor = ringColor),
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 

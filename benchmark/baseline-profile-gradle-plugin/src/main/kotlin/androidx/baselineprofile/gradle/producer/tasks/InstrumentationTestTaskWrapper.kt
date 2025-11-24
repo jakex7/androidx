@@ -38,11 +38,10 @@ internal class InstrumentationTestTaskWrapper(private val testTask: TaskProvider
         internal fun getByName(
             project: Project,
             device: String,
-            variantName: String
+            variantName: String,
         ): InstrumentationTestTaskWrapper? {
-            val taskProvider = project
-                .tasks
-                .namedOrNull<Task>(device, variantName, ANDROID_TEST) ?: return null
+            val taskProvider =
+                project.tasks.namedOrNull<Task>(device, variantName, ANDROID_TEST) ?: return null
             return InstrumentationTestTaskWrapper(taskProvider)
         }
     }

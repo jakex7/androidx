@@ -16,7 +16,6 @@
 
 package androidx.camera.core.processing
 
-import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper.getMainLooper
@@ -42,12 +41,10 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
 
-/**
- * Unit tests for [SurfaceProcessorWithExecutor].
- */
+/** Unit tests for [SurfaceProcessorWithExecutor]. */
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class SurfaceProcessorWithExecutorTest {
 
     companion object {
@@ -72,24 +69,27 @@ class SurfaceProcessorWithExecutorTest {
     @Test
     fun processorThrowsException_receivedByCameraEffect() {
         // Arrange: create a processor that throws an exception.
-        val processor = object : SurfaceProcessor {
-            override fun onInputSurface(surfaceRequest: SurfaceRequest) {
-                throw ProcessingException()
-            }
+        val processor =
+            object : SurfaceProcessor {
+                override fun onInputSurface(surfaceRequest: SurfaceRequest) {
+                    throw ProcessingException()
+                }
 
-            override fun onOutputSurface(surfaceOutput: SurfaceOutput) {
-                throw ProcessingException()
+                override fun onOutputSurface(surfaceOutput: SurfaceOutput) {
+                    throw ProcessingException()
+                }
             }
-        }
         var errorReceived: Throwable? = null
-        val processorWithExecutor = SurfaceProcessorWithExecutor(object : CameraEffect(
-            PREVIEW,
-            mainThreadExecutor(),
-            processor,
-            {
-                errorReceived = it
-            }
-        ) {})
+        val processorWithExecutor =
+            SurfaceProcessorWithExecutor(
+                object :
+                    CameraEffect(
+                        PREVIEW,
+                        mainThreadExecutor(),
+                        processor,
+                        { errorReceived = it },
+                    ) {}
+            )
 
         // Act: invoke the processor.
         val fakeSurfaceRequest = SurfaceRequest(SIZE, FakeCamera()) {}
@@ -106,21 +106,18 @@ class SurfaceProcessorWithExecutorTest {
         // Arrange: track which thread the methods are invoked on.
         var onInputSurfaceInvokedThread: Thread? = null
         var onOutputSurfaceInvokedThread: Thread? = null
-        val processor = object : SurfaceProcessor {
-            override fun onInputSurface(surfaceRequest: SurfaceRequest) {
-                onInputSurfaceInvokedThread = currentThread()
-            }
+        val processor =
+            object : SurfaceProcessor {
+                override fun onInputSurface(surfaceRequest: SurfaceRequest) {
+                    onInputSurfaceInvokedThread = currentThread()
+                }
 
-            override fun onOutputSurface(surfaceOutput: SurfaceOutput) {
-                onOutputSurfaceInvokedThread = currentThread()
+                override fun onOutputSurface(surfaceOutput: SurfaceOutput) {
+                    onOutputSurfaceInvokedThread = currentThread()
+                }
             }
-        }
-        val processorWithExecutor = SurfaceProcessorWithExecutor(object : CameraEffect(
-            PREVIEW,
-            executor,
-            processor,
-            {}
-        ) {})
+        val processorWithExecutor =
+            SurfaceProcessorWithExecutor(object : CameraEffect(PREVIEW, executor, processor, {}) {})
         // Act: invoke methods.
         processorWithExecutor.onInputSurface(SurfaceRequest(SIZE, FakeCamera()) {})
         processorWithExecutor.onOutputSurface(mock(SurfaceOutput::class.java))

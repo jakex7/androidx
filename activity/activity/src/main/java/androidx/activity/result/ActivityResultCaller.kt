@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+@file:Suppress("FacadeClassJvmName") // Cannot be updated, the Kt name has been released
+
 package androidx.activity.result
 
 import android.app.Activity
@@ -30,57 +33,52 @@ interface ActivityResultCaller {
      * Register a request to [start an activity for result][Activity.startActivityForResult],
      * designated by the given [contract][ActivityResultContract].
      *
-     * This creates a record in the [registry][ActivityResultRegistry] associated with this
-     * caller, managing request code, as well as conversions to/from [Intent] under the hood.
+     * This creates a record in the [registry][ActivityResultRegistry] associated with this caller,
+     * managing request code, as well as conversions to/from [Intent] under the hood.
      *
      * This *must* be called unconditionally, as part of initialization path, typically as a field
      * initializer of an Activity or Fragment.
      *
      * @param I the type of the input(if any) required to call the activity
      * @param O the type of output returned as an activity result
-     *
      * @param contract the contract, specifying conversions to/from [Intent]s
-     * @param callback the callback to be called on the main thread when activity result
-     * is available
-     *
+     * @param callback the callback to be called on the main thread when activity result is
+     *   available
      * @return the launcher that can be used to start the activity or dispose of the prepared call.
      */
     fun <I, O> registerForActivityResult(
         contract: ActivityResultContract<I, O>,
-        callback: ActivityResultCallback<O>
+        callback: ActivityResultCallback<O>,
     ): ActivityResultLauncher<I>
 
     /**
      * Register a request to [start an activity for result][Activity.startActivityForResult],
      * designated by the given [contract][ActivityResultContract].
      *
-     * This creates a record in the given [registry][ActivityResultRegistry], managing request
-     * code, as well as conversions to/from [Intent] under the hood.
+     * This creates a record in the given [registry][ActivityResultRegistry], managing request code,
+     * as well as conversions to/from [Intent] under the hood.
      *
      * This *must* be called unconditionally, as part of initialization path, typically as a field
      * initializer of an Activity or Fragment.
      *
      * @param I the type of the input(if any) required to call the activity
      * @param O the type of output returned as an activity result
-     *
      * @param contract the contract, specifying conversions to/from [Intent]s
      * @param registry the registry where to hold the record.
-     * @param callback the callback to be called on the main thread when activity result
-     * is available
-     *
+     * @param callback the callback to be called on the main thread when activity result is
+     *   available
      * @return the launcher that can be used to start the activity or dispose of the prepared call.
      */
     fun <I, O> registerForActivityResult(
         contract: ActivityResultContract<I, O>,
         registry: ActivityResultRegistry,
-        callback: ActivityResultCallback<O>
+        callback: ActivityResultCallback<O>,
     ): ActivityResultLauncher<I>
 }
 
 /**
- * A version of [ActivityResultCaller.registerForActivityResult]
- * that additionally takes an input right away, producing a launcher that doesn't take any
- * additional input when called.
+ * A version of [ActivityResultCaller.registerForActivityResult] that additionally takes an input
+ * right away, producing a launcher that doesn't take any additional input when called.
  *
  * @see ActivityResultCaller.registerForActivityResult
  */
@@ -88,23 +86,22 @@ fun <I, O> ActivityResultCaller.registerForActivityResult(
     contract: ActivityResultContract<I, O>,
     input: I,
     registry: ActivityResultRegistry,
-    callback: (@JvmSuppressWildcards O) -> Unit
+    callback: (@JvmSuppressWildcards O) -> Unit,
 ): ActivityResultLauncher<Unit> {
     val resultLauncher = registerForActivityResult(contract, registry) { callback(it) }
     return ActivityResultCallerLauncher(resultLauncher, contract, input)
 }
 
 /**
- * A version of [ActivityResultCaller.registerForActivityResult]
- * that additionally takes an input right away, producing a launcher that doesn't take any
- * additional input when called.
+ * A version of [ActivityResultCaller.registerForActivityResult] that additionally takes an input
+ * right away, producing a launcher that doesn't take any additional input when called.
  *
  * @see ActivityResultCaller.registerForActivityResult
  */
 fun <I, O> ActivityResultCaller.registerForActivityResult(
     contract: ActivityResultContract<I, O>,
     input: I,
-    callback: (@JvmSuppressWildcards O) -> Unit
+    callback: (@JvmSuppressWildcards O) -> Unit,
 ): ActivityResultLauncher<Unit> {
     val resultLauncher = registerForActivityResult(contract) { callback(it) }
     return ActivityResultCallerLauncher(resultLauncher, contract, input)
@@ -113,7 +110,7 @@ fun <I, O> ActivityResultCaller.registerForActivityResult(
 internal class ActivityResultCallerLauncher<I, O>(
     private val launcher: ActivityResultLauncher<I>,
     val callerContract: ActivityResultContract<I, O>,
-    val callerInput: I
+    val callerInput: I,
 ) : ActivityResultLauncher<Unit>() {
     private val resultContract: ActivityResultContract<Unit, O> by lazy {
         object : ActivityResultContract<Unit, O>() {

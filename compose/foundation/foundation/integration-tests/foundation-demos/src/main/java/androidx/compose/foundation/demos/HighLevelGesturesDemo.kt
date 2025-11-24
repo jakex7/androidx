@@ -24,7 +24,9 @@ import androidx.compose.foundation.samples.Draggable2DSample
 import androidx.compose.foundation.samples.DraggableSample
 import androidx.compose.foundation.samples.FocusableSample
 import androidx.compose.foundation.samples.HoverableSample
+import androidx.compose.foundation.samples.ScrollableAreaSample
 import androidx.compose.foundation.samples.ScrollableSample
+import androidx.compose.foundation.samples.TransformableAnimateBySample
 import androidx.compose.foundation.samples.TransformableSample
 import androidx.compose.foundation.samples.TransformableSampleInsideScroll
 import androidx.compose.foundation.verticalScroll
@@ -43,9 +45,13 @@ fun HighLevelGesturesDemo() {
         Spacer(Modifier.height(50.dp))
         ScrollableSample()
         Spacer(Modifier.height(50.dp))
+        ScrollableAreaSample()
+        Spacer(Modifier.height(50.dp))
         TransformableSample()
         Spacer(Modifier.height(50.dp))
         TransformableSampleInsideScroll()
+        Spacer(Modifier.height(50.dp))
+        TransformableAnimateBySample()
         Spacer(Modifier.height(50.dp))
         FocusableSample()
         Spacer(Modifier.height(50.dp))

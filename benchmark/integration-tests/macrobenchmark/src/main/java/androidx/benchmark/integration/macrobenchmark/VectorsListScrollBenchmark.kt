@@ -31,8 +31,7 @@ import org.junit.Test
 
 @LargeTest
 class VectorsListScrollBenchmark {
-    @get:Rule
-    val benchmarkRule = MacrobenchmarkRule()
+    @get:Rule val benchmarkRule = MacrobenchmarkRule()
 
     private lateinit var device: UiDevice
 
@@ -53,7 +52,7 @@ class VectorsListScrollBenchmark {
                 val intent = Intent()
                 intent.action = ACTION
                 startActivityAndWait(intent)
-            }
+            },
         ) {
             val recycler = device.findObject(By.res(PACKAGE_NAME, RESOURCE_ID))
             // Setting a gesture margin is important otherwise gesture nav is triggered.

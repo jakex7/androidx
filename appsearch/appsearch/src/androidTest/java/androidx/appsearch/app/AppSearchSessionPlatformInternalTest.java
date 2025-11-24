@@ -19,18 +19,16 @@ package androidx.appsearch.app;
 import android.content.Context;
 import android.os.Build;
 
-import androidx.annotation.NonNull;
 import androidx.appsearch.platformstorage.PlatformStorage;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import org.junit.Test;
+import org.jspecify.annotations.NonNull;
 
 import java.util.concurrent.ExecutorService;
 
-// TODO(b/227356108): move this test to cts test once we un-hide search suggestion API.
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
 public class AppSearchSessionPlatformInternalTest extends AppSearchSessionInternalTestBase {
     @Override
@@ -47,11 +45,5 @@ public class AppSearchSessionPlatformInternalTest extends AppSearchSessionIntern
         return PlatformStorage.createSearchSessionAsync(
                 new PlatformStorage.SearchContext.Builder(context, dbName)
                         .setWorkerExecutor(executor).build());
-    }
-
-    @Override
-    @Test
-    public void testSearchSuggestion_propertyFilter() throws Exception {
-        // TODO(b/227356108) enable the test when suggestion is ready in platform.
     }
 }

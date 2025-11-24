@@ -19,7 +19,6 @@ package androidx.camera.camera2.pipe.graph
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.params.MeteringRectangle
-import android.os.Build
 import androidx.camera.camera2.pipe.AeMode
 import androidx.camera.camera2.pipe.AfMode
 import androidx.camera.camera2.pipe.AwbMode
@@ -34,6 +33,7 @@ import androidx.camera.camera2.pipe.testing.RobolectricCameraPipeTestRunner
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Test
@@ -42,10 +42,10 @@ import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricCameraPipeTestRunner::class)
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 internal class Controller3ASubmit3ATest {
     private val graphTestContext = GraphTestContext()
-    private val graphState3A = graphTestContext.graphProcessor.graphState3A
+    private val graphState3A = GraphState3A()
     private val graphProcessor = graphTestContext.graphProcessor
     private val listener3A = Listener3A()
     private val controller3A =
@@ -59,13 +59,9 @@ internal class Controller3ASubmit3ATest {
     @Test
     fun testSubmit3AFailsImmediatelyWithoutRepeatingRequest() = runTest {
         val graphProcessor2 = FakeGraphProcessor()
+        val graphState3A2 = GraphState3A()
         val controller3A =
-            Controller3A(
-                graphProcessor2,
-                FakeCameraMetadata(),
-                graphProcessor2.graphState3A,
-                listener3A
-            )
+            Controller3A(graphProcessor2, FakeCameraMetadata(), graphState3A2, listener3A)
         val result = controller3A.submit3A(afMode = AfMode.OFF)
         assertThat(result.await().status).isEqualTo(Result3A.Status.SUBMIT_FAILED)
     }
@@ -73,7 +69,8 @@ internal class Controller3ASubmit3ATest {
     @Test
     fun testSubmit3ADoesNotUpdateState3A() = runTest {
         val result = controller3A.submit3A(afMode = AfMode.OFF)
-        assertThat(graphState3A.afMode?.value).isNotEqualTo(CaptureRequest.CONTROL_AF_MODE_OFF)
+        assertThat(graphState3A.current.afMode?.value)
+            .isNotEqualTo(CaptureRequest.CONTROL_AF_MODE_OFF)
         assertThat(result.isCompleted).isFalse()
     }
 
@@ -90,8 +87,8 @@ internal class Controller3ASubmit3ATest {
                 FakeFrameMetadata(
                     frameNumber = FrameNumber(101L),
                     resultMetadata =
-                    mapOf(CaptureResult.CONTROL_AF_MODE to CaptureResult.CONTROL_AF_MODE_OFF)
-                )
+                        mapOf(CaptureResult.CONTROL_AF_MODE to CaptureResult.CONTROL_AF_MODE_OFF),
+                ),
             )
         }
         val result3A = result.await()
@@ -112,11 +109,11 @@ internal class Controller3ASubmit3ATest {
                 FakeFrameMetadata(
                     frameNumber = FrameNumber(101L),
                     resultMetadata =
-                    mapOf(
-                        CaptureResult.CONTROL_AE_MODE to
-                            CaptureResult.CONTROL_AE_MODE_ON_ALWAYS_FLASH
-                    )
-                )
+                        mapOf(
+                            CaptureResult.CONTROL_AE_MODE to
+                                CaptureResult.CONTROL_AE_MODE_ON_ALWAYS_FLASH
+                        ),
+                ),
             )
         }
         val result3A = result.await()
@@ -137,11 +134,11 @@ internal class Controller3ASubmit3ATest {
                 FakeFrameMetadata(
                     frameNumber = FrameNumber(101L),
                     resultMetadata =
-                    mapOf(
-                        CaptureResult.CONTROL_AWB_MODE to
-                            CaptureResult.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT
-                    )
-                )
+                        mapOf(
+                            CaptureResult.CONTROL_AWB_MODE to
+                                CaptureResult.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT
+                        ),
+                ),
             )
         }
         val result3A = result.await()
@@ -162,10 +159,11 @@ internal class Controller3ASubmit3ATest {
                 FakeFrameMetadata(
                     frameNumber = FrameNumber(101L),
                     resultMetadata =
-                    mapOf(
-                        CaptureResult.CONTROL_AF_REGIONS to
-                            Array(1) { MeteringRectangle(1, 1, 99, 99, 2) })
-                )
+                        mapOf(
+                            CaptureResult.CONTROL_AF_REGIONS to
+                                Array(1) { MeteringRectangle(1, 1, 99, 99, 2) }
+                        ),
+                ),
             )
         }
         val result3A = result.await()
@@ -186,10 +184,11 @@ internal class Controller3ASubmit3ATest {
                 FakeFrameMetadata(
                     frameNumber = FrameNumber(101L),
                     resultMetadata =
-                    mapOf(
-                        CaptureResult.CONTROL_AE_REGIONS to
-                            Array(1) { MeteringRectangle(1, 1, 99, 99, 2) })
-                )
+                        mapOf(
+                            CaptureResult.CONTROL_AE_REGIONS to
+                                Array(1) { MeteringRectangle(1, 1, 99, 99, 2) }
+                        ),
+                ),
             )
         }
         val result3A = result.await()
@@ -212,10 +211,11 @@ internal class Controller3ASubmit3ATest {
                 FakeFrameMetadata(
                     frameNumber = FrameNumber(101L),
                     resultMetadata =
-                    mapOf(
-                        CaptureResult.CONTROL_AWB_REGIONS to
-                            Array(1) { MeteringRectangle(1, 1, 99, 99, 2) })
-                )
+                        mapOf(
+                            CaptureResult.CONTROL_AWB_REGIONS to
+                                Array(1) { MeteringRectangle(1, 1, 99, 99, 2) }
+                        ),
+                ),
             )
         }
         val result3A = result.await()
@@ -228,9 +228,12 @@ internal class Controller3ASubmit3ATest {
         // There are different conditions that can lead to the request processor not being able
         // to successfully submit the desired request. For this test we are closing the processor.
         graphProcessor.close()
+        advanceUntilIdle()
 
         // Since the request processor is closed the submit3A method call will fail.
-        val result = controller3A.submit3A(aeMode = AeMode.ON_ALWAYS_FLASH).await()
+        val deferred = controller3A.submit3A(aeMode = AeMode.ON_ALWAYS_FLASH)
+        assertThat(deferred.isCompleted).isTrue()
+        val result = deferred.await()
         assertThat(result.frameMetadata).isNull()
         assertThat(result.status).isEqualTo(Result3A.Status.SUBMIT_FAILED)
     }

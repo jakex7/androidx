@@ -19,11 +19,12 @@ package androidx.webkit;
 import android.os.Handler;
 import android.webkit.WebMessagePort;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
+import androidx.annotation.AnyThread;
 import androidx.annotation.RequiresFeature;
 import androidx.annotation.RestrictTo;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.InvocationHandler;
 
@@ -33,7 +34,7 @@ import java.lang.reflect.InvocationHandler;
  * HTML5 message ports.</a>
  *
  * <p>A Message port represents one endpoint of a Message Channel. In Android
- * webview, there is no separate Message Channel object. When a message channel
+ * WebView, there is no separate Message Channel object. When a message channel
  * is created, both ports are tangled to each other and started, and then
  * returned in a MessagePort array, see {@link WebViewCompat#createWebMessageChannel}
  * for creating a message channel.
@@ -55,6 +56,7 @@ import java.lang.reflect.InvocationHandler;
  * <p>It is possible to transfer both ports of a channel to JS, for example for
  * communication between subframes.
  */
+@AnyThread
 public abstract class WebMessagePortCompat {
     /**
      * The listener for handling MessagePort events. The message callback
@@ -162,18 +164,15 @@ public abstract class WebMessagePortCompat {
      * Internal getter returning the private {@link WebMessagePort} implementing this class. This is
      * only available on devices with an Android versions supporting WebMessagePorts.
      */
-    @RequiresApi(23)
     @RestrictTo(RestrictTo.Scope.LIBRARY)
-    @NonNull
-    public abstract WebMessagePort getFrameworkPort();
+    public abstract @NonNull WebMessagePort getFrameworkPort();
 
     /**
      * Internal getter returning the private {@link java.lang.reflect.InvocationHandler}
      * implementing this class. This is only available on devices where the support library glue in
      * the WebView APK supports {@link WebMessagePortCompat}.
      */
-    @NonNull
     @RestrictTo(RestrictTo.Scope.LIBRARY)
-    public abstract InvocationHandler getInvocationHandler();
+    public abstract @NonNull InvocationHandler getInvocationHandler();
 
 }

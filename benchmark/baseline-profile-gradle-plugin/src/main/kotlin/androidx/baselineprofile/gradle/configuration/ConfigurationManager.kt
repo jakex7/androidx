@@ -39,37 +39,31 @@ import org.gradle.api.attributes.java.TargetJvmEnvironment
 internal class ConfigurationManager(private val project: Project) {
 
     private fun AttributeContainer.usage(value: String) {
-        attribute(
-            Usage.USAGE_ATTRIBUTE,
-            project.objects.named(Usage::class.java, value)
-        )
+        attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, value))
     }
 
     private fun AttributeContainer.buildType(value: String) {
-        attribute(
-            BuildTypeAttr.ATTRIBUTE,
-            project.objects.named(BuildTypeAttr::class.java, value)
-        )
+        attribute(BuildTypeAttr.ATTRIBUTE, project.objects.named(BuildTypeAttr::class.java, value))
     }
 
     private fun AttributeContainer.targetJvmEnvironment(value: String) {
         attribute(
             TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE,
-            project.objects.named(TargetJvmEnvironment::class.java, value)
+            project.objects.named(TargetJvmEnvironment::class.java, value),
         )
     }
 
     private fun AttributeContainer.agpVersion(value: String) {
         attribute(
             BaselineProfilePluginAgpVersionAttr.ATTRIBUTE,
-            project.objects.named(BaselineProfilePluginAgpVersionAttr::class.java, value)
+            project.objects.named(BaselineProfilePluginAgpVersionAttr::class.java, value),
         )
     }
 
     private fun AttributeContainer.baselineProfilePluginVersion(value: String) {
         attribute(
             BaselineProfilePluginVersionAttr.ATTRIBUTE,
-            project.objects.named(BaselineProfilePluginVersionAttr::class.java, value)
+            project.objects.named(BaselineProfilePluginVersionAttr::class.java, value),
         )
     }
 
@@ -78,7 +72,7 @@ internal class ConfigurationManager(private val project: Project) {
         productFlavors.forEach { (flavorName, flavorValue) ->
             attribute(
                 ProductFlavorAttr.of(flavorName),
-                project.objects.named(ProductFlavorAttr::class.java, flavorValue)
+                project.objects.named(ProductFlavorAttr::class.java, flavorValue),
             )
         }
     }
@@ -93,10 +87,9 @@ internal class ConfigurationManager(private val project: Project) {
         usage: String? = ATTRIBUTE_USAGE_BASELINE_PROFILE,
         targetJvmEnvironment: String? = ATTRIBUTE_TARGET_JVM_ENVIRONMENT,
         bpPluginVersion: String? = ATTRIBUTE_BASELINE_PROFILE_PLUGIN_VERSION,
-        agpVersion: String? = project.agpVersion().versionString()
+        agpVersion: String? = project.agpVersion().versionString(),
     ): Configuration {
         return project.configurations.maybeCreate(camelCase(*(nameParts.toTypedArray()))).apply {
-
             isCanBeResolved = canBeResolved
             isCanBeConsumed = canBeConsumed
 
@@ -114,11 +107,12 @@ internal class ConfigurationManager(private val project: Project) {
     }
 
     private fun AndroidPluginVersion.versionString(): String {
-        val preview = if (!previewType.isNullOrBlank()) {
-            "-$previewType$preview"
-        } else {
-            ""
-        }
+        val preview =
+            if (!previewType.isNullOrBlank()) {
+                "-$previewType$preview"
+            } else {
+                ""
+            }
         return "$major.$minor.$micro$preview"
     }
 }

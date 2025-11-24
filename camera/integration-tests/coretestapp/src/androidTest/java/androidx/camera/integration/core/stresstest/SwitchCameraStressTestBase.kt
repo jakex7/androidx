@@ -65,32 +65,30 @@ import org.junit.runners.Parameterized
 abstract class SwitchCameraStressTestBase(
     val implName: String,
     val cameraConfig: CameraXConfig,
-    val cameraId: String
+    val cameraId: String,
 ) {
     private val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
 
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = implName == CameraPipeConfig::class.simpleName,
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = implName == CameraPipeConfig::class.simpleName)
 
     @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        CameraUtil.PreTestCameraIdList(cameraConfig)
-    )
+    val useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            CameraUtil.PreTestCameraIdList(cameraConfig)
+        )
 
     @get:Rule
     val permissionRule: GrantPermissionRule =
         GrantPermissionRule.grant(
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.RECORD_AUDIO
+            Manifest.permission.RECORD_AUDIO,
         )
 
-    @get:Rule
-    val labTest: LabTestRule = LabTestRule()
+    @get:Rule val labTest: LabTestRule = LabTestRule()
 
-    @get:Rule
-    val repeatRule = RepeatRule()
+    @get:Rule val repeatRule = RepeatRule()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
@@ -99,8 +97,7 @@ abstract class SwitchCameraStressTestBase(
     private lateinit var cameraIdCameraSelector: CameraSelector
 
     companion object {
-        @ClassRule
-        @JvmField val stressTest = StressTestRule()
+        @ClassRule @JvmField val stressTest = StressTestRule()
 
         @JvmStatic
         @Parameterized.Parameters(name = "config = {0}, cameraId = {2}")
@@ -134,9 +131,10 @@ abstract class SwitchCameraStressTestBase(
 
         cameraIdCameraSelector = createCameraSelectorById(cameraId)
 
-        camera = withContext(Dispatchers.Main) {
-            cameraProvider.bindToLifecycle(FakeLifecycleOwner(), cameraIdCameraSelector)
-        }
+        camera =
+            withContext(Dispatchers.Main) {
+                cameraProvider.bindToLifecycle(FakeLifecycleOwner(), cameraIdCameraSelector)
+            }
     }
 
     @After
@@ -154,14 +152,12 @@ abstract class SwitchCameraStressTestBase(
         device.waitForIdle(HOME_TIMEOUT_MS)
     }
 
-    /**
-     * Repeatedly switch the cameras and checks the use cases' capture functions can work.
-     */
+    /** Repeatedly switch the cameras and checks the use cases' capture functions can work. */
     protected fun switchCamera_checkOutput_repeatedly(
         cameraId: String,
         useCaseCombination: Int,
         verificationTarget: Int,
-        repeatCount: Int = STRESS_TEST_OPERATION_REPEAT_COUNT
+        repeatCount: Int = STRESS_TEST_OPERATION_REPEAT_COUNT,
     ) {
         // Launches CameraXActivity and wait for the preview ready.
         val activityScenario =
@@ -199,14 +195,12 @@ abstract class SwitchCameraStressTestBase(
         }
     }
 
-    /**
-     * Switch the cameras repeatedly,and then checks the use cases' capture functions can work.
-     */
+    /** Switch the cameras repeatedly,and then checks the use cases' capture functions can work. */
     protected fun switchCamera_repeatedly_thenCheckOutput(
         cameraId: String,
         useCaseCombination: Int,
         verificationTarget: Int,
-        repeatCount: Int = STRESS_TEST_OPERATION_REPEAT_COUNT
+        repeatCount: Int = STRESS_TEST_OPERATION_REPEAT_COUNT,
     ) {
         // Launches CameraXActivity and wait for the preview ready.
         val activityScenario =
@@ -246,7 +240,7 @@ abstract class SwitchCameraStressTestBase(
 
     protected fun assumeBothLensFacingCamerasSupportUseCaseCombination(
         camera: Camera,
-        useCaseCombination: Int
+        useCaseCombination: Int,
     ): Unit = runBlocking {
         // Checks whether the input camera can support the use case combination
         assumeCameraSupportUseCaseCombination(camera, useCaseCombination)
@@ -260,9 +254,10 @@ abstract class SwitchCameraStressTestBase(
                 CameraSelector.DEFAULT_BACK_CAMERA
             }
 
-        val otherLensFacingCamera = withContext(Dispatchers.Main) {
-            cameraProvider.bindToLifecycle(FakeLifecycleOwner(), otherLensFacingCameraSelector)
-        }
+        val otherLensFacingCamera =
+            withContext(Dispatchers.Main) {
+                cameraProvider.bindToLifecycle(FakeLifecycleOwner(), otherLensFacingCameraSelector)
+            }
 
         // Checks whether the camera of the other lens facing can support the use case combination
         assumeCameraSupportUseCaseCombination(otherLensFacingCamera, useCaseCombination)

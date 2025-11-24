@@ -16,6 +16,7 @@
 
 package androidx.health.connect.client.impl.platform.records
 
+import android.annotation.SuppressLint
 import android.annotation.TargetApi
 import android.health.connect.datatypes.units.Energy as PlatformEnergy
 import android.health.connect.datatypes.units.Length as PlatformLength
@@ -23,8 +24,13 @@ import android.health.connect.datatypes.units.Mass as PlatformMass
 import android.health.connect.datatypes.units.Power as PlatformPower
 import android.health.connect.datatypes.units.Volume as PlatformVolume
 import android.os.Build
+import android.os.ext.SdkExtensions
 import androidx.health.connect.client.aggregate.AggregateMetric
+import androidx.health.connect.client.impl.platform.response.buildAggregationResult
+import androidx.health.connect.client.impl.platform.response.getDoubleMetricValues
+import androidx.health.connect.client.impl.platform.response.getLongMetricValues
 import androidx.health.connect.client.records.BasalMetabolicRateRecord
+import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.FloorsClimbedRecord
@@ -32,6 +38,9 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.PowerRecord
+import androidx.health.connect.client.records.SkinTemperatureRecord
+import androidx.health.connect.client.records.SpeedRecord
+import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
@@ -39,6 +48,7 @@ import androidx.test.filters.SmallTest
 import com.google.common.truth.Correspondence
 import com.google.common.truth.Truth.assertThat
 import java.time.Duration
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -70,13 +80,13 @@ class ResponseConvertersTest {
                         PlatformHeartRateRecord.BPM_MIN ->
                             setOf(
                                 PlatformDataOriginBuilder().setPackageName("HR App1").build(),
-                                PlatformDataOriginBuilder().setPackageName("HR App2").build()
+                                PlatformDataOriginBuilder().setPackageName("HR App2").build(),
                             )
                         PlatformExerciseSessionRecord.EXERCISE_DURATION_TOTAL ->
                             setOf(PlatformDataOriginBuilder().setPackageName("Workout app").build())
                         else -> emptySet()
                     }
-                }
+                },
             )
 
         assertThat(aggregationResult[HeartRateRecord.BPM_MIN]).isEqualTo(53L)
@@ -86,7 +96,7 @@ class ResponseConvertersTest {
             .containsExactly(
                 DataOrigin("HR App1"),
                 DataOrigin("HR App2"),
-                DataOrigin("Workout app")
+                DataOrigin("Workout app"),
             )
     }
 
@@ -96,7 +106,7 @@ class ResponseConvertersTest {
             getLongMetricValues(
                 mapOf(
                     HeartRateRecord.BPM_MIN as AggregateMetric<Any> to 53L,
-                    ExerciseSessionRecord.EXERCISE_DURATION_TOTAL as AggregateMetric<Any> to 60_000L
+                    ExerciseSessionRecord.EXERCISE_DURATION_TOTAL as AggregateMetric<Any> to 60_000L,
                 )
             )
         assertThat(metricValues)
@@ -104,7 +114,7 @@ class ResponseConvertersTest {
                 HeartRateRecord.BPM_MIN.metricKey,
                 53L,
                 ExerciseSessionRecord.EXERCISE_DURATION_TOTAL.metricKey,
-                60_000L
+                60_000L,
             )
     }
 
@@ -159,6 +169,19 @@ class ResponseConvertersTest {
     }
 
     @Test
+    fun getDoubleMetricValue_convertsMassToKilograms() {
+        val metricValues =
+            getDoubleMetricValues(
+                mapOf(
+                    WeightRecord.WEIGHT_MAX as AggregateMetric<Any> to
+                        PlatformMass.fromGrams(100_000.0)
+                )
+            )
+
+        assertThat(metricValues).containsExactly(WeightRecord.WEIGHT_MAX.metricKey, 100.0)
+    }
+
+    @Test
     fun getDoubleMetricValues_convertsPowerToWatts() {
         val metricValues =
             getDoubleMetricValues(
@@ -167,6 +190,49 @@ class ResponseConvertersTest {
                 )
             )
         assertThat(metricValues).containsExactly(PowerRecord.POWER_AVG.metricKey, 366.0)
+    }
+
+    @Test
+    fun getDoubleMetricValues_convertsPressureToMillimetersOfMercury() {
+        assumeTrue(SdkExtensions.getExtensionVersion(Build.VERSION_CODES.UPSIDE_DOWN_CAKE) >= 10)
+        val metricValues =
+            getDoubleMetricValues(
+                mapOf(
+                    BloodPressureRecord.SYSTOLIC_MAX as AggregateMetric<Any> to
+                        PlatformPressure.fromMillimetersOfMercury(120.0)
+                )
+            )
+
+        assertThat(metricValues).containsExactly(BloodPressureRecord.SYSTOLIC_MAX.metricKey, 120.0)
+    }
+
+    @SuppressLint("NewApi") // Api 35 is covered by sdk extension check
+    @Test
+    fun getDoubleMetricValues_convertsTemperatureDeltaToCelsius() {
+        assumeTrue(SdkExtensions.getExtensionVersion(Build.VERSION_CODES.UPSIDE_DOWN_CAKE) >= 13)
+        val metricValues =
+            getDoubleMetricValues(
+                mapOf(
+                    SkinTemperatureRecord.TEMPERATURE_DELTA_AVG as AggregateMetric<Any> to
+                        PlatformTemperatureDelta.fromCelsius(25.0)
+                )
+            )
+        assertThat(metricValues)
+            .containsExactly(SkinTemperatureRecord.TEMPERATURE_DELTA_AVG.metricKey, 25.0)
+    }
+
+    @Test
+    fun getDoubleMetricValues_convertsVelocityToMetersPerSecond() {
+        assumeTrue(SdkExtensions.getExtensionVersion(Build.VERSION_CODES.UPSIDE_DOWN_CAKE) >= 10)
+        val metricValues =
+            getDoubleMetricValues(
+                mapOf(
+                    SpeedRecord.SPEED_AVG as AggregateMetric<Any> to
+                        PlatformVelocity.fromMetersPerSecond(2.8)
+                )
+            )
+
+        assertThat(metricValues).containsExactly(SpeedRecord.SPEED_AVG.metricKey, 2.8)
     }
 
     @Test
@@ -215,7 +281,7 @@ class ResponseConvertersTest {
                 HeartRateRecord.BPM_MIN.metricKey,
                 53L,
                 ExerciseSessionRecord.EXERCISE_DURATION_TOTAL.metricKey,
-                60_000L
+                60_000L,
             )
     }
 
@@ -241,6 +307,7 @@ class ResponseConvertersTest {
                         PlatformEnergy.fromCalories(836_800.0),
                 )
             )
+
         assertThat(metricValues)
             .comparingValuesUsing(tolerance)
             .containsExactly(
@@ -257,7 +324,7 @@ class ResponseConvertersTest {
                 FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL.metricKey,
                 10.0,
                 BasalMetabolicRateRecord.BASAL_CALORIES_TOTAL.metricKey,
-                836.8
+                836.8,
             )
     }
 }

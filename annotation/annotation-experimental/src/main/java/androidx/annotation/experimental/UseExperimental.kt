@@ -22,12 +22,12 @@ import kotlin.reflect.KClass
 
 /**
  * Allows use of an experimental API denoted by the given markers in the annotated file,
- * declaration, or expression. If a declaration is annotated with [UseExperimental], its
- * usages are **not** required to opt-in to that experimental API.
+ * declaration, or expression. If a declaration is annotated with [UseExperimental], its usages are
+ * **not** required to opt-in to that experimental API.
  */
 @Deprecated(
     "This annotation has been replaced by `@OptIn`",
-    ReplaceWith("OptIn", "androidx.annotation.OptIn")
+    ReplaceWith("OptIn", "androidx.annotation.OptIn"),
 )
 @Retention(AnnotationRetention.BINARY)
 @Target(
@@ -40,12 +40,10 @@ import kotlin.reflect.KClass
     AnnotationTarget.PROPERTY_GETTER,
     AnnotationTarget.PROPERTY_SETTER,
     AnnotationTarget.FILE,
-    AnnotationTarget.TYPEALIAS
+    AnnotationTarget.TYPEALIAS,
 )
 public annotation class UseExperimental(
-    /**
-     * Defines the experimental API(s) whose usage this annotation allows.
-     */
+    /** Defines the experimental API(s) whose usage this annotation allows. */
     @get:Suppress("ArrayReturn") // Kotlin generates a raw array for annotation vararg
     vararg val markerClass: KClass<out Annotation>
 )

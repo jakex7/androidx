@@ -35,7 +35,7 @@ import org.robolectric.util.ReflectionHelpers
 
 @RunWith(Enclosed::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 object VideoEncoderInfoWrapperTest {
 
     private const val WIDTH_ALIGNMENT = 2
@@ -61,7 +61,7 @@ object VideoEncoderInfoWrapperTest {
 
     @RunWith(ParameterizedRobolectricTestRunner::class)
     @DoNotInstrument
-    @Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+    @Config(sdk = [Config.ALL_SDKS])
     class ModelWrappingTest(
         private val brand: String,
         private val model: String,
@@ -76,33 +76,14 @@ object VideoEncoderInfoWrapperTest {
             @ParameterizedRobolectricTestRunner.Parameters(
                 name = "brand={0}, model={1}, sizeToCheck={2}, shouldWrapVideoEncoderInfo={3}"
             )
-            fun data() = listOf(
-                arrayOf(
-                    NONE_QUIRK_BRAND,
-                    NONE_QUIRK_MODEL,
-                    VALID_SIZE,
-                    false,
-                ),
-                arrayOf(
-                    NONE_QUIRK_BRAND,
-                    NONE_QUIRK_MODEL,
-                    SIZE_SHOULD_BE_VALID,
-                    true,
-                ),
-                arrayOf(
-                    "Nokia",
-                    "Nokia 1",
-                    VALID_SIZE,
-                    true,
-                ),
-                arrayOf(
-                    "motorola",
-                    "moto c",
-                    VALID_SIZE,
-                    true,
-                ),
-                // No necessary to test all models.
-            )
+            fun data() =
+                listOf(
+                    arrayOf(NONE_QUIRK_BRAND, NONE_QUIRK_MODEL, VALID_SIZE, false),
+                    arrayOf(NONE_QUIRK_BRAND, NONE_QUIRK_MODEL, SIZE_SHOULD_BE_VALID, true),
+                    arrayOf("Nokia", "Nokia 1", VALID_SIZE, true),
+                    arrayOf("motorola", "moto c", VALID_SIZE, true),
+                    // No necessary to test all models.
+                )
         }
 
         @Before
@@ -122,7 +103,7 @@ object VideoEncoderInfoWrapperTest {
 
     @RunWith(RobolectricTestRunner::class)
     @DoNotInstrument
-    @Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+    @Config(sdk = [Config.ALL_SDKS])
     class WrappingMethodTest {
 
         @Test
@@ -138,10 +119,11 @@ object VideoEncoderInfoWrapperTest {
             val sizeToBeValid = Size(Int.MAX_VALUE, Int.MAX_VALUE)
             assertThat(videoEncoderInfo.isSizeSupported(sizeToBeValid.width, sizeToBeValid.height))
                 .isFalse()
-            val videoEncoderInfo2 = createFakeVideoEncoderInfoWrapper(
-                videoEncoderInfo,
-                validSizeToCheck = sizeToBeValid
-            )
+            val videoEncoderInfo2 =
+                createFakeVideoEncoderInfoWrapper(
+                    videoEncoderInfo,
+                    validSizeToCheck = sizeToBeValid,
+                )
             assertThat(videoEncoderInfo2).isSameInstanceAs(videoEncoderInfo)
             assertThat(videoEncoderInfo2.isSizeSupported(sizeToBeValid.width, sizeToBeValid.height))
                 .isTrue()
@@ -218,14 +200,16 @@ object VideoEncoderInfoWrapperTest {
 
         @Test
         fun isSizeSupported_validSizeIsSupported() {
-            val videoEncoderInfo = createFakeVideoEncoderInfoWrapper(
-                createFakeVideoEncoderInfo(
-                    supportedWidths = Range(16, 640),
-                    supportedHeights = Range(16, 480),
-                    widthAlignment = 16,
-                    heightAlignment = 16,
-                ), validSizeToCheck = Size(1920, 1080) // 1080 not align to 16
-            )
+            val videoEncoderInfo =
+                createFakeVideoEncoderInfoWrapper(
+                    createFakeVideoEncoderInfo(
+                        supportedWidths = Range(16, 640),
+                        supportedHeights = Range(16, 480),
+                        widthAlignment = 16,
+                        heightAlignment = 16,
+                    ),
+                    validSizeToCheck = Size(1920, 1080), // 1080 not align to 16
+                )
             assertThat(videoEncoderInfo.isSizeSupported(1920, 1080)).isTrue()
         }
 
@@ -233,14 +217,16 @@ object VideoEncoderInfoWrapperTest {
         fun isSizeSupported_supportFhdForFhdProblematicDevices() {
             ReflectionHelpers.setStaticField(Build::class.java, "MODEL", "sm-a032f")
 
-            val videoEncoderInfo = createFakeVideoEncoderInfoWrapper(
-                createFakeVideoEncoderInfo(
-                    supportedWidths = Range(16, 640),
-                    supportedHeights = Range(16, 480),
-                    widthAlignment = 16,
-                    heightAlignment = 16,
-                ), null
-            )
+            val videoEncoderInfo =
+                createFakeVideoEncoderInfoWrapper(
+                    createFakeVideoEncoderInfo(
+                        supportedWidths = Range(16, 640),
+                        supportedHeights = Range(16, 480),
+                        widthAlignment = 16,
+                        heightAlignment = 16,
+                    ),
+                    null,
+                )
             assertThat(videoEncoderInfo.isSizeSupported(1920, 1080)).isTrue()
         }
 
@@ -254,11 +240,12 @@ object VideoEncoderInfoWrapperTest {
             supportedHeights: Range<Int> = SUPPORTED_HEIGHTS,
             widthAlignment: Int = WIDTH_ALIGNMENT,
             heightAlignment: Int = HEIGHT_ALIGNMENT,
-        ) = FakeVideoEncoderInfo(
-            supportedWidths = supportedWidths,
-            supportedHeights = supportedHeights,
-            widthAlignment = widthAlignment,
-            heightAlignment = heightAlignment,
-        )
+        ) =
+            FakeVideoEncoderInfo(
+                supportedWidths = supportedWidths,
+                supportedHeights = supportedHeights,
+                widthAlignment = widthAlignment,
+                heightAlignment = heightAlignment,
+            )
     }
 }

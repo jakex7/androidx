@@ -16,21 +16,16 @@
 
 package androidx.collection
 
-internal class CircularyArrayAddFromHeadAndPopFromTailBenchmark(
-    private val seed: List<String>,
-) : CollectionBenchmark {
+class CircularyArrayAddFromHeadAndPopFromTailBenchmark(private val seed: List<String>) :
+    CollectionBenchmark {
     override fun measuredBlock() {
         val array = CircularArray<String>()
         for (e in seed) {
             array.addFirst(e)
         }
 
-        repeat(seed.size) {
-            array.popLast()
-        }
+        repeat(seed.size) { array.popLast() }
     }
 }
 
-internal fun createSeed(size: Int): List<String> = List(size) {
-    "element $it"
-}
+fun createSeed(size: Int): List<String> = List(size) { "element $it" }

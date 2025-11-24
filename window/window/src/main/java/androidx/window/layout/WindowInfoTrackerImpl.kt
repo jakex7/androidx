@@ -20,7 +20,9 @@ import android.app.Activity
 import android.content.Context
 import androidx.annotation.UiContext
 import androidx.core.util.Consumer
+import androidx.window.WindowSdkExtensions
 import androidx.window.layout.adapter.WindowBackend
+import java.util.concurrent.Executor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -28,41 +30,61 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 
 /**
- * An implementation of [WindowInfoTracker] that provides the [WindowLayoutInfo] and
- * [WindowMetrics] for the given [Activity] or [UiContext].
+ * An implementation of [WindowInfoTracker] that provides the [WindowLayoutInfo] and [WindowMetrics]
+ * for the given [Activity] or [UiContext].
  *
  * @param windowMetricsCalculator a helper to calculate the [WindowMetrics] for the [Activity].
  * @param windowBackend a helper to provide the [WindowLayoutInfo].
  */
 internal class WindowInfoTrackerImpl(
     private val windowMetricsCalculator: WindowMetricsCalculator,
-    private val windowBackend: WindowBackend
+    private val windowBackend: WindowBackend,
+    private val windowSdkExtensions: WindowSdkExtensions,
 ) : WindowInfoTracker {
 
     /**
      * A [Flow] of window layout changes in the current visual [UiContext]. A context has to be
-     * either an [Activity] or created with [Context#createWindowContext].
+     * either an [Activity] or created with [Context.createWindowContext].
      */
     override fun windowLayoutInfo(@UiContext context: Context): Flow<WindowLayoutInfo> {
         return callbackFlow {
-            val listener = Consumer { info: WindowLayoutInfo -> trySend(info) }
-            windowBackend.registerLayoutChangeCallback(context, Runnable::run, listener)
-            awaitClose {
-                windowBackend.unregisterLayoutChangeCallback(listener)
+                val listener = Consumer { info: WindowLayoutInfo -> trySend(info) }
+                windowBackend.registerLayoutChangeCallback(context, Runnable::run, listener)
+                awaitClose { windowBackend.unregisterLayoutChangeCallback(listener) }
             }
-        }.flowOn(Dispatchers.Main)
+            .flowOn(Dispatchers.Main)
     }
 
-    /**
-     * A [Flow] of window layout changes in the current visual [Activity].
-     */
+    /** A [Flow] of window layout changes in the current visual [Activity]. */
     override fun windowLayoutInfo(activity: Activity): Flow<WindowLayoutInfo> {
         return callbackFlow {
-            val listener = Consumer { info: WindowLayoutInfo -> trySend(info) }
-            windowBackend.registerLayoutChangeCallback(activity, Runnable::run, listener)
-            awaitClose {
-                windowBackend.unregisterLayoutChangeCallback(listener)
+                val listener = Consumer { info: WindowLayoutInfo -> trySend(info) }
+                windowBackend.registerLayoutChangeCallback(activity, Runnable::run, listener)
+                awaitClose { windowBackend.unregisterLayoutChangeCallback(listener) }
             }
-        }.flowOn(Dispatchers.Main)
+            .flowOn(Dispatchers.Main)
+    }
+
+    override val supportedPostures: List<SupportedPosture>
+        get() {
+            windowSdkExtensions.requireExtensionVersion(6)
+            return windowBackend.supportedPostures
+        }
+
+    override fun getCurrentWindowLayoutInfo(@UiContext context: Context): WindowLayoutInfo {
+        windowSdkExtensions.requireExtensionVersion(9)
+        return windowBackend.getCurrentWindowLayoutInfo(context)
+    }
+
+    override fun registerWindowLayoutInfoListener(
+        @UiContext context: Context,
+        executor: Executor,
+        listener: Consumer<WindowLayoutInfo>,
+    ) {
+        windowBackend.registerLayoutChangeCallback(context, executor, listener)
+    }
+
+    override fun unregisterWindowLayoutInfoListener(listener: Consumer<WindowLayoutInfo>) {
+        windowBackend.unregisterLayoutChangeCallback(listener)
     }
 }

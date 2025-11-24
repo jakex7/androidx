@@ -52,6 +52,7 @@ class CameraFragment : Fragment() {
 
     companion object {
         fun newInstance() = CameraFragment()
+
         private const val TAG = "CameraFragment"
         const val KEY_CAMERA_IMPLEMENTATION = "camera_implementation"
         const val KEY_CAMERA_IMPLEMENTATION_NO_HISTORY = "camera_implementation_no_history"
@@ -61,7 +62,8 @@ class CameraFragment : Fragment() {
     }
 
     private var _binding: FragmentTextureviewBinding? = null
-    private val binding get() = _binding!!
+    private val binding
+        get() = _binding!!
 
     private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
     private lateinit var cameraProvider: ProcessCameraProvider
@@ -88,17 +90,19 @@ class CameraFragment : Fragment() {
             } catch (e: IllegalStateException) {
                 throw IllegalStateException(
                     "WARNING: CameraX is currently configured to a different implementation " +
-                        "this would have resulted in unexpected behavior.", e
+                        "this would have resulted in unexpected behavior.",
+                    e,
                 )
             }
         }
 
         activity?.intent?.let { intent ->
             if (intent.getBooleanExtra(KEY_CAMERA_IMPLEMENTATION_NO_HISTORY, false)) {
-                activity?.intent = Intent(intent).apply {
-                    removeExtra(KEY_CAMERA_IMPLEMENTATION)
-                    removeExtra(KEY_CAMERA_IMPLEMENTATION_NO_HISTORY)
-                }
+                activity?.intent =
+                    Intent(intent).apply {
+                        removeExtra(KEY_CAMERA_IMPLEMENTATION)
+                        removeExtra(KEY_CAMERA_IMPLEMENTATION_NO_HISTORY)
+                    }
                 cameraImpl = null
             }
         }
@@ -109,7 +113,7 @@ class CameraFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ): View {
         _binding = FragmentTextureviewBinding.inflate(inflater, container, false)
         return binding.root
@@ -123,15 +127,16 @@ class CameraFragment : Fragment() {
             Runnable {
                 cameraProvider = cameraProviderFuture.get()
                 val lifecycleOwner = viewLifecycleOwnerLiveData.value
-                if (lifecycleOwner != null &&
-                    lifecycleOwner.lifecycle.currentState != Lifecycle.State.DESTROYED
+                if (
+                    lifecycleOwner != null &&
+                        lifecycleOwner.lifecycle.currentState != Lifecycle.State.DESTROYED
                 ) {
                     bindPreview()
                 } else {
                     Log.d(TAG, "Skip camera setup since the lifecycle is closed")
                 }
             },
-            ContextCompat.getMainExecutor(requireContext())
+            ContextCompat.getMainExecutor(requireContext()),
         )
     }
 
@@ -145,9 +150,7 @@ class CameraFragment : Fragment() {
 
         val previewBuilder = Preview.Builder()
         previewBuilder.addCaptureCompletedCallback()
-        val preview = previewBuilder
-            .setTargetName("Preview")
-            .build()
+        val preview = previewBuilder.setTargetName("Preview").build()
 
         cameraProvider.bindToLifecycle(this, getCameraSelector(), preview)
 
@@ -156,23 +159,21 @@ class CameraFragment : Fragment() {
     }
 
     private fun getCameraSelector(): CameraSelector {
-        val lensFacing = (requireActivity() as BaseActivity).intent.getIntExtra(
-            BaseActivity.INTENT_LENS_FACING,
-            CameraSelector
-                .LENS_FACING_BACK
-        )
-        return CameraSelector.Builder()
-            .requireLensFacing(lensFacing)
-            .build()
+        val lensFacing =
+            (requireActivity() as BaseActivity)
+                .intent
+                .getIntExtra(BaseActivity.INTENT_LENS_FACING, CameraSelector.LENS_FACING_BACK)
+        return CameraSelector.Builder().requireLensFacing(lensFacing).build()
     }
 
     /**
      * Returns the implementation mode from the intent, or return the compatibility mode if not set.
      */
     private fun getImplementationMode(): ImplementationMode {
-        val mode = (requireActivity() as BaseActivity).intent.getIntExtra(
-            BaseActivity.INTENT_IMPLEMENTATION_MODE, COMPATIBLE_MODE
-        )
+        val mode =
+            (requireActivity() as BaseActivity)
+                .intent
+                .getIntExtra(BaseActivity.INTENT_IMPLEMENTATION_MODE, COMPATIBLE_MODE)
 
         return when (mode) {
             PERFORMANCE_MODE -> ImplementationMode.PERFORMANCE
@@ -189,19 +190,20 @@ class CameraFragment : Fragment() {
         androidx.camera.camera2.pipe.integration.interop.ExperimentalCamera2Interop::class
     )
     private fun Preview.Builder.addCaptureCompletedCallback() {
-        val captureCallback = object : CameraCaptureSession.CaptureCallback() {
-            override fun onCaptureCompleted(
-                session: CameraCaptureSession,
-                request: CaptureRequest,
-                result: TotalCaptureResult
-            ) {
-                super.onCaptureCompleted(session, request, result)
+        val captureCallback =
+            object : CameraCaptureSession.CaptureCallback() {
+                override fun onCaptureCompleted(
+                    session: CameraCaptureSession,
+                    request: CaptureRequest,
+                    result: TotalCaptureResult,
+                ) {
+                    super.onCaptureCompleted(session, request, result)
 
-                if (previewUpdatingLatch != null) {
-                    previewUpdatingLatch!!.countDown()
+                    if (previewUpdatingLatch != null) {
+                        previewUpdatingLatch!!.countDown()
+                    }
                 }
             }
-        }
 
         if (cameraImpl.equals(CAMERA_PIPE_IMPLEMENTATION_OPTION)) {
             androidx.camera.camera2.pipe.integration.interop.Camera2Interop.Extender(this)

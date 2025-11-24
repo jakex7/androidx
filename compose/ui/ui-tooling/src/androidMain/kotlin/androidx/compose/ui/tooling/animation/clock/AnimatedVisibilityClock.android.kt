@@ -41,8 +41,10 @@ internal class AnimatedVisibilityClock(override val animation: AnimatedVisibilit
         }
         set(value) {
             field = value
-            setClockTime(0)
+            setClockTime(currentClockTimeNanos)
         }
+
+    private var currentClockTimeNanos: Long = 0L
 
     override fun setStateParameters(par1: Any, par2: Any?) {
         state = par1 as AnimatedVisibilityState
@@ -57,6 +59,7 @@ internal class AnimatedVisibilityClock(override val animation: AnimatedVisibilit
     }
 
     override fun setClockTime(animationTimeNanos: Long) {
+        currentClockTimeNanos = animationTimeNanos
         animation.animationObject.let {
             val (current, target) = state.toCurrentTargetPair()
             it.setPlaytimeAfterInitialAndTargetStateEstablished(current, target, animationTimeNanos)
@@ -65,18 +68,24 @@ internal class AnimatedVisibilityClock(override val animation: AnimatedVisibilit
 
     override fun getTransitions(stepMillis: Long): List<TransitionInfo> {
         animation.childTransition?.let { child ->
-            return child.allAnimations().map {
-                it.createTransitionInfo(stepMillis)
-            }.sortedBy { it.label }.filter { !IGNORE_TRANSITIONS.contains(it.label) }
+            return child
+                .allAnimations()
+                .map { it.createTransitionInfo(stepMillis) }
+                .sortedBy { it.label }
+                .filter { !IGNORE_TRANSITIONS.contains(it.label) }
         }
         return emptyList()
     }
 
     override fun getAnimatedProperties(): List<ComposeAnimatedProperty> {
         animation.childTransition?.let { child ->
-            return child.allAnimations().mapNotNull {
-                ComposeAnimatedProperty(it.label, it.value ?: return@mapNotNull null)
-            }.sortedBy { it.label }.filter { !IGNORE_TRANSITIONS.contains(it.label) }
+            return child
+                .allAnimations()
+                .mapNotNull {
+                    ComposeAnimatedProperty(it.label, it.value ?: return@mapNotNull null)
+                }
+                .sortedBy { it.label }
+                .filter { !IGNORE_TRANSITIONS.contains(it.label) }
         }
         return emptyList()
     }

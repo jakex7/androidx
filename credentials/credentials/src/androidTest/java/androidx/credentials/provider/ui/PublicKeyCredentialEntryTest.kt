@@ -14,22 +14,28 @@
  * limitations under the License.
  */
 package androidx.credentials.provider.ui
+
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
+import android.os.Build
 import android.os.Bundle
 import android.service.credentials.CredentialEntry
 import androidx.credentials.CredentialOption
+import androidx.credentials.GetPublicKeyCredentialOption
 import androidx.credentials.PublicKeyCredential
 import androidx.credentials.R
 import androidx.credentials.equals
 import androidx.credentials.provider.BeginGetPublicKeyCredentialOption
+import androidx.credentials.provider.CredentialEntry.Companion.marshall
+import androidx.credentials.provider.CredentialEntry.Companion.unmarshallCredentialEntries
 import androidx.credentials.provider.PublicKeyCredentialEntry
 import androidx.credentials.provider.PublicKeyCredentialEntry.Companion.fromCredentialEntry
 import androidx.credentials.provider.PublicKeyCredentialEntry.Companion.fromSlice
 import androidx.credentials.provider.PublicKeyCredentialEntry.Companion.toSlice
+import androidx.credentials.provider.ui.UiUtils.Companion.testBiometricPromptData
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
@@ -41,16 +47,16 @@ import org.junit.Assert
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
-@SdkSuppress(minSdkVersion = 26)
+
+@SdkSuppress(minSdkVersion = 26) // Instant usage
 @RunWith(AndroidJUnit4::class)
 @SmallTest
 class PublicKeyCredentialEntryTest {
     private val mContext = ApplicationProvider.getApplicationContext<Context>()
     private val mIntent = Intent()
-    private val mPendingIntent = PendingIntent.getActivity(
-        mContext, 0, mIntent,
-        PendingIntent.FLAG_IMMUTABLE
-    )
+    private val mPendingIntent =
+        PendingIntent.getActivity(mContext, 0, mIntent, PendingIntent.FLAG_IMMUTABLE)
+
     @Test
     fun constructor_requiredParamsOnly_success() {
         val entry = constructWithRequiredParamsOnly()
@@ -58,6 +64,7 @@ class PublicKeyCredentialEntryTest {
         assertThat(entry.type).isEqualTo(PublicKeyCredential.TYPE_PUBLIC_KEY_CREDENTIAL)
         assertEntryWithRequiredParams(entry)
     }
+
     @Test
     fun constructor_allParams_success() {
         val entry = constructWithAllParams()
@@ -65,68 +72,57 @@ class PublicKeyCredentialEntryTest {
         assertThat(entry.type).isEqualTo(PublicKeyCredential.TYPE_PUBLIC_KEY_CREDENTIAL)
         assertEntryWithAllParams(entry)
     }
+
     @Test
     fun constructor_emptyUsername_throwsIAE() {
         assertThrows(
             "Expected empty username to throw IllegalArgumentException",
-            IllegalArgumentException::class.java
+            IllegalArgumentException::class.java,
         ) {
-            PublicKeyCredentialEntry(
-                mContext, "", mPendingIntent, BEGIN_OPTION
-            )
+            PublicKeyCredentialEntry(mContext, "", mPendingIntent, BEGIN_OPTION)
         }
     }
+
     @Test
     fun constructor_nullIcon_defaultIconSet() {
-        val entry = PublicKeyCredentialEntry(
-            mContext, USERNAME, mPendingIntent, BEGIN_OPTION
-        )
-        assertThat(
-            equals(
-                entry.icon,
-                Icon.createWithResource(mContext, R.drawable.ic_passkey)
-            )
-        ).isTrue()
+        val entry = PublicKeyCredentialEntry(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+        assertThat(equals(entry.icon, Icon.createWithResource(mContext, R.drawable.adx_ic_passkey)))
+            .isTrue()
     }
+
     @Test
     fun constructor_nullTypeDisplayName_defaultDisplayNameSet() {
-        val entry = PublicKeyCredentialEntry(
-            mContext, USERNAME, mPendingIntent, BEGIN_OPTION
-        )
-        assertThat(entry.typeDisplayName).isEqualTo(
-            mContext.getString(
-                R.string.androidx_credentials_TYPE_PUBLIC_KEY_CREDENTIAL
-            )
-        )
+        val entry = PublicKeyCredentialEntry(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+        assertThat(entry.typeDisplayName)
+            .isEqualTo(mContext.getString(R.string.androidx_credentials_TYPE_PUBLIC_KEY_CREDENTIAL))
     }
+
     @Test
     fun constructor_setPreferredDefaultIconBit_retrieveSetPreferredDefaultIconBit() {
         val expectedPreferredDefaultIconBit = SINGLE_PROVIDER_ICON_BIT
-        val entry = PublicKeyCredentialEntry(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION,
-            DISPLAYNAME,
-            Instant.ofEpochMilli(LAST_USED_TIME),
-            ICON,
-            IS_AUTO_SELECT_ALLOWED,
-            isDefaultIconPreferredAsSingleProvider = expectedPreferredDefaultIconBit
-        )
+        val entry =
+            PublicKeyCredentialEntry(
+                mContext,
+                USERNAME,
+                mPendingIntent,
+                BEGIN_OPTION,
+                DISPLAYNAME,
+                Instant.ofEpochMilli(LAST_USED_TIME),
+                ICON,
+                IS_AUTO_SELECT_ALLOWED,
+                isDefaultIconPreferredAsSingleProvider = expectedPreferredDefaultIconBit,
+            )
         assertThat(entry.isDefaultIconPreferredAsSingleProvider)
             .isEqualTo(expectedPreferredDefaultIconBit)
     }
+
     @Test
     fun constructor_preferredIconBitNotProvided_retrieveDefaultPreferredIconBit() {
-        val entry = PublicKeyCredentialEntry(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION
-        )
-        assertThat(entry.isDefaultIconPreferredAsSingleProvider).isEqualTo(
-            DEFAULT_SINGLE_PROVIDER_ICON_BIT)
+        val entry = PublicKeyCredentialEntry(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+        assertThat(entry.isDefaultIconPreferredAsSingleProvider)
+            .isEqualTo(DEFAULT_SINGLE_PROVIDER_ICON_BIT)
     }
+
     @Test
     fun constructor_allRequiredParamsUsed_defaultUsernameEntryGroupIdRetrieved() {
         val entry = constructWithAllParams()
@@ -136,26 +132,23 @@ class PublicKeyCredentialEntryTest {
 
     @Test
     fun builder_constructDefault_containsOnlySetPropertiesAndDefaultValues() {
-        val entry = PublicKeyCredentialEntry.Builder(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION
-        ).build()
+        val entry =
+            PublicKeyCredentialEntry.Builder(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+                .build()
 
         assertThat(entry.username).isEqualTo(USERNAME)
         assertThat(entry.displayName).isNull()
-        assertThat(entry.typeDisplayName).isEqualTo(mContext.getString(
-            R.string.androidx_credentials_TYPE_PUBLIC_KEY_CREDENTIAL
-        ))
+        assertThat(entry.typeDisplayName)
+            .isEqualTo(mContext.getString(R.string.androidx_credentials_TYPE_PUBLIC_KEY_CREDENTIAL))
         assertThat(entry.pendingIntent).isEqualTo(mPendingIntent)
         assertThat(entry.lastUsedTime).isNull()
-        assertThat(entry.icon.toString()).isEqualTo(
-            Icon.createWithResource(mContext, R.drawable.ic_passkey).toString())
+        assertThat(entry.icon.toString())
+            .isEqualTo(Icon.createWithResource(mContext, R.drawable.adx_ic_passkey).toString())
         assertThat(entry.isAutoSelectAllowed).isFalse()
         assertThat(entry.beginGetCredentialOption).isEqualTo(BEGIN_OPTION)
         assertThat(entry.affiliatedDomain).isNull()
         assertThat(entry.entryGroupId).isEqualTo(USERNAME)
+        assertThat(entry.biometricPromptData).isNull()
     }
 
     @Test
@@ -166,44 +159,34 @@ class PublicKeyCredentialEntryTest {
         assertNotNull(slice)
         val entry = fromSlice(slice!!)
         assertNotNull(entry)
-        entry?.let {
-            assertEntryWithAllParams(entry)
-        }
+        entry?.let { assertEntryWithAllParams(entry) }
     }
+
     @Test
     @SdkSuppress(minSdkVersion = 28)
     fun isDefaultIcon_noIconSet_returnsTrue() {
-        val entry = PublicKeyCredentialEntry.Builder(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION
-        ).build()
+        val entry =
+            PublicKeyCredentialEntry.Builder(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+                .build()
         Assert.assertTrue(entry.hasDefaultIcon)
     }
 
     @Test
     @SdkSuppress(minSdkVersion = 28)
     fun isDefaultIcon_customIcon_returnsFalse() {
-        val entry = PublicKeyCredentialEntry.Builder(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION
-        )
-            .setIcon(ICON).build()
+        val entry =
+            PublicKeyCredentialEntry.Builder(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+                .setIcon(ICON)
+                .build()
         Assert.assertFalse(entry.hasDefaultIcon)
     }
 
     @Test
     @SdkSuppress(minSdkVersion = 28)
     fun isDefaultIcon_noIconSetFromSlice_returnsTrue() {
-        val entry = PublicKeyCredentialEntry.Builder(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION
-        ).build()
+        val entry =
+            PublicKeyCredentialEntry.Builder(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+                .build()
         val slice = toSlice(entry)
 
         Assert.assertNotNull(slice)
@@ -218,12 +201,10 @@ class PublicKeyCredentialEntryTest {
     @Test
     @SdkSuppress(minSdkVersion = 28)
     fun isDefaultIcon_customIconAfterSlice_returnsFalse() {
-        val entry = PublicKeyCredentialEntry.Builder(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION
-        ).setIcon(ICON).build()
+        val entry =
+            PublicKeyCredentialEntry.Builder(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+                .setIcon(ICON)
+                .build()
         val slice = toSlice(entry)
 
         Assert.assertNotNull(slice)
@@ -237,26 +218,21 @@ class PublicKeyCredentialEntryTest {
     @Test
     fun isAutoSelectAllowedFromOption_optionAllows_returnsTrue() {
         BEGIN_OPTION.candidateQueryData.putBoolean(
-            CredentialOption.BUNDLE_KEY_IS_AUTO_SELECT_ALLOWED, true
+            CredentialOption.BUNDLE_KEY_IS_AUTO_SELECT_ALLOWED,
+            true,
         )
-        val entry = PublicKeyCredentialEntry.Builder(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION
-        ).build()
+        val entry =
+            PublicKeyCredentialEntry.Builder(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+                .build()
 
         Assert.assertTrue(entry.isAutoSelectAllowedFromOption)
     }
 
     @Test
     fun isAutoSelectAllowedFromOption_optionDisallows_returnsFalse() {
-        val entry = PublicKeyCredentialEntry.Builder(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION
-        ).build()
+        val entry =
+            PublicKeyCredentialEntry.Builder(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
+                .build()
         Assert.assertFalse(entry.isAutoSelectAllowedFromOption)
     }
 
@@ -264,40 +240,92 @@ class PublicKeyCredentialEntryTest {
     @SdkSuppress(minSdkVersion = 34)
     fun fromCredentialEntry_success() {
         val originalEntry = constructWithAllParams()
-        val entry = toSlice(originalEntry)?.let { CredentialEntry("id", it) }
-            ?.let { fromCredentialEntry(it) }
+        val entry =
+            toSlice(originalEntry)
+                ?.let { CredentialEntry("id", it) }
+                ?.let { fromCredentialEntry(it) }
         Assert.assertNotNull(entry)
         assertEntryWithAllParams(entry!!)
     }
+
+    @Test
+    fun createFromBundle_success() {
+        val expected =
+            PublicKeyCredentialEntry(
+                mContext,
+                USERNAME,
+                mPendingIntent,
+                BeginGetPublicKeyCredentialOption(
+                    GetPublicKeyCredentialOption("{\"key1\":{\"key2\":{\"key3\":\"value3\"}}}")
+                        .candidateQueryData,
+                    "id",
+                    "{\"key1\":{\"key2\":{\"key3\":\"value3\"}}}",
+                ),
+                DISPLAYNAME,
+                Instant.ofEpochMilli(LAST_USED_TIME),
+                ICON,
+                IS_AUTO_SELECT_ALLOWED,
+                SINGLE_PROVIDER_ICON_BIT,
+            )
+        val bundle = Bundle()
+        listOf(expected).marshall(bundle)
+
+        val actual = bundle.unmarshallCredentialEntries().single() as PublicKeyCredentialEntry
+
+        assertThat(actual.displayName).isEqualTo(expected.displayName)
+        assertThat(actual.username).isEqualTo(expected.username)
+        assertThat(actual.affiliatedDomain).isEqualTo(expected.affiliatedDomain)
+        assertThat(actual.lastUsedTime?.toEpochMilli())
+            .isEqualTo(expected.lastUsedTime?.toEpochMilli())
+        assertThat(actual.pendingIntent).isEqualTo(expected.pendingIntent)
+        assertThat(actual.entryGroupId).isEqualTo(expected.entryGroupId)
+        assertThat(actual.isDefaultIconPreferredAsSingleProvider)
+            .isEqualTo(expected.isDefaultIconPreferredAsSingleProvider)
+    }
+
     private fun constructWithRequiredParamsOnly(): PublicKeyCredentialEntry {
-        return PublicKeyCredentialEntry(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION
-        )
+        return PublicKeyCredentialEntry(mContext, USERNAME, mPendingIntent, BEGIN_OPTION)
     }
+
     private fun constructWithAllParams(): PublicKeyCredentialEntry {
-        return PublicKeyCredentialEntry(
-            mContext,
-            USERNAME,
-            mPendingIntent,
-            BEGIN_OPTION,
-            DISPLAYNAME,
-            Instant.ofEpochMilli(LAST_USED_TIME),
-            ICON,
-            IS_AUTO_SELECT_ALLOWED,
-            SINGLE_PROVIDER_ICON_BIT
-        )
+        return if (Build.VERSION.SDK_INT >= 35) {
+            PublicKeyCredentialEntry(
+                mContext,
+                USERNAME,
+                mPendingIntent,
+                BEGIN_OPTION,
+                DISPLAYNAME,
+                Instant.ofEpochMilli(LAST_USED_TIME),
+                ICON,
+                IS_AUTO_SELECT_ALLOWED,
+                SINGLE_PROVIDER_ICON_BIT,
+                testBiometricPromptData(),
+            )
+        } else {
+            PublicKeyCredentialEntry(
+                mContext,
+                USERNAME,
+                mPendingIntent,
+                BEGIN_OPTION,
+                DISPLAYNAME,
+                Instant.ofEpochMilli(LAST_USED_TIME),
+                ICON,
+                IS_AUTO_SELECT_ALLOWED,
+                SINGLE_PROVIDER_ICON_BIT,
+            )
+        }
     }
+
     private fun assertEntryWithRequiredParams(entry: PublicKeyCredentialEntry) {
         assertThat(USERNAME == entry.username)
         assertThat(mPendingIntent).isEqualTo(entry.pendingIntent)
-        assertThat(entry.isDefaultIconPreferredAsSingleProvider).isEqualTo(
-            DEFAULT_SINGLE_PROVIDER_ICON_BIT)
+        assertThat(entry.isDefaultIconPreferredAsSingleProvider)
+            .isEqualTo(DEFAULT_SINGLE_PROVIDER_ICON_BIT)
         assertThat(entry.affiliatedDomain).isNull()
         assertThat(entry.entryGroupId).isEqualTo(USERNAME)
+        assertThat(entry.biometricPromptData).isNull()
     }
+
     private fun assertEntryWithAllParams(entry: PublicKeyCredentialEntry) {
         assertThat(USERNAME == entry.username)
         assertThat(DISPLAYNAME == entry.displayName)
@@ -309,23 +337,27 @@ class PublicKeyCredentialEntryTest {
         assertThat(entry.isDefaultIconPreferredAsSingleProvider).isEqualTo(SINGLE_PROVIDER_ICON_BIT)
         assertThat(entry.affiliatedDomain).isNull()
         assertThat(entry.entryGroupId).isEqualTo(USERNAME)
+        if (Build.VERSION.SDK_INT >= 35 && entry.biometricPromptData != null) {
+            assertThat(entry.biometricPromptData!!.allowedAuthenticators)
+                .isEqualTo(testBiometricPromptData().allowedAuthenticators)
+        } else {
+            assertThat(entry.biometricPromptData).isNull()
+        }
     }
 
     companion object {
         private val BEGIN_OPTION: BeginGetPublicKeyCredentialOption =
             BeginGetPublicKeyCredentialOption(
-                Bundle(), "id",
-                "{\"key1\":{\"key2\":{\"key3\":\"value3\"}}}"
+                Bundle(),
+                "id",
+                "{\"key1\":{\"key2\":{\"key3\":\"value3\"}}}",
             )
         private val USERNAME: CharSequence = "title"
         private val DISPLAYNAME: CharSequence = "subtitle"
         private val TYPE_DISPLAY_NAME: CharSequence = "Password"
         private const val LAST_USED_TIME: Long = 10L
-        private val ICON = Icon.createWithBitmap(
-            Bitmap.createBitmap(
-                100, 100, Bitmap.Config.ARGB_8888
-            )
-        )
+        private val ICON =
+            Icon.createWithBitmap(Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888))
         private const val IS_AUTO_SELECT_ALLOWED = true
         private const val DEFAULT_SINGLE_PROVIDER_ICON_BIT = false
         private const val SINGLE_PROVIDER_ICON_BIT = true

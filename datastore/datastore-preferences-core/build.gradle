@@ -21,7 +21,8 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.LibraryType
+
+import androidx.build.SoftwareType
 import androidx.build.PlatformIdentifier
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 
@@ -31,24 +32,32 @@ plugins {
 }
 
 androidXMultiplatform {
-    jvm() {
-        withJava()
-    }
+    jvm()
     mac()
     linux()
     ios()
-    // NOTE, if you add android target here, make sure to add the proguard file as well.
+    watchos()
+    tvos()
+    androidLibrary {
+        namespace = "androidx.datastore.preferences.core"
+        optimization {
+            it.consumerKeepRules.publish = true
+            it.consumerKeepRules.files.add(
+                    new File("src/jvmMain/resources/META-INF/proguard/androidx.datastore_datastore-preferences-core.pro")
+            )
+        }
+    }
+    wasmJs()
 
     defaultPlatform(PlatformIdentifier.JVM)
 
     sourceSets {
-        all {
+        configureEach {
             languageSettings.optIn("kotlin.RequiresOptIn")
         }
 
         commonMain {
             dependencies {
-                api(libs.kotlinStdlib)
                 api(libs.okio)
                 api(project(":datastore:datastore-core"))
                 api(project(":datastore:datastore-core-okio"))
@@ -56,27 +65,34 @@ androidXMultiplatform {
         }
         commonTest {
             dependencies {
-                implementation(libs.kotlinTestCommon)
-                implementation(libs.kotlinTestAnnotationsCommon)
+                implementation(libs.kotlinTest)
                 implementation(libs.kotlinCoroutinesTest)
                 implementation(project(":datastore:datastore-core"))
                 implementation(project(":kruth:kruth"))
                 implementation(project(":internal-testutils-datastore"))
             }
         }
-        jvmMain {
+        jvmAndroidMain {
             dependsOn(commonMain)
             dependencies {
                 implementation(project(":datastore:datastore-preferences-proto"))
             }
         }
-        jvmTest {
+        jvmMain {
+            dependsOn(jvmAndroidMain)
+        }
+        androidMain {
+            dependsOn(jvmAndroidMain)
+        }
+
+        nonWebCommonTest {
             dependsOn(commonTest)
+        }
+
+        jvmAndroidTest {
+            dependsOn(nonWebCommonTest)
             dependencies {
                 implementation(libs.junit)
-                implementation(libs.kotlinTest)
-                implementation(project(":internal-testutils-datastore"))
-                implementation(project(":kruth:kruth"))
             }
         }
         nativeMain {
@@ -87,16 +103,30 @@ androidXMultiplatform {
             }
         }
 
-        nativeTest {
-            dependsOn(commonTest)
+        wasmJsMain {
+            dependsOn(commonMain)
             dependencies {
-                implementation(libs.kotlinTest)
-                implementation(project(":internal-testutils-datastore"))
-                implementation(project(":kruth:kruth"))
+                implementation(libs.kotlinSerializationJson)
+                implementation("org.jetbrains.kotlinx:kotlinx-browser:0.3")
             }
         }
 
-        targets.all { target ->
+        wasmJsTest {
+            dependsOn(commonTest)
+        }
+
+        jvmTest {
+            dependsOn(jvmAndroidTest)
+        }
+        nativeTest {
+            dependsOn(nonWebCommonTest)
+        }
+        androidDeviceTest {
+            dependencies {
+                implementation(libs.testRunner)
+            }
+        }
+        targets.configureEach { target ->
             if (target.platformType == KotlinPlatformType.native) {
                 target.compilations["main"].defaultSourceSet {
                     dependsOn(nativeMain)
@@ -111,7 +141,7 @@ androidXMultiplatform {
 
 androidx {
     name = "Preferences DataStore Core"
-    type = LibraryType.PUBLISHED_LIBRARY
+    type = SoftwareType.PUBLISHED_LIBRARY
     inceptionYear = "2020"
     description = "Android Preferences DataStore without the Android Dependencies"
     legacyDisableKotlinStrictApiMode = true

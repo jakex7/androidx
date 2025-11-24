@@ -29,50 +29,38 @@ import org.robolectric.util.ReflectionHelpers
 
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = 21)
+@Config(sdk = [Config.ALL_SDKS])
 class SupportedRepeatingSurfaceSizeTest(
     private val brand: String,
     private val model: String,
     private val resultSizes: Array<Size>,
 ) {
     companion object {
-        private val inputSizes = arrayOf(
-            Size(176, 144),
-            Size(208, 144),
-            Size(320, 240),
-            Size(352, 288),
-            Size(400, 400)
-        )
+        private val inputSizes =
+            arrayOf(Size(176, 144), Size(208, 144), Size(320, 240), Size(352, 288), Size(400, 400))
 
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "brand={0}, model={1}")
-        fun data() = mutableListOf<Array<Any?>>().apply {
-            add(
-                arrayOf(
-                    "Huawei",
-                    "mha-l29",
+        fun data() =
+            mutableListOf<Array<Any?>>().apply {
+                add(
                     arrayOf(
-                        Size(320, 240),
-                        Size(352, 288),
-                        Size(400, 400)
+                        "Huawei",
+                        "mha-l29",
+                        arrayOf(Size(320, 240), Size(352, 288), Size(400, 400)),
                     )
                 )
-            )
-            add(
-                arrayOf(
-                    "HUAWEI",
-                    "MHA-L29",
+                add(
                     arrayOf(
-                        Size(320, 240),
-                        Size(352, 288),
-                        Size(400, 400)
+                        "HUAWEI",
+                        "MHA-L29",
+                        arrayOf(Size(320, 240), Size(352, 288), Size(400, 400)),
                     )
                 )
-            )
-            add(arrayOf("Huawei", "Not_mha-l29", inputSizes))
-            add(arrayOf("Not_Huawei", "mha-l29", inputSizes))
-            add(arrayOf("Not_Huawei", "Not_mha-l29", inputSizes))
-        }
+                add(arrayOf("Huawei", "Not_mha-l29", inputSizes))
+                add(arrayOf("Not_Huawei", "mha-l29", inputSizes))
+                add(arrayOf("Not_Huawei", "Not_mha-l29", inputSizes))
+            }
     }
 
     @Before

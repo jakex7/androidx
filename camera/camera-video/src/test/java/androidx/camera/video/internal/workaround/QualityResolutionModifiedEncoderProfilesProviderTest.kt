@@ -20,7 +20,6 @@ import android.media.CamcorderProfile.QUALITY_1080P
 import android.media.CamcorderProfile.QUALITY_2160P
 import android.media.CamcorderProfile.QUALITY_480P
 import android.media.CamcorderProfile.QUALITY_720P
-import android.os.Build
 import android.util.Size
 import androidx.camera.core.impl.EncoderProfilesProvider
 import androidx.camera.core.impl.EncoderProfilesProxy
@@ -40,17 +39,18 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class QualityResolutionModifiedEncoderProfilesProviderTest {
 
-    private val defaultProvider = createFakeEncoderProfilesProvider(
-        mapOf(
-            QUALITY_2160P to PROFILES_2160P,
-            QUALITY_1080P to PROFILES_1080P,
-            QUALITY_720P to PROFILES_720P,
-            QUALITY_480P to PROFILES_480P
+    private val defaultProvider =
+        createFakeEncoderProfilesProvider(
+            mapOf(
+                QUALITY_2160P to PROFILES_2160P,
+                QUALITY_1080P to PROFILES_1080P,
+                QUALITY_720P to PROFILES_720P,
+                QUALITY_480P to PROFILES_480P,
+            )
         )
-    )
 
     @Test
     fun hasNoProfile_canNotGetProfiles() {
@@ -70,9 +70,7 @@ class QualityResolutionModifiedEncoderProfilesProviderTest {
 
     @Test
     fun hasQuirk_canReplaceResolution() {
-        val quirks = createFakeQuirks(
-            resolutionMap = mapOf(QUALITY_720P to Size(960, 720))
-        )
+        val quirks = createFakeQuirks(resolutionMap = mapOf(QUALITY_720P to Size(960, 720)))
         val provider = QualityResolutionModifiedEncoderProfilesProvider(defaultProvider, quirks)
 
         assertThat(provider.hasProfile(QUALITY_2160P)).isTrue()
@@ -93,20 +91,21 @@ class QualityResolutionModifiedEncoderProfilesProviderTest {
     private fun createFakeEncoderProfilesProvider(
         qualityToProfilesMap: Map<Int, EncoderProfilesProxy> = emptyMap()
     ): EncoderProfilesProvider {
-        return FakeEncoderProfilesProvider.Builder().also { builder ->
-            for ((quality, profiles) in qualityToProfilesMap) {
-                builder.add(quality, profiles)
+        return FakeEncoderProfilesProvider.Builder()
+            .also { builder ->
+                for ((quality, profiles) in qualityToProfilesMap) {
+                    builder.add(quality, profiles)
+                }
             }
-        }.build()
+            .build()
     }
 
     private fun createFakeQuirks(resolutionMap: Map<Int, Size> = emptyMap()): Quirks {
         return Quirks(listOf(FakeQuirk(resolutionMap)))
     }
 
-    class FakeQuirk(
-        private val resolutionMap: Map<Int, Size> = emptyMap(),
-    ) : StretchedVideoResolutionQuirk() {
+    class FakeQuirk(private val resolutionMap: Map<Int, Size> = emptyMap()) :
+        StretchedVideoResolutionQuirk() {
 
         override fun getAlternativeResolution(quality: Int): Size? {
             return resolutionMap[quality]

@@ -32,9 +32,7 @@ import java.io.FileOutputStream
 
 private const val TAG = "FileUtil"
 
-/**
- * File util functions
- */
+/** File util functions */
 object FileUtil {
 
     /**
@@ -48,67 +46,64 @@ object FileUtil {
         fileNameSuffix: String,
         relativePath: String,
         contentResolver: ContentResolver,
-        rotationDegrees: Int
+        rotationDegrees: Int,
     ): Uri? {
         require((image.format == ImageFormat.JPEG) or (image.format == ImageFormat.YUV_420_888)) {
             "Incorrect image format of the input image proxy: ${image.format}"
         }
 
-        val fileName = if (fileNameSuffix.isNotEmpty() && fileNameSuffix[0] == '.') {
-            fileNamePrefix + fileNameSuffix
-        } else {
-            "$fileNamePrefix.$fileNameSuffix"
-        }
+        val fileName =
+            if (fileNameSuffix.isNotEmpty() && fileNameSuffix[0] == '.') {
+                fileNamePrefix + fileNameSuffix
+            } else {
+                "$fileNamePrefix.$fileNameSuffix"
+            }
 
         // Saves the image to the temp file
         val tempFileUri =
             saveImageToTempFile(image, fileNamePrefix, fileNameSuffix, null, rotationDegrees)
                 ?: return null
 
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
-        }
+        val contentValues =
+            ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+            }
 
         // Copies the temp file to the final output path
         return copyTempFileToOutputLocation(
             contentResolver,
             tempFileUri,
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            contentValues
+            contentValues,
         )
     }
 
-    /**
-     * Saves an [Image] to a temp file.
-     */
+    /** Saves an [Image] to a temp file. */
     @JvmStatic
     fun saveImageToTempFile(
         image: Image,
         prefix: String,
         suffix: String,
         cacheDir: File? = null,
-        rotationDegrees: Int = 0
+        rotationDegrees: Int = 0,
     ): Uri? {
-        val tempFile = File.createTempFile(
-            prefix,
-            suffix,
-            cacheDir
-        )
+        val tempFile = File.createTempFile(prefix, suffix, cacheDir)
 
-        val byteArray = when (image.format) {
-            ImageFormat.JPEG -> {
-                ImageUtil.jpegImageToJpegByteArray(image)
+        val byteArray =
+            when (image.format) {
+                ImageFormat.JPEG -> {
+                    ImageUtil.jpegImageToJpegByteArray(image)
+                }
+                ImageFormat.YUV_420_888 -> {
+                    ImageUtil.yuvImageToJpegByteArray(image, 100)
+                }
+                else -> {
+                    Log.e(TAG, "Incorrect image format of the input image proxy: ${image.format}")
+                    return null
+                }
             }
-            ImageFormat.YUV_420_888 -> {
-                ImageUtil.yuvImageToJpegByteArray(image, 100)
-            }
-            else -> {
-                Log.e(TAG, "Incorrect image format of the input image proxy: ${image.format}")
-                return null
-            }
-        }
 
         val outputStream = FileOutputStream(tempFile)
         outputStream.write(byteArray)
@@ -135,8 +130,10 @@ object FileUtil {
         contentValues: ContentValues,
     ): Uri? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            Log.e(TAG, "The known devices which support Extensions should be at least" +
-                " Android Q!")
+            Log.e(
+                TAG,
+                "The known devices which support Extensions should be at least" + " Android Q!",
+            )
             return null
         }
 
@@ -144,12 +141,7 @@ object FileUtil {
 
         val outputUri = contentResolver.insert(targetUrl, contentValues) ?: return null
 
-        if (copyTempFileByteArrayToOutputLocation(
-                contentResolver,
-                tempFileUri,
-                outputUri
-            )
-        ) {
+        if (copyTempFileByteArrayToOutputLocation(contentResolver, tempFileUri, outputUri)) {
             contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
             contentResolver.update(outputUri, contentValues, null, null)
             return outputUri
@@ -169,7 +161,7 @@ object FileUtil {
     private fun copyTempFileByteArrayToOutputLocation(
         contentResolver: ContentResolver,
         tempFileUri: Uri,
-        uri: Uri
+        uri: Uri,
     ): Boolean {
         contentResolver.openOutputStream(uri).use { outputStream ->
             if (tempFileUri.path == null || outputStream == null) {

@@ -14,19 +14,14 @@
  * limitations under the License.
  */
 
-@file:RequiresApi(21)
-
 package androidx.camera.camera2.pipe.integration.interop
 
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
-import android.os.Build
 import android.util.Range
-import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.integration.adapter.RobolectricCameraPipeTestRunner
-import androidx.camera.camera2.pipe.integration.impl.CAPTURE_REQUEST_ID_STEM
 import androidx.camera.camera2.pipe.integration.impl.Camera2ImplConfig
 import androidx.camera.testing.impl.fakes.FakeConfig
 import com.google.common.truth.Truth.assertThat
@@ -38,35 +33,38 @@ import org.robolectric.annotation.internal.DoNotInstrument
 private const val INVALID_TEMPLATE_TYPE = -1
 private const val INVALID_COLOR_CORRECTION_MODE = -1
 private const val PHYSICAL_CAMERA_ID = "0"
-private val SESSION_CAPTURE_CALLBACK = object : CameraCaptureSession.CaptureCallback() {
-    // unused
-}
-private val SESSION_STATE_CALLBACK = object : CameraCaptureSession.StateCallback() {
-    override fun onConfigured(session: CameraCaptureSession) {
+private val SESSION_CAPTURE_CALLBACK =
+    object : CameraCaptureSession.CaptureCallback() {
         // unused
     }
+private val SESSION_STATE_CALLBACK =
+    object : CameraCaptureSession.StateCallback() {
+        override fun onConfigured(session: CameraCaptureSession) {
+            // unused
+        }
 
-    override fun onConfigureFailed(session: CameraCaptureSession) {
-        // unused
+        override fun onConfigureFailed(session: CameraCaptureSession) {
+            // unused
+        }
     }
-}
-private val DEVICE_STATE_CALLBACK = object : CameraDevice.StateCallback() {
-    override fun onOpened(camera: CameraDevice) {
-        // unused
-    }
+private val DEVICE_STATE_CALLBACK =
+    object : CameraDevice.StateCallback() {
+        override fun onOpened(camera: CameraDevice) {
+            // unused
+        }
 
-    override fun onDisconnected(camera: CameraDevice) {
-        // unused
-    }
+        override fun onDisconnected(camera: CameraDevice) {
+            // unused
+        }
 
-    override fun onError(camera: CameraDevice, error: Int) {
-        // unused
+        override fun onError(camera: CameraDevice, error: Int) {
+            // unused
+        }
     }
-}
 
 @RunWith(RobolectricCameraPipeTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 @OptIn(ExperimentalCamera2Interop::class)
 class Camera2InteropTest {
     @Test
@@ -79,9 +77,8 @@ class Camera2InteropTest {
         val config = Camera2ImplConfig(builder.build())
 
         // Assert
-        assertThat(config.getCaptureRequestTemplate(INVALID_TEMPLATE_TYPE)).isEqualTo(
-            CameraDevice.TEMPLATE_PREVIEW
-        )
+        assertThat(config.getCaptureRequestTemplate(INVALID_TEMPLATE_TYPE))
+            .isEqualTo(CameraDevice.TEMPLATE_PREVIEW)
     }
 
     @Config(minSdk = 33)
@@ -95,9 +92,7 @@ class Camera2InteropTest {
         val config = Camera2ImplConfig(builder.build())
 
         // Assert
-        assertThat(config.getStreamUseCase(-1)).isEqualTo(
-            3
-        )
+        assertThat(config.getStreamUseCase(-1)).isEqualTo(3)
     }
 
     @Test
@@ -109,9 +104,7 @@ class Camera2InteropTest {
         val config = Camera2ImplConfig(builder.build())
 
         // Assert
-        assertThat(config.getStreamUseCase(-1)).isEqualTo(
-            -1
-        )
+        assertThat(config.getStreamUseCase(-1)).isEqualTo(-1)
     }
 
     @Test
@@ -124,9 +117,8 @@ class Camera2InteropTest {
         val config = Camera2ImplConfig(builder.build())
 
         // Assert
-        assertThat(config.getSessionCaptureCallback( /*valueIfMissing=*/null)).isSameInstanceAs(
-            SESSION_CAPTURE_CALLBACK
-        )
+        assertThat(config.getSessionCaptureCallback(/* valueIfMissing= */ null))
+            .isSameInstanceAs(SESSION_CAPTURE_CALLBACK)
     }
 
     @Test
@@ -139,9 +131,8 @@ class Camera2InteropTest {
         val config = Camera2ImplConfig(builder.build())
 
         // Assert
-        assertThat(config.getSessionStateCallback( /*valueIfMissing=*/null)).isSameInstanceAs(
-            SESSION_STATE_CALLBACK
-        )
+        assertThat(config.getSessionStateCallback(/* valueIfMissing= */ null))
+            .isSameInstanceAs(SESSION_STATE_CALLBACK)
     }
 
     @Test
@@ -154,7 +145,7 @@ class Camera2InteropTest {
         val config = Camera2ImplConfig(builder.build())
 
         // Assert
-        assertThat(config.getDeviceStateCallback( /*valueIfMissing=*/null))
+        assertThat(config.getDeviceStateCallback(/* valueIfMissing= */ null))
             .isSameInstanceAs(DEVICE_STATE_CALLBACK)
     }
 
@@ -163,29 +154,31 @@ class Camera2InteropTest {
         // Arrange
         val builder = FakeConfig.Builder()
         val fakeRange = Range(0, 30)
-        Camera2Interop.Extender(builder).setCaptureRequestOption(
-            CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fakeRange
-        ).setCaptureRequestOption(
-            CaptureRequest.COLOR_CORRECTION_MODE,
-            CameraMetadata.COLOR_CORRECTION_MODE_FAST
-        )
+        Camera2Interop.Extender(builder)
+            .setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fakeRange)
+            .setCaptureRequestOption(
+                CaptureRequest.COLOR_CORRECTION_MODE,
+                CameraMetadata.COLOR_CORRECTION_MODE_FAST,
+            )
 
         // Act
         val config = Camera2ImplConfig(builder.build())
 
         // Assert
         assertThat(
-            config.getCaptureRequestOption(
-                CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, /*valueIfMissing=*/
-                null
+                config.getCaptureRequestOption(
+                    CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                    /*valueIfMissing=*/ null,
+                )
             )
-        ).isEqualTo(fakeRange)
+            .isEqualTo(fakeRange)
         assertThat(
-            config.getCaptureRequestOption(
-                CaptureRequest.COLOR_CORRECTION_MODE,
-                INVALID_COLOR_CORRECTION_MODE
+                config.getCaptureRequestOption(
+                    CaptureRequest.COLOR_CORRECTION_MODE,
+                    INVALID_COLOR_CORRECTION_MODE,
+                )
             )
-        ).isEqualTo(CameraMetadata.COLOR_CORRECTION_MODE_FAST)
+            .isEqualTo(CameraMetadata.COLOR_CORRECTION_MODE_FAST)
     }
 
     @Test
@@ -197,7 +190,7 @@ class Camera2InteropTest {
             .setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fakeRange)
             .setCaptureRequestOption(
                 CaptureRequest.COLOR_CORRECTION_MODE,
-                CameraMetadata.COLOR_CORRECTION_MODE_FAST
+                CameraMetadata.COLOR_CORRECTION_MODE_FAST,
             ) // Insert one non capture request option to ensure it gets filtered out
             .setCaptureRequestTemplate(CameraDevice.TEMPLATE_PREVIEW)
 
@@ -205,14 +198,13 @@ class Camera2InteropTest {
         val config = Camera2ImplConfig(builder.build())
 
         // Assert
-        config.findOptions(
-            CAPTURE_REQUEST_ID_STEM
-        ) { option ->
+        config.findOptions(Camera2ImplConfig.CAPTURE_REQUEST_ID_STEM) { option ->
             // The token should be the capture request key
-            assertThat(option.getToken()).isAnyOf(
-                CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
-                CaptureRequest.COLOR_CORRECTION_MODE
-            )
+            assertThat(option.getToken())
+                .isAnyOf(
+                    CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                    CaptureRequest.COLOR_CORRECTION_MODE,
+                )
             true
         }
         assertThat(config.listOptions()).hasSize(3)
@@ -230,14 +222,10 @@ class Camera2InteropTest {
         val config: androidx.camera.core.impl.Config = builder.build()
 
         // Assert
-        config.findOptions(
-            CAPTURE_REQUEST_ID_STEM
-        ) { option: androidx.camera.core.impl.Config.Option<*>? ->
-            assertThat(
-                config.getOptionPriority(
-                    option!!
-                )
-            ).isEqualTo(androidx.camera.core.impl.Config.OptionPriority.ALWAYS_OVERRIDE)
+        config.findOptions(Camera2ImplConfig.CAPTURE_REQUEST_ID_STEM) {
+            option: androidx.camera.core.impl.Config.Option<*>? ->
+            assertThat(config.getOptionPriority(option!!))
+                .isEqualTo(androidx.camera.core.impl.Config.OptionPriority.ALWAYS_OVERRIDE)
             true
         }
     }

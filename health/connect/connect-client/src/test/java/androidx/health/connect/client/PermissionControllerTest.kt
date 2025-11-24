@@ -41,14 +41,14 @@ class PermissionControllerTest {
     }
 
     @Test
-    @Config(maxSdk = 33) // maxSdk due to b/308687857
-    fun createIntent_permissionStrings() {
+    @Config(maxSdk = VERSION_CODES.TIRAMISU)
+    fun createIntent_permissionStrings_tiramisuAndBelow() {
         val requestPermissionContract =
             PermissionController.createRequestPermissionResultContract(PROVIDER_PACKAGE_NAME)
         val intent =
             requestPermissionContract.createIntent(
                 context,
-                setOf(HealthPermission.READ_ACTIVE_CALORIES_BURNED)
+                setOf(HealthPermission.READ_ACTIVE_CALORIES_BURNED),
             )
 
         assertThat(intent.action).isEqualTo("androidx.health.ACTION_REQUEST_PERMISSIONS")
@@ -57,13 +57,13 @@ class PermissionControllerTest {
 
     @Test
     @Config(minSdk = VERSION_CODES.UPSIDE_DOWN_CAKE)
-    fun createIntent_UpsideDownCake() {
+    fun createIntent_permissionStrings_udcAndAbove() {
         val requestPermissionContract =
             PermissionController.createRequestPermissionResultContract(PROVIDER_PACKAGE_NAME)
         val intent =
             requestPermissionContract.createIntent(
                 context,
-                setOf(HealthPermission.WRITE_STEPS, HealthPermission.READ_DISTANCE)
+                setOf(HealthPermission.WRITE_STEPS, HealthPermission.READ_DISTANCE),
             )
 
         assertThat(intent.action).isEqualTo(RequestMultiplePermissions.ACTION_REQUEST_PERMISSIONS)

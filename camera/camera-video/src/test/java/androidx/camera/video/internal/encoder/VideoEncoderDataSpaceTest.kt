@@ -17,7 +17,6 @@
 package androidx.camera.video.internal.encoder
 
 import android.media.MediaFormat
-import android.os.Build
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,16 +30,13 @@ private const val TEST_COLOR_RANGE = MediaFormat.COLOR_RANGE_LIMITED
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class VideoEncoderDataSpaceTest {
 
     @Test
     fun canRetrieveFields() {
-        val dataSpace = VideoEncoderDataSpace.create(
-            TEST_COLOR_STANDARD,
-            TEST_TRANSFER_FN,
-            TEST_COLOR_RANGE
-        )
+        val dataSpace =
+            VideoEncoderDataSpace.create(TEST_COLOR_STANDARD, TEST_TRANSFER_FN, TEST_COLOR_RANGE)
 
         assertThat(dataSpace.standard).isEqualTo(TEST_COLOR_STANDARD)
         assertThat(dataSpace.transfer).isEqualTo(TEST_TRANSFER_FN)

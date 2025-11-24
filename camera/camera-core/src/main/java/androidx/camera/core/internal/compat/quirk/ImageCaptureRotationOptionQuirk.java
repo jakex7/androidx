@@ -18,11 +18,11 @@ package androidx.camera.core.internal.compat.quirk;
 
 import android.os.Build;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.camera.core.impl.CaptureConfig;
 import androidx.camera.core.impl.Config;
 import androidx.camera.core.impl.Quirk;
+
+import org.jspecify.annotations.NonNull;
 
 /**
  * <p>QuirkSummary
@@ -40,11 +40,10 @@ import androidx.camera.core.impl.Quirk;
  *     Device(s): Huawei Mate 20 Lite, Honor 9X
  *     @see androidx.camera.core.internal.compat.workaround.ExifRotationAvailability
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 public final class ImageCaptureRotationOptionQuirk implements Quirk {
 
     static boolean load() {
-        return isHuaweiMate20Lite() || isHonor9X() || isEmulatorAndApi21();
+        return isHuaweiMate20Lite() || isHonor9X();
     }
 
     private static boolean isHuaweiMate20Lite() {
@@ -56,27 +55,10 @@ public final class ImageCaptureRotationOptionQuirk implements Quirk {
                 Build.MODEL);
     }
 
-    private static boolean isEmulatorAndApi21() {
-        return isEmulator() && Build.VERSION.SDK_INT == 21;
-    }
-
-    private static boolean isEmulator() {
-        return Build.FINGERPRINT.startsWith("generic")
-                || Build.FINGERPRINT.startsWith("unknown")
-                || Build.MODEL.contains("google_sdk")
-                || Build.MODEL.contains("Emulator")
-                || Build.MODEL.contains("Cuttlefish")
-                || Build.MODEL.contains("Android SDK built for x86")
-                || Build.MANUFACTURER.contains("Genymotion")
-                || (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
-                || Build.PRODUCT.equals("google_sdk")
-                || Build.HARDWARE.contains("ranchu");
-    }
-
     /**
      * Returns true if the capture config option can be supported.
      */
-    public boolean isSupported(@NonNull Config.Option<?> option) {
+    public boolean isSupported(Config.@NonNull Option<?> option) {
         return option != CaptureConfig.OPTION_ROTATION;
     }
 }

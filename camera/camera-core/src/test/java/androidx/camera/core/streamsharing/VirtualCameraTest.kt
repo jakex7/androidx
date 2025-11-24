@@ -16,7 +16,6 @@
 
 package androidx.camera.core.streamsharing
 
-import android.os.Build
 import android.view.Surface
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.UseCase
@@ -30,36 +29,30 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
 
-/**
- * Unit tests for [VirtualCamera].
- */
+/** Unit tests for [VirtualCamera]. */
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class VirtualCameraTest {
 
     private val cameraInfo = FakeCameraInfoInternal(90, CameraSelector.LENS_FACING_BACK)
 
     private val parentCamera = FakeCamera(null, cameraInfo)
 
-    private val useCaseStateCallback = object : UseCase.StateChangeCallback {
+    private val useCaseStateCallback =
+        object : UseCase.StateChangeCallback {
 
-        override fun onUseCaseActive(useCase: UseCase) {
+            override fun onUseCaseActive(useCase: UseCase) {}
+
+            override fun onUseCaseInactive(useCase: UseCase) {}
+
+            override fun onUseCaseUpdated(useCase: UseCase) {}
+
+            override fun onUseCaseReset(useCase: UseCase) {}
         }
 
-        override fun onUseCaseInactive(useCase: UseCase) {
-        }
-
-        override fun onUseCaseUpdated(useCase: UseCase) {
-        }
-
-        override fun onUseCaseReset(useCase: UseCase) {
-        }
-    }
-
-    private val streamSharingControl = StreamSharing.Control { _, _ ->
-        Futures.immediateFuture(null)
-    }
+    private val streamSharingControl =
+        StreamSharing.Control { _, _ -> Futures.immediateFuture(null) }
 
     private val virtualCamera =
         VirtualCamera(parentCamera, useCaseStateCallback, streamSharingControl)
@@ -80,8 +73,7 @@ class VirtualCameraTest {
         assertThat(parentCamera.cameraInfoInternal.getSensorRotationDegrees(Surface.ROTATION_0))
             .isEqualTo(90)
         virtualCamera.setRotationDegrees(180)
-        assertThat(virtualCamera.cameraInfoInternal.getSensorRotationDegrees())
-            .isEqualTo(270)
+        assertThat(virtualCamera.cameraInfoInternal.getSensorRotationDegrees()).isEqualTo(270)
         assertThat(virtualCamera.cameraInfoInternal.getSensorRotationDegrees(Surface.ROTATION_0))
             .isEqualTo(270)
     }

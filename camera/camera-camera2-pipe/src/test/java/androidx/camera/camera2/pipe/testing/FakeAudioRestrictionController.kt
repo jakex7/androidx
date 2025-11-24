@@ -22,14 +22,13 @@ import androidx.camera.camera2.pipe.compat.AudioRestrictionController
 import javax.inject.Inject
 
 internal class FakeAudioRestrictionController @Inject constructor() : AudioRestrictionController {
-    override var globalAudioRestrictionMode: AudioRestrictionMode =
+    override var globalAudioRestrictionMode: AudioRestrictionMode? =
         AudioRestrictionMode.AUDIO_RESTRICTION_NONE
 
     override fun updateCameraGraphAudioRestrictionMode(
         cameraGraph: CameraGraph,
-        mode: AudioRestrictionMode
-    ) {
-    }
+        mode: AudioRestrictionMode,
+    ) {}
 
     override fun removeCameraGraph(cameraGraph: CameraGraph) {}
 

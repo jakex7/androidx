@@ -14,27 +14,33 @@
  * limitations under the License.
  */
 
+import androidx.build.SoftwareType
+
 plugins {
     id("AndroidXPlugin")
     id("com.android.library")
     id("AndroidXComposePlugin")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.experimental.built-in-kotlin")
     id("androidx.benchmark")
 }
 
 dependencies {
-    androidTestImplementation project(":constraintlayout:constraintlayout-compose")
-    androidTestImplementation project(":constraintlayout:constraintlayout-core")
-    androidTestImplementation project(":benchmark:benchmark-junit4")
-    androidTestImplementation project(":compose:runtime:runtime")
-    androidTestImplementation project(":compose:benchmark-utils")
+    androidTestImplementation(project(":constraintlayout:constraintlayout-compose"))
+    androidTestImplementation(project(":constraintlayout:constraintlayout-core"))
+    androidTestImplementation(project(":benchmark:benchmark-junit4"))
+    androidTestImplementation(project(":compose:runtime:runtime"))
+    androidTestImplementation(project(":compose:benchmark-utils"))
     androidTestImplementation(libs.testRules)
     androidTestImplementation(libs.junit)
-    androidTestImplementation(libs.kotlinStdlib)
-    androidTestImplementation(libs.kotlinTestCommon)
+    androidTestImplementation(libs.kotlinTest)
     androidTestImplementation(libs.truth)
 }
 
 android {
-    namespace "androidx.constraintlayout.compose.benchmark"
+    compileSdk = 35
+    namespace = "androidx.constraintlayout.compose.benchmark"
+}
+
+androidx {
+    type = SoftwareType.BENCHMARK
 }

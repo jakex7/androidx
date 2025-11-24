@@ -22,8 +22,7 @@ import androidx.benchmark.macro.CompilationMode
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.filters.LargeTest
-import androidx.test.uiautomator.By
-import androidx.test.uiautomator.Until
+import androidx.test.uiautomator.textAsString
 import androidx.testutils.STARTUP_MODES
 import androidx.testutils.getStartupMetrics
 import org.junit.Rule
@@ -32,8 +31,8 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
 /**
- * Fully drawn benchmark, used to check the difference between
- * calling pressHome() in setupBlock vs measureBlock.
+ * Fully drawn benchmark, used to check the difference between calling pressHome() in setupBlock vs
+ * measureBlock.
  *
  * It uses more iterations to verify the behavior for Hot startupMode.
  */
@@ -43,47 +42,52 @@ class StartupPressHomeBenchmark(
     private val pressHomeInMeasure: Boolean,
     private val startupMode: StartupMode,
 ) {
-    @get:Rule
-    val benchmarkRule = MacrobenchmarkRule()
+    @get:Rule val benchmarkRule = MacrobenchmarkRule()
 
     @Test
-    fun startup() = benchmarkRule.measureRepeated(
-        compilationMode = if (Build.VERSION.SDK_INT >= 24) {
-            CompilationMode.None()
-        } else {
-            CompilationMode.Full()
-        },
-        packageName = TARGET_PACKAGE_NAME,
-        metrics = getStartupMetrics(),
-        startupMode = startupMode,
-        iterations = 3,
-        setupBlock = {
-            if (!pressHomeInMeasure) {
+    fun startup() =
+        benchmarkRule.measureRepeated(
+            compilationMode =
+                if (Build.VERSION.SDK_INT >= 24) {
+                    CompilationMode.None()
+                } else {
+                    CompilationMode.Full()
+                },
+            packageName = TARGET_PACKAGE_NAME,
+            metrics = getStartupMetrics(),
+            startupMode = startupMode,
+            iterations = 3,
+            setupBlock = {
+                if (!pressHomeInMeasure) {
+                    pressHome()
+                }
+            },
+        ) {
+            if (pressHomeInMeasure) {
                 pressHome()
             }
-        }
-    ) {
-        if (pressHomeInMeasure) {
-            pressHome()
-        }
 
-        startActivityAndWait(Intent().apply {
-            setPackage(TARGET_PACKAGE_NAME)
-            action = "androidx.benchmark.integration.macrobenchmark.target" +
-                ".TRIVIAL_STARTUP_FULLY_DRAWN_ACTIVITY"
-        })
+            startActivityAndWait(
+                Intent().apply {
+                    setPackage(TARGET_PACKAGE_NAME)
+                    action =
+                        "androidx.benchmark.integration.macrobenchmark.target" +
+                            ".TRIVIAL_STARTUP_FULLY_DRAWN_ACTIVITY"
+                }
+            )
 
-        val fullDisplayComplete = device.wait(Until.hasObject(By.text("FULL DISPLAY")), 3000)
-        check(fullDisplayComplete)
-    }
+            // Throws if not found
+            onElement { textAsString() == "FULL DISPLAY" }
+        }
 
     companion object {
         const val TARGET_PACKAGE_NAME = "androidx.benchmark.integration.macrobenchmark.target"
 
         @Parameterized.Parameters(name = "pressHomeInMeasure={0},startup={1}")
         @JvmStatic
-        fun parameters(): List<Array<Any>> = listOf(true, false).flatMap { pressHomeInMeasure ->
-            STARTUP_MODES.map { arrayOf(pressHomeInMeasure, it) }
-        }
+        fun parameters(): List<Array<Any>> =
+            listOf(true, false).flatMap { pressHomeInMeasure ->
+                STARTUP_MODES.map { arrayOf(pressHomeInMeasure, it) }
+            }
     }
 }

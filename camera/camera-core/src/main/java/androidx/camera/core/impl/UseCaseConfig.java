@@ -16,25 +16,31 @@
 
 package androidx.camera.core.impl;
 
-import android.util.Range;
+import static java.util.Objects.requireNonNull;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
+import android.util.Range;
+import android.util.Size;
+
 import androidx.camera.core.ExtendableBuilder;
+import androidx.camera.core.ImageCapture;
 import androidx.camera.core.UseCase;
+import androidx.camera.core.imagecapture.ImageCaptureControl;
+import androidx.camera.core.imagecapture.TakePictureManager;
+import androidx.camera.core.imagecapture.TakePictureManagerImpl;
 import androidx.camera.core.impl.stabilization.StabilizationMode;
 import androidx.camera.core.internal.TargetConfig;
-import androidx.camera.core.internal.UseCaseEventConfig;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Map;
 
 /**
  * Configuration containing options for use cases.
  *
  * @param <T> The use case being configured.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCaseEventConfig,
-        ImageInputConfig {
+public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, ImageInputConfig {
     // Option Declarations:
     // *********************************************************************************************
 
@@ -77,10 +83,28 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
             Option.create("camerax.core.useCase.surfaceOccupancyPriority", int.class);
 
     /**
+     * Option: camerax.core.useCase.sessionType
+     */
+    Option<Integer> OPTION_SESSION_TYPE =
+            Config.Option.create("camerax.core.useCase.sessionType", int.class);
+
+    /**
      * Option: camerax.core.useCase.targetFrameRate
      */
     Option<Range<Integer>> OPTION_TARGET_FRAME_RATE =
             Config.Option.create("camerax.core.useCase.targetFrameRate", Range.class);
+
+    /**
+     * Option: camerax.core.useCase.isStrictFrameRateRequired
+     */
+    Option<Boolean> OPTION_IS_STRICT_FRAME_RATE_REQUIRED =
+            Config.Option.create("camerax.core.useCase.isStrictFrameRateRequired", Boolean.class);
+
+    /**
+     * Option: camerax.core.useCase.resolutionToMaxFrameRate
+     */
+    Option<Map<Size, Integer>> OPTION_RESOLUTION_TO_MAX_FRAME_RATES =
+            Option.create("camerax.core.useCase.resolutionToMaxFrameRate", Map.class);
 
     /**
      * Option: camerax.core.useCase.zslDisabled
@@ -112,6 +136,22 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
     Option<Integer> OPTION_VIDEO_STABILIZATION_MODE =
             Option.create("camerax.core.useCase.videoStabilizationMode", int.class);
 
+    /**
+     * Option: camerax.core.useCase.isVideoQualitySelectorDefault
+     */
+    Option<Boolean> OPTION_IS_VIDEO_QUALITY_SELECTOR_DEFAULT = Option.create(
+            "camerax.core.useCase.isVideoQualitySelectorDefault", Boolean.class);
+
+    Option<TakePictureManager.Provider> OPTION_TAKE_PICTURE_MANAGER_PROVIDER =
+            Option.create("camerax.core.useCase.takePictureManagerProvider",
+                    TakePictureManager.Provider.class);
+
+    /**
+     * Option: camerax.core.useCase.streamUseCase
+     */
+    Option<StreamUseCase> OPTION_STREAM_USE_CASE =
+            Option.create("camerax.core.useCase.streamUseCase", StreamUseCase.class);
+
     // *********************************************************************************************
 
     /**
@@ -124,8 +164,8 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value or <code>valueIfMissing</code> if the value does not exist in this
      * configuration.
      */
-    @Nullable
-    default SessionConfig getDefaultSessionConfig(@Nullable SessionConfig valueIfMissing) {
+    default @Nullable SessionConfig getDefaultSessionConfig(
+            @Nullable SessionConfig valueIfMissing) {
         return retrieveOption(OPTION_DEFAULT_SESSION_CONFIG, valueIfMissing);
     }
 
@@ -138,8 +178,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value, if it exists in this configuration.
      * @throws IllegalArgumentException if the option does not exist in this configuration.
      */
-    @NonNull
-    default SessionConfig getDefaultSessionConfig() {
+    default @NonNull SessionConfig getDefaultSessionConfig() {
         return retrieveOption(OPTION_DEFAULT_SESSION_CONFIG);
     }
 
@@ -153,8 +192,8 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value or <code>valueIfMissing</code> if the value does not exist in this
      * configuration.
      */
-    @Nullable
-    default CaptureConfig getDefaultCaptureConfig(@Nullable CaptureConfig valueIfMissing) {
+    default @Nullable CaptureConfig getDefaultCaptureConfig(
+            @Nullable CaptureConfig valueIfMissing) {
         return retrieveOption(OPTION_DEFAULT_CAPTURE_CONFIG, valueIfMissing);
     }
 
@@ -167,8 +206,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value, if it exists in this configuration.
      * @throws IllegalArgumentException if the option does not exist in this configuration.
      */
-    @NonNull
-    default CaptureConfig getDefaultCaptureConfig() {
+    default @NonNull CaptureConfig getDefaultCaptureConfig() {
         return retrieveOption(OPTION_DEFAULT_CAPTURE_CONFIG);
     }
 
@@ -184,9 +222,8 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value or <code>valueIfMissing</code> if the value does not exist in this
      * configuration.
      */
-    @Nullable
-    default SessionConfig.OptionUnpacker getSessionOptionUnpacker(
-            @Nullable SessionConfig.OptionUnpacker valueIfMissing) {
+    default SessionConfig.@Nullable OptionUnpacker getSessionOptionUnpacker(
+            SessionConfig.@Nullable OptionUnpacker valueIfMissing) {
         return retrieveOption(OPTION_SESSION_CONFIG_UNPACKER, valueIfMissing);
     }
 
@@ -201,8 +238,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value, if it exists in this configuration.
      * @throws IllegalArgumentException if the option does not exist in this configuration.
      */
-    @NonNull
-    default SessionConfig.OptionUnpacker getSessionOptionUnpacker() {
+    default SessionConfig.@NonNull OptionUnpacker getSessionOptionUnpacker() {
         return retrieveOption(OPTION_SESSION_CONFIG_UNPACKER);
     }
 
@@ -218,9 +254,8 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value or <code>valueIfMissing</code> if the value does not exist in this
      * configuration.
      */
-    @Nullable
-    default CaptureConfig.OptionUnpacker getCaptureOptionUnpacker(
-            @Nullable CaptureConfig.OptionUnpacker valueIfMissing) {
+    default CaptureConfig.@Nullable OptionUnpacker getCaptureOptionUnpacker(
+            CaptureConfig.@Nullable OptionUnpacker valueIfMissing) {
         return retrieveOption(OPTION_CAPTURE_CONFIG_UNPACKER, valueIfMissing);
     }
 
@@ -235,8 +270,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value, if it exists in this configuration.
      * @throws IllegalArgumentException if the option does not exist in this configuration.
      */
-    @NonNull
-    default CaptureConfig.OptionUnpacker getCaptureOptionUnpacker() {
+    default CaptureConfig.@NonNull OptionUnpacker getCaptureOptionUnpacker() {
         return retrieveOption(OPTION_CAPTURE_CONFIG_UNPACKER);
     }
 
@@ -264,13 +298,41 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
     }
 
     /**
-     * Retrieves target frame rate
-     * @param valueIfMissing
+     * Retrieves the session type
+     *
+     * @param valueIfMissing The value to return if this configuration option has not been set.
      * @return the stored value or <code>valueIfMissing</code> if the value does not exist in
      * this configuration
      */
-    @Nullable
-    default Range<Integer> getTargetFrameRate(@Nullable Range<Integer> valueIfMissing) {
+    default int getSessionType(int valueIfMissing) {
+        return retrieveOption(OPTION_SESSION_TYPE, valueIfMissing);
+    }
+
+    /**
+     * Retrieves the session type
+     *
+     * @return The stored value, if it exists in this configuration.
+     * @throws IllegalArgumentException if the option does not exist in this configuration.
+     */
+    default int getSessionType() {
+        return retrieveOption(OPTION_SESSION_TYPE);
+    }
+
+    /**
+     * Returns whether a target frame rate was set on this config
+     */
+    default boolean hasTargetFrameRate() {
+        return containsOption(OPTION_TARGET_FRAME_RATE);
+    }
+
+    /**
+     * Retrieves target frame rate
+     *
+     * @param valueIfMissing The value to return if this configuration option has not been set.
+     * @return the stored value or <code>valueIfMissing</code> if the value does not exist in
+     * this configuration
+     */
+    default @Nullable Range<Integer> getTargetFrameRate(@Nullable Range<Integer> valueIfMissing) {
         return retrieveOption(OPTION_TARGET_FRAME_RATE, valueIfMissing);
     }
 
@@ -280,9 +342,40 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value, if it exists in this configuration.
      * @throws IllegalArgumentException if the option does not exist in this configuration.
      */
-    @NonNull
-    default Range<Integer> getTargetFrameRate() {
+    default @NonNull Range<Integer> getTargetFrameRate() {
         return retrieveOption(OPTION_TARGET_FRAME_RATE);
+    }
+
+    /**
+     * Retrieves whether a strict {@link #getTargetFrameRate() target frame rate} is required.
+     *
+     * <p>If this option is {@code true}, the system must attempt to precisely match the
+     * {@link #getTargetFrameRate() target frame rate} when determining the final frame rate.
+     * If {@code false}, the system will find a suitable frame rate, which may differ from the
+     * target.
+     *
+     * @return {@code true} if the target frame rate must be strictly met; {@code false} otherwise.
+     */
+    default boolean isStrictFrameRateRequired() {
+        return requireNonNull(retrieveOption(OPTION_IS_STRICT_FRAME_RATE_REQUIRED, false));
+    }
+
+    /**
+     * Retrieves a custom maximum frame rate for a specific resolution.
+     *
+     * <p>This method queries a map of resolution-to-max-frame-rate mappings to find a custom
+     * maximum frame rate for the given {@link Size}. If a custom rate is found for the specified
+     * size, it is returned. Otherwise, it defaults to {@link FrameRates#FRAME_RATE_UNLIMITED}.
+     *
+     * @param size The {@link Size} for which to retrieve the custom maximum frame rate.
+     * @return The custom maximum frame rate for the specified size, or
+     * {@link FrameRates#FRAME_RATE_UNLIMITED} if no custom rate is set.
+     */
+    default int getCustomMaxFrameRate(@NonNull Size size) {
+        Map<Size, Integer> customMaxFrameRates = retrieveOption(
+                OPTION_RESOLUTION_TO_MAX_FRAME_RATES, null);
+        return customMaxFrameRates != null && customMaxFrameRates.containsKey(size)
+                ? requireNonNull(customMaxFrameRates.get(size)) : FrameRates.FRAME_RATE_UNLIMITED;
     }
 
     /**
@@ -303,15 +396,14 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @return The stored value or <code>valueIfMissing</code> if the value does not exist in
      * this configuration
      */
-    default boolean isHigResolutionDisabled(boolean valueIfMissing) {
+    default boolean isHighResolutionDisabled(boolean valueIfMissing) {
         return retrieveOption(OPTION_HIGH_RESOLUTION_DISABLED, valueIfMissing);
     }
 
     /**
      * @return The {@link UseCaseConfigFactory.CaptureType} of this UseCaseConfig.
      */
-    @NonNull
-    default UseCaseConfigFactory.CaptureType getCaptureType() {
+    default UseCaseConfigFactory.@NonNull CaptureType getCaptureType() {
         return retrieveOption(OPTION_CAPTURE_TYPE);
     }
 
@@ -333,6 +425,28 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
     }
 
     /**
+     * @return The {@link TakePictureManager} implementation for {@link ImageCapture} use case.
+     */
+    default TakePictureManager.@NonNull Provider getTakePictureManagerProvider() {
+        return requireNonNull(retrieveOption(OPTION_TAKE_PICTURE_MANAGER_PROVIDER,
+                new TakePictureManager.Provider() {
+                    @Override
+                    public @NonNull TakePictureManager newInstance(
+                            @NonNull ImageCaptureControl imageCaptureControl) {
+                        return new TakePictureManagerImpl(imageCaptureControl);
+                    }
+                }));
+    }
+
+    /**
+     * @return The stream use case of this UseCaseConfig.
+     */
+    @NonNull
+    default StreamUseCase getStreamUseCase() {
+        return requireNonNull(retrieveOption(OPTION_STREAM_USE_CASE, StreamUseCase.DEFAULT));
+    }
+
+    /**
      * Builder for a {@link UseCase}.
      *
      * @param <T> The type of the object which will be built by {@link #build()}.
@@ -341,7 +455,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
      * @param <B> The top level builder type for which this builder is composed with.
      */
     interface Builder<T extends UseCase, C extends UseCaseConfig<T>, B> extends
-            TargetConfig.Builder<T, B>, ExtendableBuilder<T>, UseCaseEventConfig.Builder<B> {
+            TargetConfig.Builder<T, B>, ExtendableBuilder<T> {
 
         /**
          * Sets the default session configuration for this use case.
@@ -349,8 +463,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
          * @param sessionConfig The default session configuration to use for this use case.
          * @return the current Builder.
          */
-        @NonNull
-        B setDefaultSessionConfig(@NonNull SessionConfig sessionConfig);
+        @NonNull B setDefaultSessionConfig(@NonNull SessionConfig sessionConfig);
 
         /**
          * Sets the default capture configuration for this use case.
@@ -358,8 +471,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
          * @param captureConfig The default capture configuration to use for this use case.
          * @return the current Builder.
          */
-        @NonNull
-        B setDefaultCaptureConfig(@NonNull CaptureConfig captureConfig);
+        @NonNull B setDefaultCaptureConfig(@NonNull CaptureConfig captureConfig);
 
         /**
          * Sets the Option Unpacker for translating this configuration into a {@link SessionConfig}
@@ -370,8 +482,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
          * @param optionUnpacker The option unpacker for to use for this use case.
          * @return the current Builder.
          */
-        @NonNull
-        B setSessionOptionUnpacker(@NonNull SessionConfig.OptionUnpacker optionUnpacker);
+        @NonNull B setSessionOptionUnpacker(SessionConfig.@NonNull OptionUnpacker optionUnpacker);
 
         /**
          * Sets the Option Unpacker for translating this configuration into a {@link CaptureConfig}
@@ -382,8 +493,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
          * @param optionUnpacker The option unpacker for to use for this use case.
          * @return the current Builder.
          */
-        @NonNull
-        B setCaptureOptionUnpacker(@NonNull CaptureConfig.OptionUnpacker optionUnpacker);
+        @NonNull B setCaptureOptionUnpacker(CaptureConfig.@NonNull OptionUnpacker optionUnpacker);
 
         /**
          * Sets the surface occupancy priority of the intended target from this configuration.
@@ -397,8 +507,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
          *                 will have higher priority.
          * @return The current Builder.
          */
-        @NonNull
-        B setSurfaceOccupancyPriority(int priority);
+        @NonNull B setSurfaceOccupancyPriority(int priority);
 
         /**
          * Sets zsl disabled or not.
@@ -415,8 +524,7 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
          *                 flash mode OFF, so setting to false doesn't guarantee zero-shutter lag to
          *                 be always ON.
          */
-        @NonNull
-        B setZslDisabled(boolean disabled);
+        @NonNull B setZslDisabled(boolean disabled);
 
         /**
          * Sets high resolution disabled or not.
@@ -426,23 +534,27 @@ public interface UseCaseConfig<T extends UseCase> extends TargetConfig<T>, UseCa
          * @param disabled True if high resolution should be disabled. Otherwise, should not be
          *                 disabled.
          */
-        @NonNull
-        B setHighResolutionDisabled(boolean disabled);
+        @NonNull B setHighResolutionDisabled(boolean disabled);
 
         /**
          * Sets the capture type for this configuration.
          *
          * @param captureType The capture type for this use case.
          */
-        @NonNull
-        B setCaptureType(@NonNull UseCaseConfigFactory.CaptureType captureType);
+        @NonNull B setCaptureType(UseCaseConfigFactory.@NonNull CaptureType captureType);
+
+        /**
+         * Sets the stream use case for this configuration.
+         *
+         * @param streamUseCase The stream use case for this use case.
+         */
+        @NonNull B setStreamUseCase(@NonNull StreamUseCase streamUseCase);
 
         /**
          * Retrieves the configuration used by this builder.
          *
          * @return the configuration used by this builder.
          */
-        @NonNull
-        C getUseCaseConfig();
+        @NonNull C getUseCaseConfig();
     }
 }

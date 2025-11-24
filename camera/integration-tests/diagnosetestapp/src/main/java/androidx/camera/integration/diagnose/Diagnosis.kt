@@ -21,9 +21,7 @@ import androidx.annotation.WorkerThread
 import androidx.camera.view.LifecycleCameraController
 import java.io.File
 
-/**
- * Diagnosis object that runs diagnosis test on device and save result to a file.
- */
+/** Diagnosis object that runs diagnosis test on device and save result to a file. */
 class Diagnosis {
 
     @WorkerThread
@@ -31,7 +29,7 @@ class Diagnosis {
         context: Context,
         tasks: List<DiagnosisTask>,
         cameraController: LifecycleCameraController,
-        isAggregated: Boolean
+        isAggregated: Boolean,
     ): File? {
 
         if (tasks.isEmpty()) {
@@ -53,6 +51,7 @@ class Diagnosis {
 
         return dataStore.flushZip()
     }
+
     companion object {
         private const val TAG = "Diagnosis"
     }

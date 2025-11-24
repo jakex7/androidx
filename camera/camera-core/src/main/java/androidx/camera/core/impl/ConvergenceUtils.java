@@ -16,9 +16,9 @@
 
 package androidx.camera.core.impl;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.camera.core.Logger;
+
+import org.jspecify.annotations.NonNull;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -27,7 +27,6 @@ import java.util.Set;
 /**
  * Utility class for checking the convergence of 3A states.
  */
-@RequiresApi(21)
 public class ConvergenceUtils {
 
     private static final String TAG = "ConvergenceUtils";
@@ -81,10 +80,9 @@ public class ConvergenceUtils {
     public static boolean is3AConverged(@NonNull CameraCaptureResult captureResult,
             boolean isTorchAsFlash) {
 
-        // If afMode is OFF or UNKNOWN , no need for waiting.
+        // If afMode is OFF, no need for waiting.
         // otherwise wait until af is locked or focused.
         boolean isAfReady = captureResult.getAfMode() == CameraCaptureMetaData.AfMode.OFF
-                || captureResult.getAfMode() == CameraCaptureMetaData.AfMode.UNKNOWN
                 || AF_CONVERGED_STATE_SET.contains(captureResult.getAfState());
 
         boolean isAeReady;

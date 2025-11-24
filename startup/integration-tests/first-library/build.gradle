@@ -17,11 +17,10 @@
 plugins {
     id("AndroidXPlugin")
     id("com.android.library")
-    id("kotlin-android")
+    id("com.android.experimental.built-in-kotlin")
 }
 
 dependencies {
-    api(libs.kotlinStdlib)
     implementation(project(":startup:startup-runtime"))
     implementation(project(":work:work-runtime-ktx"))
 
@@ -29,11 +28,12 @@ dependencies {
     androidTestImplementation(libs.testCore)
     androidTestImplementation(libs.testRunner)
     androidTestImplementation(libs.espressoCore)
-    androidTestImplementation(libs.mockitoCore, excludes.bytebuddy) // DexMaker has its own MockMaker
-    androidTestImplementation(libs.dexmakerMockito, excludes.bytebuddy) // DexMaker has its own MockMaker
+    androidTestImplementation(libs.mockitoCore)
+    androidTestImplementation(libs.dexmakerMockito)
     testImplementation(libs.junit)
 }
 
 android {
-    namespace "androidx.startup.first_library"
+    compileSdk = 35
+    namespace = "androidx.startup.first_library"
 }

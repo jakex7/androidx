@@ -51,9 +51,9 @@ import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_HDMI;
 import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_HDMI_ARC;
 import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_HDMI_EARC;
 import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_HEARING_AID;
+import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER;
 import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_SMARTPHONE;
 import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_SMARTWATCH;
-import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_REMOTE_SPEAKER;
 import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_TABLET;
 import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_TABLET_DOCKED;
 import static androidx.mediarouter.media.MediaRouter.RouteInfo.DEVICE_TYPE_TV;
@@ -72,12 +72,13 @@ import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.ArraySet;
+import android.util.Log;
 
-import androidx.annotation.DoNotInline;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.OptIn;
+import androidx.annotation.RequiresAconfigFlag;
 import androidx.annotation.RequiresApi;
+import androidx.core.flagging.Flags;
 import androidx.mediarouter.media.MediaRouter.RouteInfo;
 
 import java.util.ArrayList;
@@ -88,9 +89,12 @@ import java.util.Set;
 
 @RequiresApi(api = Build.VERSION_CODES.R)
 class MediaRouter2Utils {
+    private static final String TAG = "MediaRouter2Utils";
     static final String FEATURE_EMPTY = "android.media.route.feature.EMPTY";
-    static final String FEATURE_REMOTE_GROUP_PLAYBACK =
+    private static final String FEATURE_REMOTE_GROUP_PLAYBACK =
             "android.media.route.feature.REMOTE_GROUP_PLAYBACK";
+    private static final String FEATURE_REMOTE_DYNAMIC_GROUP_ROUTE =
+            "android.media.route.feature.REMOTE_DYNAMIC_GROUP_ROUTE";
 
     // Used in MediaRoute2Info#getExtras()
     static final String KEY_EXTRAS = "androidx.mediarouter.media.KEY_EXTRAS";
@@ -98,6 +102,8 @@ class MediaRouter2Utils {
     static final String KEY_DEVICE_TYPE = "androidx.mediarouter.media.KEY_DEVICE_TYPE";
     static final String KEY_PLAYBACK_TYPE = "androidx.mediarouter.media.KEY_PLAYBACK_TYPE";
     static final String KEY_ORIGINAL_ROUTE_ID = "androidx.mediarouter.media.KEY_ORIGINAL_ROUTE_ID";
+    private static final String KEY_GROUP_MEMBER_IDS =
+            "androidx.mediarouter.media.KEY_GROUP_MEMBER_IDS";
 
     // Used in RoutingController#getControlHints()
     static final String KEY_MESSENGER = "androidx.mediarouter.media.KEY_MESSENGER";
@@ -118,7 +124,6 @@ class MediaRouter2Utils {
 
     private MediaRouter2Utils() {}
 
-    @OptIn(markerClass = androidx.core.os.BuildCompat.PrereleaseSdkCheck.class)
     @Nullable
     public static MediaRoute2Info toFwkMediaRoute2Info(@Nullable MediaRouteDescriptor descriptor) {
         if (descriptor == null) {
@@ -148,6 +153,12 @@ class MediaRouter2Utils {
             Api34Impl.setDeviceType(
                     builder, androidXDeviceTypeToFwkDeviceType(descriptor.getDeviceType()));
         }
+        if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1
+                && Flags.getBooleanFlagValue(MediaRouterFlags.NAMESPACE,
+                MediaRouterFlags.ENABLE_ROUTE_VISIBILITY_CONTROL_API)) {
+            FlagEnableRouteVisibilityControlApiImpl.copyRequiredPermissionsToBuilder(builder,
+                    descriptor);
+        }
 
         switch (descriptor.getDeviceType()) {
             case DEVICE_TYPE_TV:
@@ -156,8 +167,8 @@ class MediaRouter2Utils {
             case DEVICE_TYPE_REMOTE_SPEAKER:
                 builder.addFeature(FEATURE_REMOTE_AUDIO_PLAYBACK);
         }
-        if (!descriptor.getGroupMemberIds().isEmpty()) {
-            builder.addFeature(FEATURE_REMOTE_GROUP_PLAYBACK);
+        if (descriptor.isDynamicGroupRoute()) {
+            builder.addFeature(FEATURE_REMOTE_DYNAMIC_GROUP_ROUTE);
         }
 
         // Since MediaRouter2Info has no public APIs to get/set device types and control filters,
@@ -169,6 +180,13 @@ class MediaRouter2Utils {
         extras.putInt(KEY_DEVICE_TYPE, descriptor.getDeviceType());
         extras.putInt(KEY_PLAYBACK_TYPE, descriptor.getPlaybackType());
         extras.putString(KEY_ORIGINAL_ROUTE_ID, descriptor.getId());
+
+        if (!descriptor.getGroupMemberIds().isEmpty()) {
+            builder.addFeature(FEATURE_REMOTE_GROUP_PLAYBACK);
+            extras.putStringArrayList(
+                    KEY_GROUP_MEMBER_IDS, new ArrayList<>(descriptor.getGroupMemberIds()));
+        }
+
         builder.setExtras(extras);
 
         // This is a workaround for preventing IllegalArgumentException in MediaRoute2Info.
@@ -179,7 +197,6 @@ class MediaRouter2Utils {
         return builder.build();
     }
 
-    @OptIn(markerClass = androidx.core.os.BuildCompat.PrereleaseSdkCheck.class)
     @Nullable
     public static MediaRouteDescriptor toMediaRouteDescriptor(
             @Nullable MediaRoute2Info fwkMediaRoute2Info) {
@@ -202,6 +219,12 @@ class MediaRouter2Utils {
             builder.setDeduplicationIds(Api34Impl.getDeduplicationIds(fwkMediaRoute2Info));
             deviceTypeInRouteInfo =
                     fwkDeviceTypeToAndroidXDeviceType(Api34Impl.getType(fwkMediaRoute2Info));
+        }
+        if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1
+                && Flags.getBooleanFlagValue(MediaRouterFlags.NAMESPACE,
+                MediaRouterFlags.ENABLE_ROUTE_VISIBILITY_CONTROL_API)) {
+            FlagEnableRouteVisibilityControlApiImpl.copyFwkRequiredPermissionsToBuilder(builder,
+                    fwkMediaRoute2Info);
         }
 
         CharSequence description = fwkMediaRoute2Info.getDescription();
@@ -234,9 +257,18 @@ class MediaRouter2Utils {
             builder.addControlFilters(controlFilters);
         }
 
-        // TODO: Set 'dynamic group route' related values properly
-        // builder.setIsDynamicGroupRoute();
-        // builder.addGroupMemberIds();
+        List<String> features = fwkMediaRoute2Info.getFeatures();
+        if (features.contains(FEATURE_REMOTE_DYNAMIC_GROUP_ROUTE)) {
+            builder.setIsDynamicGroupRoute(true);
+        }
+        if (features.contains(FEATURE_REMOTE_GROUP_PLAYBACK)) {
+            ArrayList<String> groupMemberIds = extras.getStringArrayList(KEY_GROUP_MEMBER_IDS);
+            if (groupMemberIds == null || groupMemberIds.isEmpty()) {
+                Log.w(TAG, "Invalid feature of a group without members");
+            } else {
+                builder.addGroupMemberIds(groupMemberIds);
+            }
+        }
 
         return builder.build();
     }
@@ -297,7 +329,7 @@ class MediaRouter2Utils {
 
     @NonNull
     static MediaRouteDiscoveryRequest toMediaRouteDiscoveryRequest(
-            @NonNull RouteDiscoveryPreference preference) {
+            @NonNull RouteDiscoveryPreference preference, boolean shouldScanWithScreenOff) {
         List<String> controlCategories = new ArrayList<>();
         for (String feature : preference.getPreferredFeatures()) {
             controlCategories.add(MediaRouter2Utils.toControlCategory(feature));
@@ -306,7 +338,8 @@ class MediaRouter2Utils {
                 .addControlCategories(controlCategories)
                 .build();
 
-        return new MediaRouteDiscoveryRequest(selector, preference.shouldPerformActiveScan());
+        return new MediaRouteDiscoveryRequest(
+                selector, preference.shouldPerformActiveScan(), shouldScanWithScreenOff);
     }
 
     @NonNull
@@ -332,6 +365,10 @@ class MediaRouter2Utils {
                 return FEATURE_LIVE_VIDEO;
             case MediaControlIntent.CATEGORY_REMOTE_PLAYBACK:
                 return FEATURE_REMOTE_PLAYBACK;
+            case MediaControlIntent.CATEGORY_REMOTE_AUDIO_PLAYBACK:
+                return FEATURE_REMOTE_AUDIO_PLAYBACK;
+            case MediaControlIntent.CATEGORY_REMOTE_VIDEO_PLAYBACK:
+                return FEATURE_REMOTE_VIDEO_PLAYBACK;
         }
         return controlCategory;
     }
@@ -344,6 +381,10 @@ class MediaRouter2Utils {
                 return MediaControlIntent.CATEGORY_LIVE_VIDEO;
             case FEATURE_REMOTE_PLAYBACK:
                 return MediaControlIntent.CATEGORY_REMOTE_PLAYBACK;
+            case FEATURE_REMOTE_AUDIO_PLAYBACK:
+                return MediaControlIntent.CATEGORY_REMOTE_AUDIO_PLAYBACK;
+            case FEATURE_REMOTE_VIDEO_PLAYBACK:
+                return MediaControlIntent.CATEGORY_REMOTE_VIDEO_PLAYBACK;
         }
         return routeFeature;
     }
@@ -463,18 +504,15 @@ class MediaRouter2Utils {
     @RequiresApi(api = 34)
     private static final class Api34Impl {
 
-        @DoNotInline
         public static void setDeduplicationIds(
                 MediaRoute2Info.Builder builder, Set<String> deduplicationIds) {
             builder.setDeduplicationIds(deduplicationIds);
         }
 
-        @DoNotInline
         public static Set<String> getDeduplicationIds(MediaRoute2Info fwkMediaRoute2Info) {
             return fwkMediaRoute2Info.getDeduplicationIds();
         }
 
-        @DoNotInline
         public static void copyDescriptorVisibilityToBuilder(MediaRoute2Info.Builder builder,
                 MediaRouteDescriptor descriptor) {
             if (descriptor.isVisibilityPublic()) {
@@ -484,14 +522,28 @@ class MediaRouter2Utils {
             }
         }
 
-        @DoNotInline
         public static void setDeviceType(MediaRoute2Info.Builder builder, int deviceType) {
             builder.setType(deviceType);
         }
 
-        @DoNotInline
         public static int getType(MediaRoute2Info fwkMediaRoute2Info) {
             return fwkMediaRoute2Info.getType();
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES_FULL.BAKLAVA_1)
+    @RequiresAconfigFlag("com.android.media.flags.enable_route_visibility_control_api")
+    private static final class FlagEnableRouteVisibilityControlApiImpl {
+        private FlagEnableRouteVisibilityControlApiImpl() {}
+
+        static void copyRequiredPermissionsToBuilder(MediaRoute2Info.Builder builder,
+                MediaRouteDescriptor descriptor) {
+            builder.setRequiredPermissions(descriptor.getRequiredPermissions());
+        }
+
+        static void copyFwkRequiredPermissionsToBuilder(MediaRouteDescriptor.Builder builder,
+                MediaRoute2Info info) {
+            builder.setRequiredPermissions(info.getRequiredPermissions());
         }
     }
 }

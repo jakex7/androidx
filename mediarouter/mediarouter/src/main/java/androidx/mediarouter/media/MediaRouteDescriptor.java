@@ -75,9 +75,15 @@ public final class MediaRouteDescriptor {
     static final String KEY_ALLOWED_PACKAGES = "allowedPackages";
 
     final Bundle mBundle;
+    @NonNull List<Set<String>> mRequiredPermissions;
 
     MediaRouteDescriptor(Bundle bundle) {
+        this(bundle, List.of());
+    }
+
+    private MediaRouteDescriptor(Bundle bundle, @NonNull List<Set<String>> requiredPermissions) {
         mBundle = bundle;
+        mRequiredPermissions = List.copyOf(requiredPermissions);
     }
 
     /**
@@ -168,18 +174,18 @@ public final class MediaRouteDescriptor {
 
     /**
      * Returns if this route is a dynamic group route.
-     * <p>
-     * {@link MediaRouteProvider} creates a dynamic group route when
-     * {@link MediaRouteProvider#onCreateDynamicGroupRouteController(String)} is called.
-     * It happens when a single route or a single static group is selected.
-     * </p>
-     * <p>
-     * If a single device or a static group is selected, the associated dynamic group route
-     * should not be seen by any client app because there is already one for the device.
-     * After user added more devices into the session, it should be seen by the client app.
-     * The provider can treat this by not setting the media intent for the dynamic group route
-     * if it contains only one member.
-     * </p>>
+     *
+     * <p>{@link MediaRouteProvider} creates a dynamic group route when {@link
+     * MediaRouteProvider#onCreateDynamicGroupRouteController(String,
+     * MediaRouteProvider.RouteControllerOptions)} is called. It happens when a single route or a
+     * single static group is selected.
+     *
+     * <p>If a single device or a static group is selected, the associated dynamic group route
+     * should not be seen by any client app because there is already one for the device. After user
+     * added more devices into the session, it should be seen by the client app. The provider can
+     * treat this by not setting the media intent for the dynamic group route if it contains only
+     * one member.
+     *
      * @return {@code true} if this route is a dynamic group route.
      */
     public boolean isDynamicGroupRoute() {
@@ -372,15 +378,21 @@ public final class MediaRouteDescriptor {
     }
 
     /**
+     * Returns a list of permission sets - all the permissions in at least one of these sets must be
+     * be held by an app to see this route.
+     */
+    @NonNull
+    public List<Set<String>> getRequiredPermissions() {
+        return mRequiredPermissions;
+    }
+
+    /**
      * Returns true if the route descriptor has all of the required fields.
      */
     public boolean isValid() {
-        if (TextUtils.isEmpty(getId())
-                || TextUtils.isEmpty(getName())
-                || getControlFilters().contains(null)) {
-            return false;
-        }
-        return true;
+        return !TextUtils.isEmpty(getId())
+                && !TextUtils.isEmpty(getName())
+                && !getControlFilters().contains(null);
     }
 
     @NonNull
@@ -409,6 +421,7 @@ public final class MediaRouteDescriptor {
                 + ", maxClientVersion=" + getMaxClientVersion()
                 + ", isVisibilityPublic=" + isVisibilityPublic()
                 + ", allowedPackages=" + Arrays.toString(getAllowedPackages().toArray())
+                + ", requiredPermissions=" + mRequiredPermissions
                 + " }";
     }
 
@@ -442,6 +455,7 @@ public final class MediaRouteDescriptor {
         private List<String> mGroupMemberIds = new ArrayList<>();
         private List<IntentFilter> mControlFilters = new ArrayList<>();
         private Set<String> mAllowedPackages = new HashSet<>();
+        private List<Set<String>> mRequiredPermissions = new ArrayList<>();
 
         /**
          * Creates a media route descriptor builder.
@@ -469,6 +483,7 @@ public final class MediaRouteDescriptor {
             mGroupMemberIds = descriptor.getGroupMemberIds();
             mControlFilters = descriptor.getControlFilters();
             mAllowedPackages = descriptor.getAllowedPackages();
+            mRequiredPermissions = descriptor.getRequiredPermissions();
         }
 
         /**
@@ -874,6 +889,7 @@ public final class MediaRouteDescriptor {
         public Builder setVisibilityPublic() {
             mBundle.putBoolean(KEY_IS_VISIBILITY_PUBLIC, true);
             mAllowedPackages.clear();
+            mRequiredPermissions.clear();
             return this;
         }
 
@@ -899,6 +915,25 @@ public final class MediaRouteDescriptor {
         }
 
         /**
+         *  Limits the visibility of this route to holders of one of a set of permissions.
+         *
+         * <p>Calls to this method override any previous calls of
+         * {@link #setRequiredPermissions(List)}.
+         *
+         *  @param requiresOneOf a list of Sets of permissions. Holding all permissions in at
+         *                       least one of the Sets is required for the route to be visible.
+         */
+        @NonNull
+        @SuppressLint({"MissingGetterMatchingBuilder"})
+        public Builder setRequiredPermissions(@NonNull List<Set<String>> requiresOneOf) {
+            mRequiredPermissions = new ArrayList<>();
+            for (Set<String> permissionSet : requiresOneOf) {
+                mRequiredPermissions.add(Set.copyOf(permissionSet));
+            }
+            return this;
+        }
+
+        /**
          * Builds the {@link MediaRouteDescriptor media route descriptor}.
          */
         @NonNull
@@ -906,7 +941,7 @@ public final class MediaRouteDescriptor {
             mBundle.putParcelableArrayList(KEY_CONTROL_FILTERS, new ArrayList<>(mControlFilters));
             mBundle.putStringArrayList(KEY_GROUP_MEMBER_IDS, new ArrayList<>(mGroupMemberIds));
             mBundle.putStringArrayList(KEY_ALLOWED_PACKAGES, new ArrayList<>(mAllowedPackages));
-            return new MediaRouteDescriptor(mBundle);
+            return new MediaRouteDescriptor(mBundle, mRequiredPermissions);
         }
     }
 }

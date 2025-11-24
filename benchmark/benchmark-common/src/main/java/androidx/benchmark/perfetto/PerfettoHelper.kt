@@ -21,24 +21,28 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.annotation.RestrictTo
+import androidx.benchmark.Arguments
 import androidx.benchmark.DeviceInfo.deviceSummaryString
+import androidx.benchmark.InMemoryTracing
 import androidx.benchmark.Shell
 import androidx.benchmark.inMemoryTrace
 import androidx.benchmark.perfetto.PerfettoHelper.Companion.MIN_SDK_VERSION
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.tracing.trace
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import org.jetbrains.annotations.TestOnly
 
 /**
- * PerfettoHelper is used to start and stop the perfetto tracing and move the
- * output perfetto trace file to destination folder.
- *
+ * PerfettoHelper is used to start and stop the perfetto tracing and move the output perfetto trace
+ * file to destination folder.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 @RequiresApi(MIN_SDK_VERSION)
-public class PerfettoHelper(
+class PerfettoHelper(
     private val unbundled: Boolean = Build.VERSION.SDK_INT < MIN_BUNDLED_SDK_VERSION
 ) {
     init {
@@ -50,9 +54,7 @@ public class PerfettoHelper(
 
     var perfettoPid: Int? = null
 
-    /**
-     * --background-wait requires unbundled or API 33 bundled version of perfetto
-     */
+    /** --background-wait requires unbundled or API 33 bundled version of perfetto */
     private val useBackgroundWait = unbundled || Build.VERSION.SDK_INT >= 33
 
     private fun perfettoStartupException(label: String, cause: Exception?): IllegalStateException {
@@ -61,59 +63,56 @@ public class PerfettoHelper(
             $label
             Please report a bug, and include a logcat capture of the test run and failure.
             $deviceSummaryString
-            """.trimIndent(),
-            cause
+            """
+                .trimIndent(),
+            cause,
         )
     }
 
     /**
      * Start the perfetto tracing in background using the given config file.
      *
-     * The output will be written to /data/misc/perfetto-traces/trace_output.pb. Perfetto has
-     * write access only to /data/misc/perfetto-traces/ folder. The config file may be anywhere
-     * readable by shell.
+     * The output will be written to /data/misc/perfetto-traces/trace_output.pb. Perfetto has write
+     * access only to /data/misc/perfetto-traces/ folder. The config file may be anywhere readable
+     * by shell.
      *
      * @param configFilePath used for collecting the perfetto trace.
      * @param isTextProtoConfig true if the config file is textproto format otherwise false.
      */
     public fun startCollecting(configFilePath: String, isTextProtoConfig: Boolean) {
-        require(configFilePath.isNotEmpty()) {
-            "Perfetto config cannot be empty."
-        }
+        require(configFilePath.isNotEmpty()) { "Perfetto config cannot be empty." }
 
-        require(perfettoPid == null) {
-            "Perfetto instance is already running"
-        }
+        require(perfettoPid == null) { "Perfetto instance is already running" }
 
         try {
             // Cleanup already existing perfetto process.
-            Log.i(LOG_TAG, "Cleanup perfetto before starting.")
-            stopAllPerfettoProcesses()
+            cleanupPerfettoState()
 
             // The actual location of the config path.
-            val actualConfigPath = if (unbundled) {
-                val path = "$UNBUNDLED_PERFETTO_ROOT_DIR/config.pb"
-                // Move the config to a directory that unbundled perfetto has permissions for.
-                Shell.executeScriptSilent("rm -f $path")
-                if (Build.VERSION.SDK_INT == 23) {
-                    // Observed stderr output (though command still completes successfully) on:
-                    // google/shamu/shamu:6.0.1/MOB31T/3671974:userdebug/dev-keys
-                    // Doesn't repro on all API 23 devices :|
-                    Shell.executeScriptCaptureStdoutStderr("cp $configFilePath $path").also {
-                        check(
-                            it.stdout.isBlank() &&
-                                (it.stderr.isBlank() || it.stderr.startsWith("mv: chown"))
-                        ) {
-                            "Observed unexpected output: it"
+            val actualConfigPath =
+                if (unbundled) {
+                    val path = "$UNBUNDLED_PERFETTO_ROOT_DIR/config.pb"
+                    // Move the config to a directory that unbundled perfetto has permissions for.
+                    Shell.rm(path)
+                    if (Build.VERSION.SDK_INT == 23) {
+                        // Observed stderr output (though command still completes successfully) on:
+                        // google/shamu/shamu:6.0.1/MOB31T/3671974:userdebug/dev-keys
+                        // Doesn't repro on all API 23 devices :|
+                        Shell.executeScriptCaptureStdoutStderr("cp $configFilePath $path").also {
+                            check(
+                                it.stdout.isBlank() &&
+                                    (it.stderr.isBlank() || it.stderr.startsWith("mv: chown"))
+                            ) {
+                                "Observed unexpected output: it"
+                            }
                         }
+                    } else {
+                        Shell.cp(from = configFilePath, to = path)
                     }
+                    path
                 } else {
-                    Shell.executeScriptSilent("cp $configFilePath $path")
+                    configFilePath
                 }
-                path
-            } else {
-                configFilePath
-            }
 
             val outputPath = getPerfettoTmpOutputFilePath()
 
@@ -122,7 +121,7 @@ public class PerfettoHelper(
                 val output = Shell.executeScriptCaptureStdoutStderr("rm -f $outputPath")
                 Log.d(LOG_TAG, "Attempted to remove $outputPath, result = $output")
             } else {
-                Shell.executeScriptSilent("rm -f $outputPath")
+                Shell.rm(outputPath)
             }
             // Remove already existing temporary output trace file if any.
 
@@ -130,19 +129,35 @@ public class PerfettoHelper(
             val perfettoCmd = perfettoCommand(actualConfigPath, isTextProtoConfig)
             Log.i(LOG_TAG, "Starting perfetto tracing with cmd: $perfettoCmd")
             // Note: we intentionally don't check stderr, as benign warnings are printed
-            val perfettoCmdOutput = Shell.executeScriptCaptureStdoutStderr(
-                "$perfettoCmd; echo EXITCODE=$?"
-            ).stdout.trim()
+            val perfettoCmdOutput =
+                Shell.executeScriptCaptureStdoutStderr("$perfettoCmd; echo EXITCODE=$?")
+                    .stdout
+                    .trim()
 
-            val expectedSuffix = "\nEXITCODE=0"
-            if (!perfettoCmdOutput.endsWith(expectedSuffix)) {
-                throw perfettoStartupException(
-                    "Perfetto unexpected exit code, output = $perfettoCmdOutput",
-                    null
+            Log.i(LOG_TAG, "Perfetto output - $perfettoCmdOutput")
+            val parseResult = parsePerfettoCommandOutput(perfettoCmdOutput)
+            check(parseResult != null) {
+                "Perfetto unexpected exit code, output = $perfettoCmdOutput"
+            }
+            val (exitCode, pid) = parseResult
+            check(exitCode == 0 || exitCode == 2) {
+                "Perfetto unexpected exit code, output = $perfettoCmdOutput"
+            }
+            if (exitCode == 2) {
+                // https://source.corp.google.com/h/googleplex-android/platform/superproject/main/+/main:external/perfetto/src/perfetto_cmd/perfetto_cmd.h;l=109;drc=c244200710b3089cb4a3c24fe6e3ee5f6fd0f8df
+                // This means some of the data sources that Perfetto is using are not ready.
+                // Perfetto already logs which data sources are not ready, so we don't need to do
+                // any additional reporting here.
+                Log.w(
+                    LOG_TAG,
+                    """
+                        Some perfetto data sources may not be ready.
+                        Look at the `perfetto` log tag for additional information.
+                    """
+                        .trimIndent(),
                 )
             }
-            Log.i(LOG_TAG, "Perfetto output - $perfettoCmdOutput")
-            perfettoPid = perfettoCmdOutput.removeSuffix(expectedSuffix).toInt()
+            perfettoPid = pid
         } catch (ioe: IOException) {
             throw perfettoStartupException("Unable to start perfetto tracing", ioe)
         }
@@ -163,50 +178,55 @@ public class PerfettoHelper(
      * This is a good indicator that tracing is actually enabled (including the app atrace tag), and
      * that content will be captured in the trace buffer
      */
-    private fun checkTracingOn(): Unit = inMemoryTrace("poll tracing_on") {
-        val path: String = when {
-            Shell.pathExists(TRACING_ON_PATH) -> {
-                TRACING_ON_PATH
-            }
-            Shell.pathExists(TRACING_ON_FALLBACK_PATH) -> {
-                TRACING_ON_FALLBACK_PATH
-            }
-            else -> {
-                throw perfettoStartupException(
-                    "Unable to find path to tracing_on (e.g. $TRACING_ON_PATH)",
-                    null
-                )
-            }
-        }
-
-        val pollTracingOnMaxCount = 50
-        val pollTracingOnMs = 100L
-
-        repeat(pollTracingOnMaxCount) {
-            when (val output = Shell.executeScriptCaptureStdout("cat $path").trim()) {
-                "0" -> {
-                    inMemoryTrace("wait for trace to start (tracing_on == 1)") {
-                        SystemClock.sleep(pollTracingOnMs)
+    private fun checkTracingOn(): Unit =
+        inMemoryTrace("poll tracing_on") {
+            val path: String =
+                when {
+                    Shell.pathExists(TRACING_ON_PATH) -> {
+                        TRACING_ON_PATH
+                    }
+                    Shell.pathExists(TRACING_ON_FALLBACK_PATH) -> {
+                        TRACING_ON_FALLBACK_PATH
+                    }
+                    else -> {
+                        throw perfettoStartupException(
+                            "Unable to find path to tracing_on (e.g. $TRACING_ON_PATH)",
+                            null,
+                        )
                     }
                 }
-                "1" -> {
-                    // success!
-                    Log.i(LOG_TAG, "$path = 1, polled $it times, capture fully started")
-                    trace("Perfetto - capture started successfully") {}
-                    return@checkTracingOn
-                }
-                else -> {
-                    throw perfettoStartupException(
-                        "Saw unexpected tracing_on contents: $output",
-                        null
-                    )
+
+            val pollTracingOnMaxCount = 50
+            val pollTracingOnMs = 100L
+
+            repeat(pollTracingOnMaxCount) {
+                when (val output = Shell.executeScriptCaptureStdout("cat $path").trim()) {
+                    "0" -> {
+                        inMemoryTrace("wait for trace to start (tracing_on == 1)") {
+                            SystemClock.sleep(pollTracingOnMs)
+                        }
+                    }
+                    "1" -> {
+                        // success!
+                        Log.i(LOG_TAG, "$path = 1, polled $it times, capture fully started")
+                        trace("Perfetto - capture started successfully") {}
+                        return@checkTracingOn
+                    }
+                    else -> {
+                        throw perfettoStartupException(
+                            "Saw unexpected tracing_on contents: $output",
+                            null,
+                        )
+                    }
                 }
             }
-        }
 
-        val duration = pollTracingOnMs * pollTracingOnMaxCount
-        throw perfettoStartupException("Error: did not detect tracing on after $duration ms", null)
-    }
+            val duration = pollTracingOnMs * pollTracingOnMaxCount
+            throw perfettoStartupException(
+                "Error: did not detect tracing on after $duration ms",
+                null,
+            )
+        }
 
     /**
      * Check if this PerfettoHelper's perfetto process is running or not.
@@ -214,9 +234,7 @@ public class PerfettoHelper(
      * @return true if perfetto is running otherwise false.
      */
     public fun isRunning(): Boolean {
-        return perfettoPid?.let {
-            Shell.isProcessAlive(it, perfettoProcessName)
-        } ?: false
+        return perfettoPid?.let { Shell.isProcessAlive(it, perfettoProcessName) } ?: false
     }
 
     /**
@@ -226,18 +244,14 @@ public class PerfettoHelper(
      * @param destinationFile file to copy the perfetto output trace.
      * @return true if the trace collection is successful otherwise false.
      */
-    public fun stopCollecting(destinationFile: String) {
+    public fun stopCollecting(destinationFile: String, inMemoryTracingLabel: String?) {
         // Stop the perfetto and copy the output file.
         Log.i(LOG_TAG, "Stopping perfetto.")
 
-        inMemoryTrace("stop perfetto process") {
-            stopPerfetto()
-        }
+        inMemoryTrace("stop perfetto process") { stopPerfetto() }
 
         Log.i(LOG_TAG, "Writing to $destinationFile.")
-        inMemoryTrace("copy trace to output dir") {
-            copyFileOutput(destinationFile)
-        }
+        writeTraceData(destinationFile, inMemoryTracingLabel)
     }
 
     /**
@@ -253,40 +267,37 @@ public class PerfettoHelper(
         trace("Perfetto - preparing to stop") {}
 
         require(pid != null)
-        Shell.terminateProcessesAndWait(
+        Shell.killProcessesAndWait(
+            listOf(Shell.ProcessPid(pid = pid, processName = perfettoProcessName)),
             waitPollPeriodMs = PERFETTO_KILL_WAIT_TIME_MS,
             waitPollMaxCount = PERFETTO_KILL_WAIT_COUNT,
-            Shell.ProcessPid(
-                pid = pid,
-                processName = perfettoProcessName
-            )
         )
         perfettoPid = null
     }
 
-    /**
-     * @return the shell command that can be used to start Perfetto.
-     */
+    /** @return the shell command that can be used to start Perfetto. */
     private fun perfettoCommand(configFilePath: String, isTextProtoConfig: Boolean): String {
         val outputPath = getPerfettoTmpOutputFilePath()
 
-        val backgroundArg = if (useBackgroundWait) {
-            "--background-wait"
-        } else {
-            "--background"
-        }
+        val backgroundArg =
+            if (useBackgroundWait) {
+                "--background-wait"
+            } else {
+                "--background"
+            }
 
-        var command = if (!unbundled) {
-            // Bundled perfetto reads configuration from stdin.
-            "cat $configFilePath | perfetto $backgroundArg -c - -o $outputPath"
-        } else {
-            // Unbundled perfetto can read configuration from a file that it has permissions to
-            // read from. This because it assumes the identity of the shell and therefore has
-            // access to /data/local/tmp directory.
-            "$unbundledPerfettoShellPath $backgroundArg" +
-                " -c $configFilePath" +
-                " -o $outputPath"
-        }
+        var command =
+            if (!unbundled) {
+                // Bundled perfetto reads configuration from stdin.
+                "cat $configFilePath | perfetto $backgroundArg -c - -o $outputPath"
+            } else {
+                // Unbundled perfetto can read configuration from a file that it has permissions to
+                // read from. This because it assumes the identity of the shell and therefore has
+                // access to /data/local/tmp directory.
+                "$unbundledPerfettoShellPath $backgroundArg" +
+                    " -c $configFilePath" +
+                    " -o $outputPath"
+            }
 
         if (isTextProtoConfig) {
             command += PERFETTO_TXT_PROTO_ARG
@@ -295,8 +306,8 @@ public class PerfettoHelper(
     }
 
     /**
-     * @return the [String] path to the temporary output file used to store the trace file
-     * during collection.
+     * @return the [String] path to the temporary output file used to store the trace file during
+     *   collection.
      */
     private fun getPerfettoTmpOutputFilePath(): String {
         return if (unbundled) {
@@ -311,10 +322,11 @@ public class PerfettoHelper(
      * destinationFile.
      *
      * @param destinationFile file to copy the perfetto output trace.
+     * @param inMemoryTracingLabel If non-null, encode in memory tracing events to a track with this
+     *   label by merging with the system trace in a single zip file.
      * @return true if the trace file copied successfully otherwise false.
      */
-    private fun copyFileOutput(destinationFile: String): Boolean {
-        val sourceFile = getPerfettoTmpOutputFilePath()
+    private fun writeTraceData(destinationFile: String, inMemoryTracingLabel: String?): Boolean {
         val filePath = File(destinationFile)
         filePath.setWritable(true, false)
         val destDirectory = filePath.parent
@@ -326,34 +338,66 @@ public class PerfettoHelper(
                 if (!success) {
                     Log.e(
                         LOG_TAG,
-                        "Result output directory $destDirectory not created successfully."
+                        "Result output directory $destDirectory not created successfully.",
                     )
                     return false
                 }
             }
         }
 
+        if (inMemoryTracingLabel != null && Arguments.zipInMemoryTraceData) {
+            // For more info about this zip code path, see b/421955180
+
+            // copy the trace first to a temporary location ...
+            val tmpTraceOutput = destinationFile + "_pb"
+            if (!tryCopyTraceOutput(tmpTraceOutput)) {
+                return false
+            }
+            // ... then zip it together with the inMemoryTracing data so the traces are merged.
+            // This is much more robust than appending, though it is more expensive to perform.
+            filePath.outputStream().use { fileOut ->
+                ZipOutputStream(fileOut).use { zipOut ->
+                    inMemoryTrace("zip system trace") {
+                        val systemTraceFile = File(tmpTraceOutput)
+                        zipOut.putNextEntry(
+                            ZipEntry(
+                                // Must start with Capital! See b/421473521
+                                "System_tracing.pb"
+                            )
+                        )
+                        systemTraceFile.inputStream().copyTo(zipOut)
+                        zipOut.closeEntry()
+                        systemTraceFile.delete()
+                    }
+
+                    zipOut.putNextEntry(ZipEntry("in_memory_tracing.pb"))
+                    InMemoryTracing.commitToTrace(inMemoryTracingLabel).encode(zipOut)
+                    zipOut.closeEntry()
+                }
+            }
+            return true
+        } else if (inMemoryTracingLabel != null) {
+            // copy directly to destination, and append in memory tracing data
+            if (tryCopyTraceOutput(destinationFile)) {
+                InMemoryTracing.commitToTrace(inMemoryTracingLabel)
+                    .encode(FileOutputStream(destinationFile, /* append= */ true))
+                return true
+            }
+            return false
+        } else {
+            // copy directly to destination, since we don't need a wrapper zip
+            return tryCopyTraceOutput(destinationFile)
+        }
+    }
+
+    private fun tryCopyTraceOutput(destinationFile: String): Boolean {
+        val sourceFile = getPerfettoTmpOutputFilePath()
         // Copy the collected trace from /data/misc/perfetto-traces/trace_output.pb to
         // destinationFile
         try {
-            val copyResult =
-                Shell.executeScriptCaptureStdoutStderr("cp $sourceFile $destinationFile")
-            if (!copyResult.isBlank()) {
-                Log.e(
-                    LOG_TAG,
-                    """
-                        Unable to copy perfetto output file from $sourceFile
-                        to $destinationFile due to $copyResult.
-                    """.trimIndent()
-                )
-                return false
-            }
+            Shell.cp(sourceFile, destinationFile)
         } catch (ioe: IOException) {
-            Log.e(
-                LOG_TAG,
-                "Unable to move the perfetto trace file to destination file.",
-                ioe
-            )
+            Log.e(LOG_TAG, "Unable to move the perfetto trace file to destination file.", ioe)
             return false
         }
         return true
@@ -381,8 +425,23 @@ public class PerfettoHelper(
         //  total kill wait must be much larger than PerfettoConfig data_source_stop_timeout_ms
         private const val PERFETTO_KILL_WAIT_COUNT = 50
 
+        // Similar to above, but shorter to reduce delays from long-running tracing when
+        // benchmarking.
+        // Note that in the 'clean' case we're not gracefully stopping a trace we care about, so we
+        // don't care about data source timeout.
+        private const val PERFETTO_KILL_WAIT_CLEAN_COUNT = 10
+
         // Check if perfetto is stopped every 100 millis.
         private const val PERFETTO_KILL_WAIT_TIME_MS: Long = 100
+
+        init {
+            check(
+                PERFETTO_KILL_WAIT_COUNT * PERFETTO_KILL_WAIT_TIME_MS >=
+                    PERFETTO_DATA_SOURCE_STOP_TIMEOUT_MS * 2
+            ) {
+                "Perfetto kill time must be significantly larger than data source stop timeout"
+            }
+        }
 
         // Path where unbundled tracebox is copied to
         private const val UNBUNDLED_PERFETTO_ROOT_DIR = "/data/local/tmp"
@@ -405,9 +464,7 @@ public class PerfettoHelper(
         }
 
         @get:TestOnly
-        val unbundledPerfettoShellPath: String by lazy {
-            createExecutable("tracebox")
-        }
+        val unbundledPerfettoShellPath: String by lazy { createExecutable("tracebox") }
 
         fun createExecutable(tool: String): String {
             inMemoryTrace("create executable: $tool") {
@@ -416,33 +473,81 @@ public class PerfettoHelper(
                         "Unsupported ABI (${Build.SUPPORTED_ABIS.joinToString()})"
                     )
                 }
-                val suffix = when {
-                    // The order is important because `SUPPORTED_64_BIT_ABIS` lists all ABI
-                    // supported by a device. That is why we need to search from most specific to
-                    // least specific. For e.g. emulators claim to support aarch64, when in reality
-                    // they can only support x86 or x86_64.
-                    Build.SUPPORTED_64_BIT_ABIS.any { it.startsWith("x86_64") } -> "x86_64"
-                    Build.SUPPORTED_32_BIT_ABIS.any { it.startsWith("x86") } -> "x86"
-                    Build.SUPPORTED_64_BIT_ABIS.any { it.startsWith("arm64") } -> "aarch64"
-                    Build.SUPPORTED_32_BIT_ABIS.any { it.startsWith("armeabi") } -> "arm"
-                    else -> IllegalStateException(
-                        // Perfetto does not support x86 binaries
-                        "Unsupported ABI (${Build.SUPPORTED_ABIS.joinToString()})"
-                    )
-                }
+                val suffix =
+                    when {
+                        // The order is important because `SUPPORTED_64_BIT_ABIS` lists all ABI
+                        // supported by a device. That is why we need to search from most specific
+                        // to
+                        // least specific. For e.g. emulators claim to support aarch64, when in
+                        // reality
+                        // they can only support x86 or x86_64.
+                        Build.SUPPORTED_64_BIT_ABIS.any { it.startsWith("x86_64") } -> "x86_64"
+                        Build.SUPPORTED_32_BIT_ABIS.any { it.startsWith("x86") } -> "x86"
+                        Build.SUPPORTED_64_BIT_ABIS.any { it.startsWith("arm64") } -> "aarch64"
+                        Build.SUPPORTED_32_BIT_ABIS.any { it.startsWith("armeabi") } -> "arm"
+                        else ->
+                            IllegalStateException(
+                                // Perfetto does not support x86 binaries
+                                "Unsupported ABI (${Build.SUPPORTED_ABIS.joinToString()})"
+                            )
+                    }
                 val instrumentation = InstrumentationRegistry.getInstrumentation()
                 val inputStream = instrumentation.context.assets.open("${tool}_$suffix")
                 return Shell.createRunnableExecutable(tool, inputStream)
             }
         }
 
-        public fun stopAllPerfettoProcesses() {
-            listOf("perfetto", "tracebox").forEach { processName ->
-                Shell.terminateProcessesAndWait(
-                    waitPollPeriodMs = PERFETTO_KILL_WAIT_TIME_MS,
-                    waitPollMaxCount = PERFETTO_KILL_WAIT_COUNT,
-                    processName
-                )
+        private val PERFETTO_COMMAND_OUTPUT_REGEX =
+            """(?<pid>\d+)(?<whitespace>\W+)?EXITCODE=(?<code>\d+)$""".toRegex()
+
+        /**
+         * Parses the output of the perfetto start command, and pulls the `exitCode` and the `pid`
+         * of the process from the output.
+         */
+        fun parsePerfettoCommandOutput(output: String): Pair<Int, Int>? {
+            val matchResult = PERFETTO_COMMAND_OUTPUT_REGEX.matchEntire(output)
+            return if (matchResult == null) {
+                null
+            } else {
+                // Using named groups requires API 26.
+                val pid = matchResult.groups[1]?.value?.toIntOrNull()
+                val exitCode = matchResult.groups[3]?.value?.toIntOrNull()
+                if (pid != null && exitCode != null) {
+                    exitCode to pid
+                } else {
+                    null
+                }
+            }
+        }
+
+        fun cleanupPerfettoState(
+            killExistingPerfettoRecordings: Boolean = Arguments.killExistingPerfettoRecordings
+        ) {
+            if (killExistingPerfettoRecordings) {
+                listOf("perfetto", "tracebox").forEach { processName ->
+                    Shell.killProcessesAndWait(
+                        processName,
+                        waitPollPeriodMs = PERFETTO_KILL_WAIT_TIME_MS,
+                        waitPollMaxCount = PERFETTO_KILL_WAIT_CLEAN_COUNT,
+                        onFailure = { errorMessage ->
+                            // Failing to kill perfetto processes we don't own is non-fatal, as
+                            // shell may not have permission to kill them
+                            Log.d(LOG_TAG, errorMessage)
+                        },
+                        processKiller = { processes ->
+                            // We log here to make this behavior/interference with the
+                            // test environment more discoverable.
+                            processes.forEach {
+                                Log.d(
+                                    LOG_TAG,
+                                    "killing existing perfetto recording:" +
+                                        " ${it.processName} (pid=${it.pid})",
+                                )
+                            }
+                            Shell.killTerm(processes)
+                        },
+                    )
+                }
             }
 
             // Have seen cases where bundled Perfetto crashes, and leaves ftrace enabled,
@@ -452,12 +557,12 @@ public class PerfettoHelper(
             // root, and unbundled tracebox otherwise not used/installed on higher APIs, outside
             // of tests.
             if (Build.VERSION.SDK_INT < MIN_BUNDLED_SDK_VERSION) {
-                val output = Shell.executeScriptCaptureStdoutStderr(
-                    "$unbundledPerfettoShellPath traced_probes --cleanup-after-crash"
-                )
+                val output =
+                    Shell.executeScriptCaptureStdoutStderr(
+                        "$unbundledPerfettoShellPath traced_probes --cleanup-after-crash"
+                    )
                 check(
-                    output.stderr.isBlank() ||
-                        output.stderr.contains("Hard resetting ftrace state")
+                    output.stderr.isBlank() || output.stderr.contains("Hard resetting ftrace state")
                 ) {
                     "Unexpected output from --cleanup-after-crash: $output"
                 }

@@ -16,7 +16,6 @@
 
 package androidx.tv.material3
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.filters.LargeTest
 import androidx.test.filters.SdkSuppress
 import androidx.test.screenshot.AndroidXScreenshotTestRule
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,19 +46,15 @@ import org.junit.runners.Parameterized
 
 @LargeTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+@SdkSuppress(minSdkVersion = 35, maxSdkVersion = 35)
 @OptIn(ExperimentalTvMaterial3Api::class)
 class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
-    @get:Rule
-    val screenshotRule = AndroidXScreenshotTestRule(TV_GOLDEN_MATERIAL3)
+    @get:Rule val screenshotRule = AndroidXScreenshotTestRule(TV_GOLDEN_MATERIAL3)
 
-    val wrapperModifier = Modifier
-        .testTag(ListItemWrapperTag)
-        .background(scheme.colorScheme.surface)
-        .padding(20.dp)
+    val wrapperModifier =
+        Modifier.testTag(ListItemWrapperTag).background(scheme.colorScheme.surface).padding(20.dp)
 
     @Test
     fun listItem_customColor() {
@@ -72,10 +68,10 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Red)
+                    colors = ListItemDefaults.colors(containerColor = Color.Red),
                 )
             }
         }
@@ -90,7 +86,7 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                 ListItem(
                     selected = false,
                     onClick = {},
-                    headlineContent = { Text("One line list item") }
+                    headlineContent = { Text("One line list item") },
                 )
             }
         }
@@ -110,9 +106,9 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
             }
         }
@@ -123,21 +119,18 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
     @Test
     fun listItem_twoLine() {
         rule.setMaterialContent(scheme.colorScheme) {
-            Column(
-                modifier = wrapperModifier,
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
+            Column(modifier = wrapperModifier, verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 ListItem(
                     selected = false,
                     onClick = {},
                     headlineContent = { Text("Two line list item") },
-                    supportingContent = { Text("Secondary text") }
+                    supportingContent = { Text("Secondary text") },
                 )
                 ListItem(
                     selected = false,
                     onClick = {},
                     headlineContent = { Text("Two line list item") },
-                    overlineContent = { Text("OVERLINE") }
+                    overlineContent = { Text("OVERLINE") },
                 )
             }
         }
@@ -148,10 +141,7 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
     @Test
     fun listItem_twoLine_withIcon() {
         rule.setMaterialContent(scheme.colorScheme) {
-            Column(
-                modifier = wrapperModifier,
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
+            Column(modifier = wrapperModifier, verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 ListItem(
                     selected = false,
                     onClick = {},
@@ -161,9 +151,9 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
                 ListItem(
                     selected = false,
@@ -174,9 +164,9 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
             }
         }
@@ -193,7 +183,7 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                     onClick = {},
                     headlineContent = { Text("Three line list item") },
                     overlineContent = { Text("OVERLINE") },
-                    supportingContent = { Text("Secondary text") }
+                    supportingContent = { Text("Secondary text") },
                 )
             }
         }
@@ -215,9 +205,9 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
             }
         }
@@ -239,16 +229,14 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
             }
         }
 
-        rule.onNodeWithTag(ListItemWrapperTag)
-            .onChild()
-            .requestFocus()
+        rule.onNodeWithTag(ListItemWrapperTag).onChild().requestFocus()
         rule.waitForIdle()
 
         assertAgainstGolden("listItem_${scheme.name}_threeLine_focused")
@@ -269,9 +257,9 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
             }
         }
@@ -294,16 +282,14 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
             }
         }
 
-        rule.onNodeWithTag(ListItemWrapperTag)
-            .onChild()
-            .requestFocus()
+        rule.onNodeWithTag(ListItemWrapperTag).onChild().requestFocus()
         rule.waitForIdle()
 
         assertAgainstGolden("listItem_${scheme.name}_threeLine_focusedDisabled")
@@ -323,9 +309,9 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
             }
         }
@@ -347,16 +333,14 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
             }
         }
 
-        rule.onNodeWithTag(ListItemWrapperTag)
-            .onChild()
-            .requestFocus()
+        rule.onNodeWithTag(ListItemWrapperTag).onChild().requestFocus()
         rule.waitForIdle()
 
         assertAgainstGolden("listItem_${scheme.name}_threeLine_focusedSelected")
@@ -376,16 +360,16 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
                         Icon(
                             imageVector = Icons.Filled.Favorite,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
                     },
                     trailingContent = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
-                            modifier = Modifier.size(ListItemDefaults.IconSize)
+                            modifier = Modifier.size(ListItemDefaults.IconSize),
                         )
-                    }
+                    },
                 )
             }
         }
@@ -394,7 +378,8 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
     }
 
     private fun assertAgainstGolden(goldenName: String) {
-        rule.onNodeWithTag(ListItemWrapperTag)
+        rule
+            .onNodeWithTag(ListItemWrapperTag)
             .captureToImage()
             .assertAgainstGolden(screenshotRule, goldenName)
     }
@@ -406,10 +391,11 @@ class ListItemScreenshotTest(private val scheme: ColorSchemeWrapper) {
         @OptIn(ExperimentalTvMaterial3Api::class)
         @Parameterized.Parameters(name = "{0}")
         @JvmStatic
-        fun parameters() = arrayOf(
-            ColorSchemeWrapper("lightTheme", lightColorScheme()),
-            ColorSchemeWrapper("darkTheme", darkColorScheme()),
-        )
+        fun parameters() =
+            arrayOf(
+                ColorSchemeWrapper("lightTheme", lightColorScheme()),
+                ColorSchemeWrapper("darkTheme", darkColorScheme()),
+            )
     }
 
     @OptIn(ExperimentalTvMaterial3Api::class)

@@ -16,15 +16,16 @@
 
 package androidx.compose.material3.benchmark
 
-import androidx.compose.material3.CaretScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.RichTooltip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.TooltipScope
 import androidx.compose.material3.TooltipState
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
@@ -41,8 +42,7 @@ import org.junit.Rule
 import org.junit.Test
 
 class TooltipBenchmark {
-    @get:Rule
-    val benchmarkRule = ComposeBenchmarkRule()
+    @get:Rule val benchmarkRule = ComposeBenchmarkRule()
 
     private val plainTooltipTestCaseFactory = { TooltipTestCase(TooltipType.Plain) }
     private val richTooltipTestCaseFactory = { TooltipTestCase(TooltipType.Rich) }
@@ -61,7 +61,7 @@ class TooltipBenchmark {
     fun plainTooltipVisibilityTest() {
         benchmarkRule.toggleStateBenchmarkComposeMeasureLayout(
             caseFactory = plainTooltipTestCaseFactory,
-            assertOneRecomposition = false
+            assertOneRecomposition = false,
         )
     }
 
@@ -69,15 +69,14 @@ class TooltipBenchmark {
     fun richTooltipVisibilityTest() {
         benchmarkRule.toggleStateBenchmarkComposeMeasureLayout(
             caseFactory = richTooltipTestCaseFactory,
-            assertOneRecomposition = false
+            assertOneRecomposition = false,
         )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-private class TooltipTestCase(
-    val tooltipType: TooltipType
-) : LayeredComposeTestCase(), ToggleableTestCase {
+private class TooltipTestCase(val tooltipType: TooltipType) :
+    LayeredComposeTestCase(), ToggleableTestCase {
     private lateinit var state: TooltipState
     private lateinit var scope: CoroutineScope
 
@@ -86,31 +85,27 @@ private class TooltipTestCase(
         state = rememberTooltipState()
         scope = rememberCoroutineScope()
 
-        val tooltip: @Composable CaretScope.() -> Unit
+        val tooltip: @Composable TooltipScope.() -> Unit
         val positionProvider: PopupPositionProvider
         when (tooltipType) {
             TooltipType.Plain -> {
                 tooltip = { PlainTooltipTest() }
-                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider()
+                positionProvider =
+                    TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above)
             }
             TooltipType.Rich -> {
                 tooltip = { RichTooltipTest() }
-                positionProvider = TooltipDefaults.rememberRichTooltipPositionProvider()
+                positionProvider =
+                    TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above)
             }
         }
 
-        TooltipBox(
-            positionProvider = positionProvider,
-            tooltip = tooltip,
-            state = state
-        ) {}
+        TooltipBox(positionProvider = positionProvider, tooltip = tooltip, state = state) {}
     }
 
     @Composable
     override fun ContentWrappers(content: @Composable () -> Unit) {
-        MaterialTheme {
-            content()
-        }
+        MaterialTheme { content() }
     }
 
     override fun toggleState() {
@@ -122,23 +117,22 @@ private class TooltipTestCase(
     }
 
     @Composable
-    private fun CaretScope.PlainTooltipTest() {
+    private fun TooltipScope.PlainTooltipTest() {
         PlainTooltip { Text("Text") }
     }
 
     @Composable
-    private fun CaretScope.RichTooltipTest() {
+    private fun TooltipScope.RichTooltipTest() {
         RichTooltip(
             title = { Text("Subhead") },
-            action = {
-                TextButton(onClick = {}) {
-                    Text(text = "Action")
-                }
-            }
-        ) { Text(text = "Text") }
+            action = { TextButton(onClick = {}) { Text(text = "Action") } },
+        ) {
+            Text(text = "Text")
+        }
     }
 }
 
 private enum class TooltipType {
-    Plain, Rich
+    Plain,
+    Rich,
 }

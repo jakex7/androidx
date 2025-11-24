@@ -32,8 +32,8 @@ import androidx.pdf.data.FutureValues.DeferredFutureValue;
 import androidx.pdf.data.FutureValues.SettableFutureValue;
 import androidx.pdf.data.FutureValues.SimpleCallback;
 import androidx.pdf.data.Supplier;
-import androidx.test.filters.SmallTest;
 
+import org.jspecify.annotations.NonNull;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -41,10 +41,10 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 
-
-@SmallTest
 @RunWith(RobolectricTestRunner.class)
+@Config(sdk = {Config.TARGET_SDK})
 public class FutureValuesTest {
 
     @Mock
@@ -78,7 +78,7 @@ public class FutureValuesTest {
                     }
 
                     @Override
-                    public void failed(Throwable thrown) {
+                    public void failed(@NonNull Throwable thrown) {
                         fail("Not expected to fail for ImmediateValue");
                     }
 
@@ -144,7 +144,7 @@ public class FutureValuesTest {
         deferredFutureValue.get(
                 new BlockingCallback<Integer>() {
                     @Override
-                    public void failed(Throwable thrown) {
+                    public void failed(@NonNull Throwable thrown) {
                         super.failed(thrown);
                         failureDetected[0] = true;
                     }
@@ -186,7 +186,7 @@ public class FutureValuesTest {
         deferredFutureValue.get(
                 new SimpleCallback<Integer>() {
                     @Override
-                    public void failed(Throwable thrown) {
+                    public void failed(@NonNull Throwable thrown) {
                         super.failed(thrown);
                         failureDetected[0] = true;
                     }

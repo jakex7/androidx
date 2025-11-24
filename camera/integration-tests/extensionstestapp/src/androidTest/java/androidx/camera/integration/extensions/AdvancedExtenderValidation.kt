@@ -24,17 +24,16 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.params.DynamicRangeProfiles
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
 import android.media.ImageReader
-import android.util.Rational
+import android.os.Build
 import android.util.Size
 import android.view.Surface
 import androidx.annotation.RequiresApi
-import androidx.camera.camera2.internal.compat.params.SessionConfigurationCompat
 import androidx.camera.core.CameraXConfig
 import androidx.camera.core.impl.CameraInfoInternal
-import androidx.camera.core.impl.utils.AspectRatioUtil
 import androidx.camera.core.impl.utils.executor.CameraXExecutors
 import androidx.camera.core.internal.utils.SizeUtil
 import androidx.camera.extensions.ExtensionsManager
@@ -45,6 +44,8 @@ import androidx.camera.extensions.impl.advanced.ImageReaderOutputConfigImpl
 import androidx.camera.extensions.impl.advanced.MultiResolutionImageReaderOutputConfigImpl
 import androidx.camera.extensions.impl.advanced.OutputSurfaceConfigurationImpl
 import androidx.camera.extensions.impl.advanced.OutputSurfaceImpl
+import androidx.camera.extensions.impl.advanced.OutputSurfaceImpl.DATASPACE_UNSPECIFIED
+import androidx.camera.extensions.impl.advanced.OutputSurfaceImpl.USAGE_UNSPECIFIED
 import androidx.camera.extensions.impl.advanced.SurfaceOutputConfigImpl
 import androidx.camera.extensions.internal.ExtensionVersion
 import androidx.camera.extensions.internal.ExtensionsUtils
@@ -53,8 +54,10 @@ import androidx.camera.integration.extensions.util.CameraXExtensionsTestUtil
 import androidx.camera.integration.extensions.util.CameraXExtensionsTestUtil.getImageCaptureSupportedResolutions
 import androidx.camera.integration.extensions.utils.CameraSelectorUtil
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.testing.impl.ExtensionsUtil.assumePcsSupportedForImageCapture
 import androidx.camera.testing.impl.fakes.FakeLifecycleOwner
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.filters.SdkSuppress
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
@@ -62,13 +65,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.junit.Assume
+import org.junit.Assume.assumeFalse
 import org.junit.Assume.assumeTrue
 
 @RequiresApi(28)
 class AdvancedExtenderValidation(
     private val cameraXConfig: CameraXConfig,
     private val cameraId: String,
-    private val extensionMode: Int
+    private val extensionMode: Int,
 ) {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private lateinit var cameraProvider: ProcessCameraProvider
@@ -78,26 +82,27 @@ class AdvancedExtenderValidation(
 
     fun setUp(): Unit = runBlocking {
         ProcessCameraProvider.configureInstance(cameraXConfig)
-        cameraProvider =
-            ProcessCameraProvider.getInstance(context)[10000, TimeUnit.MILLISECONDS]
-        extensionsManager = ExtensionsManager.getInstanceAsync(
-            context,
-            cameraProvider
-        )[10000, TimeUnit.MILLISECONDS]
+        cameraProvider = ProcessCameraProvider.getInstance(context)[10000, TimeUnit.MILLISECONDS]
+        extensionsManager = ExtensionsManager.getInstance(context, cameraProvider)
         assumeTrue(CameraXExtensionsTestUtil.isAdvancedExtenderImplemented())
         val baseCameraSelector = CameraSelectorUtil.createCameraSelectorById(cameraId)
         assumeTrue(extensionsManager.isExtensionAvailable(baseCameraSelector, extensionMode))
-        val extensionCameraSelector = extensionsManager.getExtensionEnabledCameraSelector(
-            baseCameraSelector,
-            extensionMode
-        )
-        val cameraInfo = withContext(Dispatchers.Main) {
-            cameraProvider.bindToLifecycle(FakeLifecycleOwner(), extensionCameraSelector).cameraInfo
-        }
+        val extensionCameraSelector =
+            extensionsManager.getExtensionEnabledCameraSelector(baseCameraSelector, extensionMode)
+        val cameraInfo =
+            withContext(Dispatchers.Main) {
+                cameraProvider
+                    .bindToLifecycle(FakeLifecycleOwner(), extensionCameraSelector)
+                    .cameraInfo
+            }
         cameraCharacteristicsMap =
             ExtensionsUtils.getCameraCharacteristicsMap(cameraInfo as CameraInfoInternal)
-        advancedImpl = CameraXExtensionsTestUtil
-            .createAdvancedExtenderImpl(extensionMode, cameraId, cameraInfo)
+        advancedImpl =
+            CameraXExtensionsTestUtil.createAdvancedExtenderImpl(
+                extensionMode,
+                cameraId,
+                cameraInfo,
+            )
     }
 
     private val teardownFunctions = mutableListOf<() -> Unit>()
@@ -152,12 +157,13 @@ class AdvancedExtenderValidation(
     /**
      * The following 1.4 interface methods are validated by this test.
      * <ol>
-     *   <li>AdvancedExtenderImpl#isPostviewAvailable()
-     *   <li>AdvancedExtenderImpl#getSupportedPostviewResolutions()
+     * <li>AdvancedExtenderImpl#isPostviewAvailable()
+     * <li>AdvancedExtenderImpl#getSupportedPostviewResolutions()
      * </ol>
      */
     // Test
     fun validatePostviewSupport_sinceVersion_1_4() {
+        assumePcsSupportedForImageCapture(context)
         // Runs the test only when the vendor library implementation is 1.4 or above
         assumeTrue(ExtensionVersion.getRuntimeVersion()!! >= Version.VERSION_1_4)
 
@@ -167,10 +173,10 @@ class AdvancedExtenderValidation(
         var anyPostViewSupported = false
 
         getImageCaptureSupportedResolutions(
-            advancedImpl,
-            cameraId,
-            cameraCharacteristicsMap[cameraId]!!
-        )
+                advancedImpl,
+                cameraId,
+                cameraCharacteristicsMap[cameraId]!!,
+            )
             .forEach { captureSize ->
                 anyPostViewSupported = true
                 var captureSizeSupported = false
@@ -185,14 +191,6 @@ class AdvancedExtenderValidation(
                         // The postview size be smaller than or equal to the provided capture size.
                         assertThat(SizeUtil.getArea(postviewSize))
                             .isAtMost(SizeUtil.getArea(captureSize))
-                        // The postview size must have the same aspect ratio as the given capture
-                        // size.
-                        assertThat(
-                            AspectRatioUtil.hasMatchingAspectRatio(
-                                postviewSize,
-                                Rational(captureSize.width, captureSize.height)
-                            )
-                        ).isTrue()
                     }
                 }
                 // When postview is supported for the capture size, as the javadoc description,
@@ -215,15 +213,34 @@ class AdvancedExtenderValidation(
         advancedImpl.isCaptureProcessProgressAvailable
     }
 
+    // Test
+    @SdkSuppress(minSdkVersion = 30)
+    fun validateAvailableCharacteristicsKeyValuesSupport_sinceVersion_1_5() {
+        // Runs the test only when the vendor library implementation is 1.5 or above
+        assumeTrue(ExtensionVersion.getRuntimeVersion()!! >= Version.VERSION_1_5)
+        var zoomRatioRangeFound = false
+        var afAvailableModesFound = false
+        advancedImpl.availableCharacteristicsKeyValues.forEach {
+            when (it.first) {
+                CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE -> zoomRatioRangeFound = true
+                CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES -> afAvailableModesFound = true
+            }
+        }
+        // Also checks that CONTROL_ZOOM_RATIO_RANGE and CONTROL_AF_AVAILABLE_MODES should be
+        // contained at least.
+        assertThat(zoomRatioRangeFound).isTrue()
+        assertThat(afAvailableModesFound).isTrue()
+    }
+
     enum class SizeCategory {
         MAXIMUM,
         MEDIAN,
-        MINIMUM
+        MINIMUM,
     }
 
     private fun createPreviewOutput(
         impl: AdvancedExtenderImpl,
-        sizeCategory: SizeCategory
+        sizeCategory: SizeCategory,
     ): OutputSurfaceImpl {
         val previewSizeMap = impl.getSupportedPreviewOutputResolutions(cameraId)
         assertThat(previewSizeMap[ImageFormat.PRIVATE]).isNotEmpty()
@@ -233,45 +250,35 @@ class AdvancedExtenderValidation(
         val surfaceTexture = SurfaceTexture(0)
         surfaceTexture.setDefaultBufferSize(previewSize.width, previewSize.height)
         val previewSurface = Surface(surfaceTexture)
-        addTearDown {
-            surfaceTexture.release()
-        }
+        addTearDown { surfaceTexture.release() }
         return OutputSurface(previewSurface, previewSize, ImageFormat.PRIVATE)
     }
 
     private fun createCaptureOutput(
         impl: AdvancedExtenderImpl,
-        sizeCategory: SizeCategory
+        sizeCategory: SizeCategory,
     ): OutputSurfaceImpl {
         val captureSizeMap = impl.getSupportedCaptureOutputResolutions(cameraId)
         assertThat(captureSizeMap[ImageFormat.JPEG]).isNotEmpty()
 
         val captureSizes = captureSizeMap[ImageFormat.JPEG]!!
         var captureSize = getSizeByClass(captureSizes, sizeCategory)
-        val imageReader = ImageReader.newInstance(
-            captureSize.width, captureSize.height, ImageFormat.JPEG, 1
-        )
-        addTearDown {
-            imageReader.close()
-        }
+        val imageReader =
+            ImageReader.newInstance(captureSize.width, captureSize.height, ImageFormat.JPEG, 1)
+        addTearDown { imageReader.close() }
         return OutputSurface(imageReader.surface, captureSize, ImageFormat.JPEG)
     }
 
-    private fun getSizeByClass(
-        sizes: List<Size>,
-        sizeCategory: SizeCategory
-    ): Size {
+    private fun getSizeByClass(sizes: List<Size>, sizeCategory: SizeCategory): Size {
         val sortedList = sizes.sortedByDescending { it.width * it.height }
         var size =
             when (sizeCategory) {
                 SizeCategory.MAXIMUM -> {
                     sortedList[0]
                 }
-
                 SizeCategory.MEDIAN -> {
                     sortedList[sortedList.size / 2]
                 }
-
                 SizeCategory.MINIMUM -> {
                     sortedList[sortedList.size - 1]
                 }
@@ -281,75 +288,70 @@ class AdvancedExtenderValidation(
 
     private fun createAnalysisOutput(
         impl: AdvancedExtenderImpl,
-        sizeCategory: SizeCategory
+        sizeCategory: SizeCategory,
     ): OutputSurfaceImpl? {
         val analysisSizes = impl.getSupportedYuvAnalysisResolutions(cameraId) ?: return null
         assertThat(analysisSizes).isNotEmpty()
 
         var analysisSize = getSizeByClass(analysisSizes, sizeCategory)
-        val imageReader = ImageReader.newInstance(
-            analysisSize.width, analysisSize.height, ImageFormat.YUV_420_888, 1
-        )
-        addTearDown {
-            imageReader.close()
-        }
+        val imageReader =
+            ImageReader.newInstance(
+                analysisSize.width,
+                analysisSize.height,
+                ImageFormat.YUV_420_888,
+                1,
+            )
+        addTearDown { imageReader.close() }
         return OutputSurface(imageReader.surface, analysisSize, ImageFormat.YUV_420_888)
     }
 
     private fun createPostviewOutput(
         impl: AdvancedExtenderImpl,
-        captureSize: Size
+        captureSize: Size,
     ): OutputSurfaceImpl {
         val postviewSize =
             impl.getSupportedPostviewResolutions(captureSize)[ImageFormat.YUV_420_888]!![0]
 
-        val postviewImageReader = ImageReader.newInstance(
-            postviewSize.width, postviewSize.height, ImageFormat.YUV_420_888, 1
-        )
-        addTearDown {
-            postviewImageReader.close()
-        }
+        val postviewImageReader =
+            ImageReader.newInstance(
+                postviewSize.width,
+                postviewSize.height,
+                ImageFormat.YUV_420_888,
+                1,
+            )
+        addTearDown { postviewImageReader.close() }
         return OutputSurface(postviewImageReader.surface, captureSize, ImageFormat.YUV_420_888)
     }
 
     // Test
-    fun initSession_maxSize_canConfigureSession() = initSessionTest(
-        previewOutputSizeCategory = SizeCategory.MAXIMUM,
-        captureOutputSizeCategory = SizeCategory.MAXIMUM
-    )
+    fun initSession_maxSize_canConfigureSession() =
+        initSessionTest(
+            previewOutputSizeCategory = SizeCategory.MAXIMUM,
+            captureOutputSizeCategory = SizeCategory.MAXIMUM,
+        )
 
     // Test
-    fun initSession_minSize_canConfigureSession() = initSessionTest(
-        previewOutputSizeCategory = SizeCategory.MINIMUM,
-        captureOutputSizeCategory = SizeCategory.MINIMUM
-    )
+    fun initSession_minSize_canConfigureSession() {
+        // The test can run failed on the device. The selected resolution for Preview and
+        // ImageCapture is 176x144. Since apps should rarely use such small resolution, just ignore
+        // the test for the device.
+        assumeFalse(
+            "samsung".equals(Build.BRAND, /* ignoreCase= */ true) &&
+                "sm-g998u1".equals(Build.MODEL, /* ignoreCase= */ true)
+        )
+
+        initSessionTest(
+            previewOutputSizeCategory = SizeCategory.MINIMUM,
+            captureOutputSizeCategory = SizeCategory.MINIMUM,
+        )
+    }
 
     // Test
-    fun initSession_medianSize_canConfigureSession() = initSessionTest(
-        previewOutputSizeCategory = SizeCategory.MEDIAN,
-        captureOutputSizeCategory = SizeCategory.MEDIAN
-    )
-
-    // Test
-    fun initSessionWithAnalysis_maxSize_canConfigureSession() = initSessionTest(
-        previewOutputSizeCategory = SizeCategory.MAXIMUM,
-        captureOutputSizeCategory = SizeCategory.MAXIMUM,
-        analysisOutputSizeCategory = SizeCategory.MAXIMUM
-    )
-
-    // Test
-    fun initSessionWithAnalysis_minSize_canConfigureSession() = initSessionTest(
-        previewOutputSizeCategory = SizeCategory.MINIMUM,
-        captureOutputSizeCategory = SizeCategory.MINIMUM,
-        analysisOutputSizeCategory = SizeCategory.MINIMUM
-    )
-
-    // Test
-    fun initSessionWithAnalysis_medianSize_canConfigureSession() = initSessionTest(
-        previewOutputSizeCategory = SizeCategory.MEDIAN,
-        captureOutputSizeCategory = SizeCategory.MEDIAN,
-        analysisOutputSizeCategory = SizeCategory.MEDIAN
-    )
+    fun initSession_medianSize_canConfigureSession() =
+        initSessionTest(
+            previewOutputSizeCategory = SizeCategory.MEDIAN,
+            captureOutputSizeCategory = SizeCategory.MEDIAN,
+        )
 
     // Test
     fun initSessionWithOutputSurfaceConfigurationImpl_maxSize_canConfigureSession() {
@@ -359,7 +361,7 @@ class AdvancedExtenderValidation(
             previewOutputSizeCategory = SizeCategory.MAXIMUM,
             captureOutputSizeCategory = SizeCategory.MAXIMUM,
             enablePostview = advancedImpl.isPostviewAvailable,
-            useOutputSurfaceConfigurationImpl = true
+            useOutputSurfaceConfigurationImpl = true,
         )
     }
 
@@ -367,10 +369,11 @@ class AdvancedExtenderValidation(
     fun validateSessionTypeSupport_sinceVersion_1_4() {
         // Runs the test only when the vendor library implementation is 1.4 or above
         assumeTrue(ExtensionVersion.getRuntimeVersion()!! >= Version.VERSION_1_4)
-        val camera2SessionConfigImpl = initSession(
-            previewOutputSizeCategory = SizeCategory.MAXIMUM,
-            captureOutputSizeCategory = SizeCategory.MAXIMUM
-        )
+        val camera2SessionConfigImpl =
+            initSession(
+                previewOutputSizeCategory = SizeCategory.MAXIMUM,
+                captureOutputSizeCategory = SizeCategory.MAXIMUM,
+            )
         // getSessionType is allowed to return any OEM customized session type, therefore, we can
         // only try to invoke this method to make sure that this method correctly exists in the
         // vendor library implementation.
@@ -381,12 +384,13 @@ class AdvancedExtenderValidation(
     fun validateSessionTypeSupportWithOutputSurfaceConfigurationImpl_sinceVersion_1_4() {
         // Runs the test only when the vendor library implementation is 1.4 or above
         assumeTrue(ExtensionVersion.getRuntimeVersion()!! >= Version.VERSION_1_4)
-        val camera2SessionConfigImpl = initSession(
-            previewOutputSizeCategory = SizeCategory.MAXIMUM,
-            captureOutputSizeCategory = SizeCategory.MAXIMUM,
-            enablePostview = advancedImpl.isPostviewAvailable,
-            useOutputSurfaceConfigurationImpl = true
-        )
+        val camera2SessionConfigImpl =
+            initSession(
+                previewOutputSizeCategory = SizeCategory.MAXIMUM,
+                captureOutputSizeCategory = SizeCategory.MAXIMUM,
+                enablePostview = advancedImpl.isPostviewAvailable,
+                useOutputSurfaceConfigurationImpl = true,
+            )
         // getSessionType is allowed to return any OEM customized session type, therefore, we can
         // only try to invoke this method to make sure that this method correctly exists in the
         // vendor library implementation.
@@ -398,15 +402,16 @@ class AdvancedExtenderValidation(
         captureOutputSizeCategory: SizeCategory,
         analysisOutputSizeCategory: SizeCategory? = null,
         enablePostview: Boolean = false,
-        useOutputSurfaceConfigurationImpl: Boolean = false
+        useOutputSurfaceConfigurationImpl: Boolean = false,
     ): Unit = runBlocking {
-        val camera2SessionConfigImpl = initSession(
-            previewOutputSizeCategory,
-            captureOutputSizeCategory,
-            analysisOutputSizeCategory,
-            enablePostview,
-            useOutputSurfaceConfigurationImpl
-        )
+        val camera2SessionConfigImpl =
+            initSession(
+                previewOutputSizeCategory,
+                captureOutputSizeCategory,
+                analysisOutputSizeCategory,
+                enablePostview,
+                useOutputSurfaceConfigurationImpl,
+            )
 
         verifyCamera2SessionConfig(camera2SessionConfigImpl)
     }
@@ -416,7 +421,7 @@ class AdvancedExtenderValidation(
         captureOutputSizeCategory: SizeCategory,
         analysisOutputSizeCategory: SizeCategory? = null,
         enablePostview: Boolean = false,
-        useOutputSurfaceConfigurationImpl: Boolean = false
+        useOutputSurfaceConfigurationImpl: Boolean = false,
     ): Camera2SessionConfigImpl {
         if (analysisOutputSizeCategory != null) {
             Assume.assumeFalse(
@@ -427,13 +432,12 @@ class AdvancedExtenderValidation(
         val sessionProcessor = advancedImpl.createSessionProcessor()
         val previewOutput = createPreviewOutput(advancedImpl, previewOutputSizeCategory)
         val captureOutput = createCaptureOutput(advancedImpl, captureOutputSizeCategory)
-        val analysisOutput = analysisOutputSizeCategory?.let {
-            createAnalysisOutput(advancedImpl, analysisOutputSizeCategory)
-        }
+        val analysisOutput =
+            analysisOutputSizeCategory?.let {
+                createAnalysisOutput(advancedImpl, analysisOutputSizeCategory)
+            }
 
-        addTearDown {
-            sessionProcessor.deInitSession()
-        }
+        addTearDown { sessionProcessor.deInitSession() }
 
         return if (!useOutputSurfaceConfigurationImpl) {
             sessionProcessor.initSession(
@@ -442,25 +446,27 @@ class AdvancedExtenderValidation(
                 context,
                 previewOutput,
                 captureOutput,
-                analysisOutput
+                analysisOutput,
             )
         } else {
-            val postviewOutput = if (enablePostview) {
-                createPostviewOutput(advancedImpl, captureOutput.size)
-            } else {
-                null
-            }
-            val outputSurfaceConfigurationImpl = OutputSurfaceConfigurationImplAdapter(
-                previewOutput,
-                captureOutput,
-                analysisOutput,
-                postviewOutput
-            )
+            val postviewOutput =
+                if (enablePostview) {
+                    createPostviewOutput(advancedImpl, captureOutput.size)
+                } else {
+                    null
+                }
+            val outputSurfaceConfigurationImpl =
+                OutputSurfaceConfigurationImplAdapter(
+                    previewOutput,
+                    captureOutput,
+                    analysisOutput,
+                    postviewOutput,
+                )
             sessionProcessor.initSession(
                 cameraId,
                 cameraCharacteristicsMap,
                 context,
-                outputSurfaceConfigurationImpl
+                outputSurfaceConfigurationImpl,
             )
         }
     }
@@ -468,11 +474,25 @@ class AdvancedExtenderValidation(
     private class OutputSurface(
         private val surface: Surface,
         private val size: Size,
-        private val imageFormat: Int
+        private val imageFormat: Int,
     ) : OutputSurfaceImpl {
         override fun getSurface() = surface
+
         override fun getSize() = size
+
         override fun getImageFormat() = imageFormat
+
+        override fun getDataspace(): Int {
+            return DATASPACE_UNSPECIFIED
+        }
+
+        override fun getUsage(): Long {
+            return USAGE_UNSPECIFIED
+        }
+
+        override fun getDynamicRangeProfile(): Long {
+            return DynamicRangeProfiles.STANDARD
+        }
     }
 
     private fun getOutputConfiguration(
@@ -484,27 +504,26 @@ class AdvancedExtenderValidation(
                 val surface = outputConfigImpl.surface
                 outputConfiguration = OutputConfiguration(outputConfigImpl.surfaceGroupId, surface)
             }
-
             is ImageReaderOutputConfigImpl -> {
-                val imageReader = ImageReader.newInstance(
-                    outputConfigImpl.size.width,
-                    outputConfigImpl.size.height,
-                    outputConfigImpl.imageFormat,
-                    outputConfigImpl.maxImages
-                )
+                val imageReader =
+                    ImageReader.newInstance(
+                        outputConfigImpl.size.width,
+                        outputConfigImpl.size.height,
+                        outputConfigImpl.imageFormat,
+                        outputConfigImpl.maxImages,
+                    )
                 val surface = imageReader.surface
                 addTearDown { imageReader.close() }
                 outputConfiguration = OutputConfiguration(outputConfigImpl.surfaceGroupId, surface)
             }
-
             is MultiResolutionImageReaderOutputConfigImpl ->
                 throw java.lang.UnsupportedOperationException(
                     "MultiResolutionImageReaderOutputConfigImpl not supported"
                 )
-
-            else -> throw java.lang.UnsupportedOperationException(
-                "Output configuration type not supported"
-            )
+            else ->
+                throw java.lang.UnsupportedOperationException(
+                    "Output configuration type not supported"
+                )
         }
 
         if (outputConfigImpl.physicalCameraId != null) {
@@ -542,13 +561,14 @@ class AdvancedExtenderValidation(
                         RuntimeException("Camera onError(error=$cameraDevice)")
                     )
                 }
-            })
+            },
+        )
         return deferred.await()
     }
 
     private suspend fun openCaptureSession(
         cameraDevice: CameraDevice,
-        camera2SessionConfig: Camera2SessionConfigImpl
+        camera2SessionConfig: Camera2SessionConfigImpl,
     ): CameraCaptureSession {
 
         val outputConfigurationList = mutableListOf<OutputConfiguration>()
@@ -558,37 +578,33 @@ class AdvancedExtenderValidation(
         }
 
         val sessionDeferred = CompletableDeferred<CameraCaptureSession>()
-        val sessionConfiguration = SessionConfiguration(
-            SessionConfigurationCompat.SESSION_REGULAR,
-            outputConfigurationList,
-            CameraXExecutors.ioExecutor(),
-            object : CameraCaptureSession.StateCallback() {
-                override fun onConfigured(session: CameraCaptureSession) {
-                    sessionDeferred.complete(session)
-                }
+        val sessionConfiguration =
+            SessionConfiguration(
+                SessionConfiguration.SESSION_REGULAR,
+                outputConfigurationList,
+                CameraXExecutors.ioExecutor(),
+                object : CameraCaptureSession.StateCallback() {
+                    override fun onConfigured(session: CameraCaptureSession) {
+                        sessionDeferred.complete(session)
+                    }
 
-                override fun onConfigureFailed(session: CameraCaptureSession) {
-                    sessionDeferred.completeExceptionally(RuntimeException("onConfigureFailed"))
-                }
+                    override fun onConfigureFailed(session: CameraCaptureSession) {
+                        sessionDeferred.completeExceptionally(RuntimeException("onConfigureFailed"))
+                    }
 
-                override fun onReady(session: CameraCaptureSession) {
-                }
+                    override fun onReady(session: CameraCaptureSession) {}
 
-                override fun onActive(session: CameraCaptureSession) {
-                }
+                    override fun onActive(session: CameraCaptureSession) {}
 
-                override fun onCaptureQueueEmpty(session: CameraCaptureSession) {
-                }
-            }
-        )
+                    override fun onCaptureQueueEmpty(session: CameraCaptureSession) {}
+                },
+            )
 
-        val requestBuilder = cameraDevice.createCaptureRequest(
-            camera2SessionConfig.sessionTemplateId
-        )
+        val requestBuilder =
+            cameraDevice.createCaptureRequest(camera2SessionConfig.sessionTemplateId)
 
         camera2SessionConfig.sessionParameters.forEach { (key, value) ->
-            @Suppress("UNCHECKED_CAST")
-            requestBuilder.set(key as CaptureRequest.Key<Any>, value)
+            @Suppress("UNCHECKED_CAST") requestBuilder.set(key as CaptureRequest.Key<Any>, value)
         }
         sessionConfiguration.sessionParameters = requestBuilder.build()
 
@@ -610,7 +626,7 @@ class AdvancedExtenderValidation(
         private val previewOutputSurface: OutputSurfaceImpl,
         private val captureOutputSurface: OutputSurfaceImpl,
         private val analysisOutputSurface: OutputSurfaceImpl?,
-        private val postviewOutputSurface: OutputSurfaceImpl?
+        private val postviewOutputSurface: OutputSurfaceImpl?,
     ) : OutputSurfaceConfigurationImpl {
         override fun getPreviewOutputSurface(): OutputSurfaceImpl {
             return previewOutputSurface

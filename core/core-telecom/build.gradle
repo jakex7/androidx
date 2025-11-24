@@ -21,39 +21,40 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.LibraryType
+import androidx.build.SoftwareType
 
 plugins {
     id("AndroidXPlugin")
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.experimental.built-in-kotlin")
 }
 
 dependencies {
     // core-telecom dependencies
-    api(libs.kotlinStdlib)
     api(libs.guavaListenableFuture)
-    implementation("androidx.annotation:annotation:1.4.0")
-    // @OptIn annotations
-    api("androidx.annotation:annotation-experimental:1.4.0")
-    implementation("androidx.core:core:1.9.0")
-    implementation(libs.kotlinCoroutinesCore)
-    implementation(libs.kotlinCoroutinesGuava)
+    implementation("androidx.annotation:annotation:1.9.0") // OptIn, RestrictTo, etc.
+    implementation("androidx.core:core:1.13.1")
+    implementation(libs.kotlinCoroutinesCore) // launch, async, etc.
+    implementation("androidx.lifecycle:lifecycle-service:2.8.1")
     // Test dependencies
     androidTestImplementation(project(":internal-testutils-common"))
-    androidTestImplementation(libs.kotlinStdlib)
+    androidTestImplementation(libs.androidx.annotation)
     androidTestImplementation(libs.testExtJunit)
     androidTestImplementation(libs.testCore)
     androidTestImplementation(libs.testRunner)
     androidTestImplementation(libs.testRules)
     androidTestImplementation(libs.truth)
     androidTestImplementation(libs.espressoCore)
-    androidTestImplementation(libs.multidex)
     androidTestImplementation(libs.kotlinCoroutinesTest)
+    androidTestImplementation "org.jetbrains.kotlin:kotlin-test:2.2.10"
 }
 
 android {
-    namespace "androidx.core.telecom"
+    compileSdk = 36
+    compileSdkMinor = 1
+    namespace = "androidx.core.telecom"
+    compileSdk = 36
+    compileSdkMinor = 1
     buildFeatures {
         aidl = true
     }
@@ -61,9 +62,8 @@ android {
 
 androidx {
     name = "androidx.core:core-telecom"
-    type = LibraryType.PUBLISHED_LIBRARY
+    type = SoftwareType.PUBLISHED_LIBRARY
     mavenVersion = LibraryVersions.CORE_TELECOM
     inceptionYear = "2023"
     description = "Integrate VoIP calls with the Telecom framework."
-    metalavaK2UastEnabled = true
 }

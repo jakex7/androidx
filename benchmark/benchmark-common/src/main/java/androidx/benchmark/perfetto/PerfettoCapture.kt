@@ -23,6 +23,9 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RestrictTo
 import androidx.benchmark.Outputs
 import androidx.benchmark.Shell
+import androidx.benchmark.ShellFile
+import androidx.benchmark.UserFile
+import androidx.benchmark.UserInfo
 import androidx.benchmark.inMemoryTrace
 import androidx.benchmark.perfetto.PerfettoCapture.PerfettoSdkConfig.InitialProcessState
 import androidx.benchmark.perfetto.PerfettoHelper.Companion.isAbiSupported
@@ -37,12 +40,8 @@ import androidx.tracing.perfetto.handshake.protocol.ResponseResultCodes.RESULT_C
 import java.io.File
 import java.io.StringReader
 
-/**
- * Enables capturing a Perfetto trace
- *
- */
+/** Enables capturing a Perfetto trace */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-@RequiresApi(23)
 public class PerfettoCapture(
     /**
      * Bundled is available above API 28, but we default to using unbundled as well on API 29, as
@@ -55,43 +54,44 @@ public class PerfettoCapture(
 
     fun isRunning() = helper.isRunning()
 
-    /**
-     * Start collecting perfetto trace.
-     */
-    fun start(config: PerfettoConfig) = inMemoryTrace("start perfetto") {
-        // Write config proto to dir that shell can read
-        //     We use `.pb` even with textproto so we'll only ever have one file
-        val configProtoFile = File(Outputs.dirUsableByAppAndShell, "trace_config.pb")
-        try {
-            inMemoryTrace("write config") {
-                config.writeTo(configProtoFile)
-                if (Outputs.forceFilesForShellAccessible) {
-                    configProtoFile.setReadable(true, /* ownerOnly = */ false)
+    /** Start collecting perfetto trace. */
+    fun start(config: PerfettoConfig) =
+        inMemoryTrace("start perfetto") {
+            // Write config proto to dir that shell can read
+            //     We use `.pb` even with textproto so we'll only ever have one file
+            val configProtoFile =
+                if (UserInfo.currentUserId > 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    ShellFile.inTempDir("trace_config.pb")
+                } else {
+                    UserFile.inOutputsDir("trace_config.pb")
                 }
+
+            try {
+                inMemoryTrace("write config") { config.writeTo(configProtoFile) }
+                inMemoryTrace("start perfetto process") {
+                    helper.startCollecting(configProtoFile.absolutePath, config.isTextProto)
+                }
+            } finally {
+                configProtoFile.delete()
             }
-            inMemoryTrace("start perfetto process") {
-                helper.startCollecting(configProtoFile.absolutePath, config.isTextProto)
-            }
-        } finally {
-            configProtoFile.delete()
         }
-    }
 
     /**
      * Stop collection, and record trace to the specified file path.
      *
-     * @param destinationPath Absolute path to write perfetto trace to. Must be shell-writable,
-     * such as result of `context.getExternalFilesDir(null)` or other similar `external` paths.
+     * @param destinationPath Absolute path to write perfetto trace to. Must be shell-writable, such
+     *   as result of `context.getExternalFilesDir(null)` or other similar `external` paths.
      */
-    public fun stop(destinationPath: String) = inMemoryTrace("stop perfetto") {
-        helper.stopCollecting(destinationPath)
-    }
+    public fun stop(destinationPath: String, inMemoryTracingLabel: String?) =
+        inMemoryTrace("stop perfetto") {
+            helper.stopCollecting(destinationPath, inMemoryTracingLabel)
+        }
 
     /**
      * Enables Perfetto SDK tracing in the [PerfettoSdkConfig.targetPackage]
      *
-     * @return a pair of [androidx.tracing.perfetto.handshake.protocol.ResultCode] and
-     * a user-friendly message explaining the code
+     * @return a pair of [androidx.tracing.perfetto.handshake.protocol.ResultCode] and a
+     *   user-friendly message explaining the code
      */
     @RequiresApi(30) // TODO(234351579): Support API < 30
     @CheckResult
@@ -99,11 +99,7 @@ public class PerfettoCapture(
         enableAndroidxTracingPerfetto(
             targetPackage = config.targetPackage,
             provideBinariesIfMissing = config.provideBinariesIfMissing,
-            isColdStartupTracing = when (config.processState) {
-                InitialProcessState.Alive -> false
-                InitialProcessState.NotAlive -> true
-                InitialProcessState.Unknown -> Shell.isPackageAlive(config.targetPackage)
-            }
+            isColdStartupTracing = config.launchWouldBeCold(),
         )
 
     @RequiresApi(30) // TODO(234351579): Support API < 30
@@ -111,91 +107,101 @@ public class PerfettoCapture(
     /**
      * Enables Perfetto SDK tracing in the [PerfettoSdkConfig.targetPackage]
      *
-     * @return a pair of [androidx.tracing.perfetto.handshake.protocol.ResultCode] and
-     * a user-friendly message explaining the code
+     * @return a pair of [androidx.tracing.perfetto.handshake.protocol.ResultCode] and a
+     *   user-friendly message explaining the code
      */
     private fun enableAndroidxTracingPerfetto(
         targetPackage: String,
         provideBinariesIfMissing: Boolean,
-        isColdStartupTracing: Boolean
+        isColdStartupTracing: Boolean,
     ): Pair<Int, String> {
         if (!isAbiSupported()) {
             throw IllegalStateException("Unsupported ABI (${Build.SUPPORTED_ABIS.joinToString()})")
         }
 
         // construct a handshake
-        val handshake = PerfettoSdkHandshake(
-            targetPackage = targetPackage,
-            parseJsonMap = { jsonString: String ->
-                sequence {
-                    JsonReader(StringReader(jsonString)).use { reader ->
-                        reader.beginObject()
-                        while (reader.hasNext()) yield(reader.nextName() to reader.nextString())
-                        reader.endObject()
-                    }
-                }.toMap()
-            },
-            executeShellCommand = { cmd ->
-                val (stdout, stderr) = Shell.executeScriptCaptureStdoutStderr(cmd)
-                listOf(stdout, stderr).filter { it.isNotBlank() }.joinToString(
-                    separator = System.lineSeparator()
-                )
-            }
-        )
+        val handshake =
+            PerfettoSdkHandshake(
+                targetPackage = targetPackage,
+                parseJsonMap = { jsonString: String ->
+                    sequence {
+                            JsonReader(StringReader(jsonString)).use { reader ->
+                                reader.beginObject()
+                                while (reader.hasNext()) yield(
+                                    reader.nextName() to reader.nextString()
+                                )
+                                reader.endObject()
+                            }
+                        }
+                        .toMap()
+                },
+                executeShellCommand = { cmd ->
+                    val (stdout, stderr) = Shell.executeScriptCaptureStdoutStderr(cmd)
+                    listOf(stdout, stderr)
+                        .filter { it.isNotBlank() }
+                        .joinToString(separator = System.lineSeparator())
+                },
+            )
 
         // try without supplying external Perfetto SDK tracing binaries
-        val responseNoSideloading = if (isColdStartupTracing) {
-            handshake.enableTracingColdStart()
-        } else {
-            handshake.enableTracingImmediate()
-        }
+        val responseNoSideloading =
+            if (isColdStartupTracing) {
+                handshake.enableTracingColdStart()
+            } else {
+                handshake.enableTracingImmediate()
+            }
 
         // if required, retry by supplying external Perfetto SDK tracing binaries
-        val response = if (responseNoSideloading.resultCode == RESULT_CODE_ERROR_BINARY_MISSING &&
-            provideBinariesIfMissing
-        ) {
-            val librarySource = constructLibrarySource()
-            if (isColdStartupTracing) {
-                // do not support persistent for now
-                handshake.enableTracingColdStart(persistent = false, librarySource)
+        val response =
+            if (
+                responseNoSideloading.resultCode == RESULT_CODE_ERROR_BINARY_MISSING &&
+                    provideBinariesIfMissing
+            ) {
+                val librarySource = constructLibrarySource()
+                if (isColdStartupTracing) {
+                    // do not support persistent for now
+                    handshake.enableTracingColdStart(persistent = false, librarySource)
+                } else {
+                    handshake.enableTracingImmediate(librarySource)
+                }
             } else {
-                handshake.enableTracingImmediate(librarySource)
+                // no retry
+                responseNoSideloading
             }
-        } else {
-            // no retry
-            responseNoSideloading
-        }
 
         // process the response
-        val message = when (response.resultCode) {
-            0 -> "The broadcast to enable tracing was not received. This most likely means " +
-                "that the app does not contain the `androidx.tracing.tracing-perfetto` " +
-                "library as its dependency."
-            RESULT_CODE_SUCCESS -> "Success"
-            RESULT_CODE_ALREADY_ENABLED -> "Perfetto SDK already enabled."
-            RESULT_CODE_ERROR_BINARY_MISSING ->
-                binaryMissingResponseString(response.requiredVersion, response.message)
-            RESULT_CODE_ERROR_BINARY_VERSION_MISMATCH ->
-                "Perfetto SDK binary mismatch. " +
-                    "Required version: ${response.requiredVersion}. " +
-                    "Error: ${response.message}."
-            RESULT_CODE_ERROR_BINARY_VERIFICATION_ERROR ->
-                "Perfetto SDK binary verification failed. " +
-                    "Required version: ${response.requiredVersion}. " +
-                    "Error: ${response.message}. " +
-                    "If working with an unreleased snapshot, ensure all modules are built " +
-                    "against the same snapshot (e.g. clear caches and rebuild)."
-            RESULT_CODE_ERROR_OTHER ->
-                if (responseNoSideloading.resultCode == RESULT_CODE_ERROR_BINARY_MISSING) {
-                    binaryMissingResponseString(
-                        responseNoSideloading.requiredVersion,
-                        response.message // note: we're using the error from the sideloading attempt
-                    )
-                } else {
-                    "Error: ${response.message}."
-                }
-            else -> throw RuntimeException("Unrecognized result code: ${response.resultCode}.")
-        }
+        val message =
+            when (response.resultCode) {
+                0 ->
+                    "The broadcast to enable tracing was not received. This most likely means " +
+                        "that the app does not contain the `androidx.tracing.tracing-perfetto` " +
+                        "library as its dependency."
+                RESULT_CODE_SUCCESS -> "Success"
+                RESULT_CODE_ALREADY_ENABLED -> "Perfetto SDK already enabled."
+                RESULT_CODE_ERROR_BINARY_MISSING ->
+                    binaryMissingResponseString(response.requiredVersion, response.message)
+                RESULT_CODE_ERROR_BINARY_VERSION_MISMATCH ->
+                    "Perfetto SDK binary mismatch. " +
+                        "Required version: ${response.requiredVersion}. " +
+                        "Error: ${response.message}."
+                RESULT_CODE_ERROR_BINARY_VERIFICATION_ERROR ->
+                    "Perfetto SDK binary verification failed. " +
+                        "Required version: ${response.requiredVersion}. " +
+                        "Error: ${response.message}. " +
+                        "If working with an unreleased snapshot, ensure all modules are built " +
+                        "against the same snapshot (e.g. clear caches and rebuild)."
+                RESULT_CODE_ERROR_OTHER ->
+                    if (responseNoSideloading.resultCode == RESULT_CODE_ERROR_BINARY_MISSING) {
+                        binaryMissingResponseString(
+                            responseNoSideloading.requiredVersion,
+                            response
+                                .message, // note: we're using the error from the sideloading attempt
+                        )
+                    } else {
+                        "Error: ${response.message}."
+                    }
+                else -> throw RuntimeException("Unrecognized result code: ${response.resultCode}.")
+            }
         return response.resultCode to message
     }
 
@@ -209,26 +215,30 @@ public class PerfettoCapture(
             "\"androidx.tracing:tracing-perfetto-binary:$requiredVersion\")"
 
     private fun constructLibrarySource(): PerfettoSdkHandshake.LibrarySource {
-        val baseApk = File(
-            InstrumentationRegistry.getInstrumentation().context.applicationInfo.publicSourceDir!!
-        )
+        val baseApk =
+            File(
+                InstrumentationRegistry.getInstrumentation()
+                    .context
+                    .applicationInfo
+                    .publicSourceDir!!
+            )
 
         val mvTmpFileDstFile = { srcFile: File, dstFile: File ->
-            Shell.executeScriptSilent("mkdir -p ${dstFile.parentFile!!.path}")
-            Shell.executeScriptSilent("mv ${srcFile.path} ${dstFile.path}")
+            Shell.mkdir(dstFile.parentFile!!.path)
+            Shell.mv(srcFile.path, dstFile.path)
         }
 
         return PerfettoSdkHandshake.LibrarySource.apkLibrarySource(
             baseApk,
             Outputs.dirUsableByAppAndShell,
-            mvTmpFileDstFile
+            mvTmpFileDstFile,
         )
     }
 
     class PerfettoSdkConfig(
         val targetPackage: String,
         val processState: InitialProcessState,
-        val provideBinariesIfMissing: Boolean = true
+        val provideBinariesIfMissing: Boolean = true,
     ) {
         /** State of process before tracing begins. */
         enum class InitialProcessState {
@@ -239,7 +249,19 @@ public class PerfettoCapture(
             Alive,
 
             /** trigger cold start vs running tracing based on a check if process is alive */
-            Unknown
+            Unknown,
+        }
+
+        /**
+         * Returns true if the target package is not running, and thus will require a cold start
+         * tracing handshake
+         */
+        fun launchWouldBeCold(): Boolean {
+            return when (processState) {
+                InitialProcessState.NotAlive -> true
+                InitialProcessState.Alive -> false
+                InitialProcessState.Unknown -> !Shell.isPackageAlive(targetPackage)
+            }
         }
     }
 }

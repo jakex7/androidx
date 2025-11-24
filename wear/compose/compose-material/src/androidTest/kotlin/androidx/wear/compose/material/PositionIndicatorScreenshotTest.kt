@@ -16,7 +16,6 @@
 
 package androidx.wear.compose.material
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.testutils.assertAgainstGolden
@@ -32,6 +31,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
 import androidx.test.filters.SdkSuppress
 import androidx.test.screenshot.AndroidXScreenshotTestRule
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestName
@@ -39,17 +39,14 @@ import org.junit.runner.RunWith
 
 @MediumTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+@SdkSuppress(minSdkVersion = 35, maxSdkVersion = 35)
 class PositionIndicatorScreenshotTest {
 
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
-    @get:Rule
-    val screenshotRule = AndroidXScreenshotTestRule(SCREENSHOT_GOLDEN_PATH)
+    @get:Rule val screenshotRule = AndroidXScreenshotTestRule(SCREENSHOT_GOLDEN_PATH)
 
-    @get:Rule
-    val testName = TestName()
+    @get:Rule val testName = TestName()
 
     @Test
     fun left_position_indicator() =
@@ -57,7 +54,7 @@ class PositionIndicatorScreenshotTest {
             position = PositionIndicatorAlignment.Left,
             value = 0.2f,
             ltr = true,
-            goldenIdentifier = testName.methodName
+            goldenIdentifier = testName.methodName,
         )
 
     @Test
@@ -66,7 +63,7 @@ class PositionIndicatorScreenshotTest {
             position = PositionIndicatorAlignment.Left,
             value = 0.4f,
             ltr = false,
-            goldenIdentifier = testName.methodName
+            goldenIdentifier = testName.methodName,
         )
 
     @Test
@@ -75,7 +72,7 @@ class PositionIndicatorScreenshotTest {
             position = PositionIndicatorAlignment.Right,
             value = 0.3f,
             ltr = true,
-            goldenIdentifier = testName.methodName
+            goldenIdentifier = testName.methodName,
         )
 
     @Test
@@ -84,7 +81,7 @@ class PositionIndicatorScreenshotTest {
             position = PositionIndicatorAlignment.Right,
             value = 0.5f,
             ltr = false,
-            goldenIdentifier = testName.methodName
+            goldenIdentifier = testName.methodName,
         )
 
     @Test
@@ -93,7 +90,7 @@ class PositionIndicatorScreenshotTest {
             position = PositionIndicatorAlignment.End,
             value = 0.1f,
             ltr = true,
-            goldenIdentifier = testName.methodName
+            goldenIdentifier = testName.methodName,
         )
 
     @Test
@@ -102,7 +99,7 @@ class PositionIndicatorScreenshotTest {
             position = PositionIndicatorAlignment.End,
             value = 0.8f,
             ltr = false,
-            goldenIdentifier = testName.methodName
+            goldenIdentifier = testName.methodName,
         )
 
     private fun position_indicator_position_test(
@@ -112,21 +109,20 @@ class PositionIndicatorScreenshotTest {
         ltr: Boolean = true,
     ) {
         rule.setContentWithTheme {
-            val actualLayoutDirection =
-                if (ltr) LayoutDirection.Ltr
-                else LayoutDirection.Rtl
+            val actualLayoutDirection = if (ltr) LayoutDirection.Ltr else LayoutDirection.Rtl
             CompositionLocalProvider(LocalLayoutDirection provides actualLayoutDirection) {
                 PositionIndicator(
                     value = { value },
                     position = position,
-                    modifier = Modifier.testTag(TEST_TAG).background(Color.Black)
+                    modifier = Modifier.testTag(TEST_TAG).background(Color.Black),
                 )
             }
         }
 
         rule.waitForIdle()
 
-        rule.onNodeWithTag(TEST_TAG)
+        rule
+            .onNodeWithTag(TEST_TAG)
             .captureToImage()
             .assertAgainstGolden(screenshotRule, goldenIdentifier)
     }

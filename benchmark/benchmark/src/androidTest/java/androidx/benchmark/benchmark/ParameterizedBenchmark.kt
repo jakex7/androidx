@@ -29,7 +29,7 @@ import org.junit.runners.Parameterized.Parameters
 @RunWith(Parameterized::class)
 class ParameterizedBenchmark(
     @Suppress("unused") private val input: Int,
-    @Suppress("unused") private val stringInput: String
+    @Suppress("unused") private val stringInput: String,
 ) {
     companion object {
         @JvmStatic
@@ -37,9 +37,7 @@ class ParameterizedBenchmark(
         fun data(): Collection<Array<Any>> = List(2) { arrayOf(it, "$it=:") }
     }
 
-    @get:Rule
-    val benchmarkRule = BenchmarkRule()
+    @get:Rule val benchmarkRule = BenchmarkRule()
 
-    @Test
-    fun noop() = benchmarkRule.measureRepeated {}
+    @Test fun noop() = benchmarkRule.measureRepeated {}
 }

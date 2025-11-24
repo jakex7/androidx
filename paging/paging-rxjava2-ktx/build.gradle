@@ -21,19 +21,19 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.LibraryType
+
+import androidx.build.SoftwareType
 
 plugins {
     id("AndroidXPlugin")
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.experimental.built-in-kotlin")
 }
 
 dependencies {
     api(project(":paging:paging-rxjava2"))
     // Ensure that the -ktx dependency graph mirrors the Java dependency graph
     api(project(":paging:paging-common-ktx"))
-    implementation(libs.kotlinStdlib)
 
     androidTestImplementation(libs.testExtJunit)
     androidTestImplementation(libs.testCore)
@@ -44,12 +44,11 @@ dependencies {
 
 androidx {
     name = "Paging RxJava2 Kotlin Extensions"
-    type = LibraryType.PUBLISHED_LIBRARY_ONLY_USED_BY_KOTLIN_CONSUMERS
+    type = SoftwareType.PUBLISHED_LIBRARY_ONLY_USED_BY_KOTLIN_CONSUMERS
     inceptionYear = "2018"
     description = "Kotlin extensions for 'paging-rxjava2' artifact"
-    metalavaK2UastEnabled = true
 }
 
 android {
-    namespace "androidx.paging.rxjava2.ktx"
+    namespace = "androidx.paging.rxjava2.ktx"
 }

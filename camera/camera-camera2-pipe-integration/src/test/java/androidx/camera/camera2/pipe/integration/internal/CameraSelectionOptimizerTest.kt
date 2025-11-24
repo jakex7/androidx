@@ -19,7 +19,6 @@ package androidx.camera.camera2.pipe.integration.internal
 import android.content.Context
 import android.graphics.Rect
 import android.hardware.camera2.CameraCharacteristics
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.camera.camera2.pipe.integration.adapter.CameraFactoryProvider
@@ -31,6 +30,7 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.impl.CameraFactory
 import androidx.camera.core.impl.CameraThreadConfig
 import androidx.camera.core.impl.utils.executor.CameraXExecutors
+import androidx.camera.core.internal.StreamSpecsCalculator.Companion.NO_OP_STREAM_SPECS_CALCULATOR
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth
 import org.junit.Test
@@ -47,8 +47,8 @@ import org.robolectric.shadows.StreamConfigurationMapBuilder
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
 @Config(
-    minSdk = Build.VERSION_CODES.LOLLIPOP,
-    instrumentedPackages = ["androidx.camera.camera2.pipe.integration.adapter"]
+    sdk = [Config.ALL_SDKS],
+    instrumentedPackages = ["androidx.camera.camera2.pipe.integration.adapter"],
 )
 class CameraSelectionOptimizerTest {
     private lateinit var cameraFactory: CameraFactory
@@ -81,15 +81,13 @@ class CameraSelectionOptimizerTest {
     @Test
     fun requireLensFacingBack() {
         setupNormalCameras()
-        val cameraSelector = CameraSelector.Builder()
-            .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-            .build()
+        val cameraSelector =
+            CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
 
         val cameraIds: List<String> = getCameraIdsBasedOnCameraSelector(cameraSelector)
 
         Truth.assertThat(cameraIds).containsExactly("0", "2", "3")
-        Mockito.verify(cameraFactory, Mockito.never())
-            .getCamera("1")
+        Mockito.verify(cameraFactory, Mockito.never()).getCamera("1")
     }
 
     @Test
@@ -97,14 +95,12 @@ class CameraSelectionOptimizerTest {
 
         setupNormalCameras()
 
-        val cameraSelector = CameraSelector.Builder()
-            .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
-            .build()
+        val cameraSelector =
+            CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build()
 
         val cameraIds: List<String> = getCameraIdsBasedOnCameraSelector(cameraSelector)
         Truth.assertThat(cameraIds).containsExactly("1")
-        Mockito.verify(cameraFactory, Mockito.never())
-            .getCamera("0")
+        Mockito.verify(cameraFactory, Mockito.never()).getCamera("0")
     }
 
     @OptIn(ExperimentalCamera2Interop::class)
@@ -128,23 +124,22 @@ class CameraSelectionOptimizerTest {
             }
             listOf(minFocalCameraInfo)
         }
-        val cameraSelector = CameraSelector.Builder()
-            .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-            .addCameraFilter(widestAngleFilter)
-            .build()
+        val cameraSelector =
+            CameraSelector.Builder()
+                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                .addCameraFilter(widestAngleFilter)
+                .build()
         val cameraIds: List<String> = getCameraIdsBasedOnCameraSelector(cameraSelector)
         Truth.assertThat(cameraIds).containsExactly("2")
         // only camera "1" 's getCameraCharacteristics can be avoided.
-        Mockito.verify(cameraFactory, Mockito.never())
-            .getCamera("1")
+        Mockito.verify(cameraFactory, Mockito.never()).getCamera("1")
     }
 
     @Test
     fun abnormalCameraSetup_requireLensFacingBack() {
         setupAbnormalCameras()
-        val cameraSelector = CameraSelector.Builder()
-            .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-            .build()
+        val cameraSelector =
+            CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
         val cameraIds: List<String> = getCameraIdsBasedOnCameraSelector(cameraSelector)
 
         // even though heuristic failed, it still works as expected.
@@ -154,9 +149,8 @@ class CameraSelectionOptimizerTest {
     @Test
     fun abnormalCameraSetup_requireLensFacingFront() {
         setupAbnormalCameras()
-        val cameraSelector = CameraSelector.Builder()
-            .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
-            .build()
+        val cameraSelector =
+            CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build()
 
         val cameraIds: List<String> = getCameraIdsBasedOnCameraSelector(cameraSelector)
 
@@ -193,19 +187,26 @@ class CameraSelectionOptimizerTest {
     }
 
     private fun getCameraIdsBasedOnCameraSelector(cameraSelector: CameraSelector?): List<String> {
-        val actualCameraFactory = CameraFactoryProvider().newInstance(
-            ApplicationProvider.getApplicationContext(), CameraThreadConfig.create(
-                CameraXExecutors.mainThreadExecutor(), Handler(Looper.getMainLooper())
-            ),
-            cameraSelector,
-            -1L
-        )
+        val actualCameraFactory =
+            CameraFactoryProvider()
+                .newInstance(
+                    ApplicationProvider.getApplicationContext(),
+                    CameraThreadConfig.create(
+                        CameraXExecutors.mainThreadExecutor(),
+                        Handler(Looper.getMainLooper()),
+                    ),
+                    cameraSelector,
+                    -1L,
+                    null,
+                    NO_OP_STREAM_SPECS_CALCULATOR,
+                )
 
         cameraFactory = Mockito.spy(actualCameraFactory)
 
         return CameraSelectionOptimizer.getSelectedAvailableCameraIds(
             cameraFactory,
-            cameraSelector
+            cameraSelector,
+            NO_OP_STREAM_SPECS_CALCULATOR,
         )
     }
 
@@ -215,31 +216,27 @@ class CameraSelectionOptimizerTest {
 
         val characteristics = ShadowCameraCharacteristics.newCameraCharacteristics()
         Shadow.extract<ShadowCameraCharacteristics>(characteristics).apply {
-
             set(CameraCharacteristics.LENS_FACING, lensFacing)
-            set(
-                CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
-                floatArrayOf(focalLength)
-            )
+            set(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS, floatArrayOf(focalLength))
             set(
                 CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE,
-                Rect(0, 0, sensorWidth, sensorHeight)
+                Rect(0, 0, sensorWidth, sensorHeight),
             )
             set(
                 CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL,
-                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY
+                CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY,
             )
             set(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP,
-                StreamConfigurationMapBuilder.newBuilder().build()
+                StreamConfigurationMapBuilder.newBuilder().build(),
             )
         }
 
         // Add the camera to the camera service
         (Shadow.extract<Any>(
-            ApplicationProvider.getApplicationContext<Context>()
-                .getSystemService(Context.CAMERA_SERVICE)
-        ) as ShadowCameraManager)
+                ApplicationProvider.getApplicationContext<Context>()
+                    .getSystemService(Context.CAMERA_SERVICE)
+            ) as ShadowCameraManager)
             .addCamera(cameraId, characteristics)
     }
 }

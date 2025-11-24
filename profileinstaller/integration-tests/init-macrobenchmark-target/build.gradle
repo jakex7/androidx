@@ -17,21 +17,20 @@
 plugins {
     id("AndroidXPlugin")
     id("com.android.application")
-    id("kotlin-android")
+    id("com.android.experimental.built-in-kotlin")
 }
 
 android {
     buildTypes {
         release {
-            minifyEnabled true
-            shrinkResources true
+            minifyEnabled = true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt")
         }
     }
-    namespace "androidx.profileinstaller.integration.macrobenchmark.target"
+    namespace = "androidx.profileinstaller.integration.macrobenchmark.target"
 }
 
 dependencies {
-    implementation(libs.kotlinStdlib)
     implementation(project(":profileinstaller:profileinstaller"))
 }

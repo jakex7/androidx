@@ -18,8 +18,10 @@ package androidx.benchmark.darwin.samples
 
 import androidx.benchmark.darwin.TestCase
 import androidx.benchmark.darwin.TestCaseContext
+import kotlinx.cinterop.ExperimentalForeignApi
 import platform.XCTest.XCTMeasureOptions
 
+@OptIn(ExperimentalForeignApi::class)
 class ArrayListAllocationBenchmark : TestCase() {
     override fun setUp() {
         // does nothing
@@ -33,14 +35,12 @@ class ArrayListAllocationBenchmark : TestCase() {
             listOf(
                 platform.XCTest.XCTCPUMetric(),
                 platform.XCTest.XCTMemoryMetric(),
-                platform.XCTest.XCTClockMetric()
+                platform.XCTest.XCTClockMetric(),
             ),
-            options
+            options,
         ) {
             // Do something a bit expensive
-            repeat(1000) {
-                ArrayList<Float>(SIZE)
-            }
+            repeat(1000) { ArrayList<Float>(SIZE) }
         }
     }
 

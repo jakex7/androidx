@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-@file:RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-
 package androidx.camera.camera2.pipe
 
-import androidx.annotation.RequiresApi
 import androidx.annotation.RestrictTo
+import kotlin.reflect.KClass
 
 /**
  * A map-like interface used to describe or interact with metadata from CameraPipe and Camera2.
@@ -30,25 +28,31 @@ import androidx.annotation.RestrictTo
  * These interfaces are read-only.
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-interface Metadata {
-    operator fun <T> get(key: Key<T>): T?
-    fun <T> getOrDefault(key: Key<T>, default: T): T
+public interface Metadata {
+    public operator fun <T> get(key: Key<T>): T?
+
+    public fun <T> getOrDefault(key: Key<T>, default: T): T
 
     /** Metadata keys provide values or controls that are provided or computed by CameraPipe. */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    class Key<T> private constructor(private val name: String) {
-        companion object {
-            @JvmStatic
-            internal val keys: MutableSet<String> = HashSet()
+    public class Key<T> private constructor(private val name: String, private val type: KClass<*>) {
+        public companion object {
+            @JvmStatic internal val keys: MutableMap<String, Key<*>> = HashMap()
 
             /**
-             * This will create a new Key instance, and will check to see that the key has not been
-             * previously created somewhere else.
+             * This will create a new Key instance, or return a previously created Key instance if
+             * one already exists with the same name.
              */
-            fun <T> create(name: String): Key<T> {
-                synchronized(keys) { check(keys.add(name)) { "$name is already defined!" } }
-                return Key(name)
-            }
+            public inline fun <reified T : Any> create(name: String): Key<T> =
+                create(name, T::class)
+
+            @Suppress("UNCHECKED_CAST")
+            public fun <T : Any> create(name: String, type: KClass<T>): Key<T> =
+                synchronized(keys) {
+                    val key = keys.getOrPut(name) { Key<T>(name, type) }
+                    check(key.type == type)
+                    key as Key<T>
+                }
         }
 
         override fun toString(): String {

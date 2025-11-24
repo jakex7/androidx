@@ -27,26 +27,30 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /** Unit tests for [SplitAttributesCalculatorParams] */
-@RunWith(RobolectricTestRunner::class) // Used for initializing Android instance (ex: Configuration)
+@RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(
+    sdk = [org.robolectric.annotation.Config.TARGET_SDK]
+) // Used for initializing Android instance (ex: Configuration)
 class SplitAttributesCalculatorParamsTest {
 
     @Test
     fun testSplitAttributesCalculatorParams() {
-        val parentWindowMetrics = WindowMetrics(Rect())
+        val parentWindowMetrics = WindowMetrics(Rect(), density = 1f)
         val parentConfiguration = Configuration()
         val parentWindowLayoutInfo = WindowLayoutInfo(emptyList())
         val defaultSplitAttributes = SplitAttributes.Builder().build()
         val areDefaultConstraintsSatisfied = true
         val splitRuleTag = "test"
 
-        val params = SplitAttributesCalculatorParams(
-            parentWindowMetrics,
-            parentConfiguration,
-            parentWindowLayoutInfo,
-            defaultSplitAttributes,
-            areDefaultConstraintsSatisfied,
-            splitRuleTag
-        )
+        val params =
+            SplitAttributesCalculatorParams(
+                parentWindowMetrics,
+                parentConfiguration,
+                parentWindowLayoutInfo,
+                defaultSplitAttributes,
+                areDefaultConstraintsSatisfied,
+                splitRuleTag,
+            )
 
         assertEquals(parentWindowMetrics, params.parentWindowMetrics)
         assertEquals(parentConfiguration, params.parentConfiguration)
@@ -58,21 +62,23 @@ class SplitAttributesCalculatorParamsTest {
 
     @Test
     fun testToString() {
-        val parentWindowMetrics = WindowMetrics(Rect())
+        val parentWindowMetrics = WindowMetrics(Rect(), density = 1f)
         val parentConfiguration = Configuration()
         val parentWindowLayoutInfo = WindowLayoutInfo(emptyList())
         val defaultSplitAttributes = SplitAttributes.Builder().build()
         val areDefaultConstraintsSatisfied = true
         val splitRuleTag = "test"
 
-        val paramsString = SplitAttributesCalculatorParams(
-            parentWindowMetrics,
-            parentConfiguration,
-            parentWindowLayoutInfo,
-            defaultSplitAttributes,
-            areDefaultConstraintsSatisfied,
-            splitRuleTag
-        ).toString()
+        val paramsString =
+            SplitAttributesCalculatorParams(
+                    parentWindowMetrics,
+                    parentConfiguration,
+                    parentWindowLayoutInfo,
+                    defaultSplitAttributes,
+                    areDefaultConstraintsSatisfied,
+                    splitRuleTag,
+                )
+                .toString()
 
         assertTrue(paramsString.contains(parentWindowMetrics.toString()))
         assertTrue(paramsString.contains(parentConfiguration.toString()))

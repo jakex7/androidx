@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
+// Facade class name cannot be updated, the Kt name has been released
 // Always inline ktx extension methods unless we have additional call site costs.
-@file:Suppress("NOTHING_TO_INLINE")
+@file:Suppress("NOTHING_TO_INLINE", "FacadeClassJvmName")
 
 package androidx.work
 
 /**
  * Converts a list of pairs to a [Data] object.
  *
- * If multiple pairs have the same key, the resulting map will contain the value
- * from the last of those pairs.
+ * If multiple pairs have the same key, the resulting map will contain the value from the last of
+ * those pairs.
  *
  * Entries of the map are iterated in the order they were specified.
  */

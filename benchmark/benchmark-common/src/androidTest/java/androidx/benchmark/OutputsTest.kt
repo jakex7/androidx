@@ -40,12 +40,7 @@ public class OutputsTest {
     public fun setUp() {
         outputs.addAll(
             // Don't add the / prefix.
-            listOf(
-                "foo/a.txt",
-                "foo/b.txt",
-                "foo/bar/a.txt",
-                "foo/bar/baz/a.txt",
-            )
+            listOf("foo/a.txt", "foo/b.txt", "foo/bar/a.txt", "foo/bar/baz/a.txt")
         )
     }
 
@@ -79,30 +74,26 @@ public class OutputsTest {
             assertTrue(contains("-startup-prof-") && endsWith(".txt"))
         }
     }
+
     @Test
     public fun sanitizeFilename() {
         assertEquals(
             "testFilename_one_Thing_two_other_",
-            Outputs.sanitizeFilename("testFilename[one=Thing( ),two:other]")
+            Outputs.sanitizeFilename("testFilename[one=Thing( ),two:other]"),
         )
     }
 
     @Test
     public fun sanitizeFilename_tooLong() {
-        assertEquals(
-            "a".repeat(199),
-            Outputs.sanitizeFilename("a".repeat(199))
-        )
-        assertFailsWith<IllegalArgumentException> {
-            Outputs.sanitizeFilename("a".repeat(200))
-        }
+        assertEquals("a".repeat(199), Outputs.sanitizeFilename("a".repeat(199)))
+        assertFailsWith<IllegalArgumentException> { Outputs.sanitizeFilename("a".repeat(200)) }
     }
 
     @Test
     public fun sanitizeFilename_withExtension() {
         assertEquals(
             "testFilename_one_Thing_two_other_.trace",
-            Outputs.sanitizeFilename("testFilename[one=Thing( ),two:other].trace")
+            Outputs.sanitizeFilename("testFilename[one=Thing( ),two:other].trace"),
         )
     }
 
@@ -120,7 +111,7 @@ public class OutputsTest {
             assertFalse(path.startsWith("/"), "$path cannot start with a `/`.")
             assertFalse(
                 path.startsWith(basePath),
-                "Invalid relative path ($path), Base ($basePath)."
+                "Invalid relative path ($path), Base ($basePath).",
             )
         }
 
@@ -142,7 +133,6 @@ public class OutputsTest {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 21)
     public fun dirUsableByAppAndShell_writeAppReadShell() {
         val dir = Outputs.dirUsableByAppAndShell
         val file = File.createTempFile("testFile", null, dir)
@@ -151,7 +141,7 @@ public class OutputsTest {
             file.writeText(file.name) // use name, as it's fairly unique
             Assert.assertEquals(
                 file.name,
-                Shell.executeScriptCaptureStdout("cat ${file.absolutePath}")
+                Shell.executeScriptCaptureStdout("cat ${file.absolutePath}"),
             )
         } finally {
             file.delete()
@@ -159,7 +149,6 @@ public class OutputsTest {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 21)
     public fun dirUsableByAppAndShell_writeShellReadShell() {
         val dir = Outputs.dirUsableByAppAndShell
 
@@ -171,10 +160,7 @@ public class OutputsTest {
         Shell.executeScriptSilent("rm -f $path")
         try {
             Shell.executeScriptSilent("echo test > $path")
-            assertEquals(
-                "test\n",
-                Shell.executeScriptCaptureStdout("cat $path")
-            )
+            assertEquals("test\n", Shell.executeScriptCaptureStdout("cat $path"))
             file.appendBytes("extra".toByteArray())
         } finally {
             Shell.executeScriptSilent("rm -f $path")
@@ -182,7 +168,6 @@ public class OutputsTest {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 21)
     public fun dirUsableByAppAndShell_writeShellReadApp() {
         val dir = Outputs.dirUsableByAppAndShell
 
@@ -194,10 +179,7 @@ public class OutputsTest {
         Shell.executeScriptSilent("rm -f $path")
         try {
             Shell.executeScriptSilent("echo test > $path")
-            assertEquals(
-                "test\n",
-                File(path).readText()
-            )
+            assertEquals("test\n", File(path).readText())
             file.appendBytes("extra".toByteArray())
         } finally {
             Shell.executeScriptSilent("rm -f $path")

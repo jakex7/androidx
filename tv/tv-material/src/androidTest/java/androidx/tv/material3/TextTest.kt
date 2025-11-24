@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,16 +46,16 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TextTest {
 
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
-    private val ExpectedTextStyle = TextStyle(
-        color = Color.Blue,
-        textAlign = TextAlign.End,
-        fontSize = 32.sp,
-        fontStyle = FontStyle.Italic,
-        letterSpacing = 0.3.em
-    )
+    private val ExpectedTextStyle =
+        TextStyle(
+            color = Color.Blue,
+            textAlign = TextAlign.End,
+            fontSize = 32.sp,
+            fontStyle = FontStyle.Italic,
+            letterSpacing = 0.3.em,
+        )
 
     private val TestText = "TestText"
 
@@ -70,13 +71,11 @@ class TextTest {
             }
         }
 
-        assertThat(
-            localTextStyle?.platformStyle?.paragraphStyle?.includeFontPadding
-        ).isEqualTo(false)
+        assertThat(localTextStyle?.platformStyle?.paragraphStyle?.includeFontPadding)
+            .isEqualTo(false)
 
-        assertThat(
-            display1TextStyle?.platformStyle?.paragraphStyle?.includeFontPadding
-        ).isEqualTo(false)
+        assertThat(display1TextStyle?.platformStyle?.paragraphStyle?.includeFontPadding)
+            .isEqualTo(false)
     }
 
     @Test
@@ -97,7 +96,7 @@ class TextTest {
                             fontSize = it.layoutInput.style.fontSize
                             fontStyle = it.layoutInput.style.fontStyle
                             letterSpacing = it.layoutInput.style.letterSpacing
-                        }
+                        },
                     )
                 }
             }
@@ -119,13 +118,14 @@ class TextTest {
         var fontSize: TextUnit? = null
         var fontStyle: FontStyle? = null
         var letterSpacing: TextUnit? = null
-        val testStyle = TextStyle(
-            color = Color.Green,
-            textAlign = TextAlign.Center,
-            fontSize = 16.sp,
-            fontStyle = FontStyle.Normal,
-            letterSpacing = 0.6.em
-        )
+        val testStyle =
+            TextStyle(
+                color = Color.Green,
+                textAlign = TextAlign.Center,
+                fontSize = 16.sp,
+                fontStyle = FontStyle.Normal,
+                letterSpacing = 0.6.em,
+            )
         rule.setContent {
             ProvideTextStyle(ExpectedTextStyle) {
                 Box(Modifier.background(Color.White)) {
@@ -138,7 +138,7 @@ class TextTest {
                             fontSize = it.layoutInput.style.fontSize
                             fontStyle = it.layoutInput.style.fontStyle
                             letterSpacing = it.layoutInput.style.letterSpacing
-                        }
+                        },
                     )
                 }
             }
@@ -180,7 +180,7 @@ class TextTest {
                             fontSize = it.layoutInput.style.fontSize
                             fontStyle = it.layoutInput.style.fontStyle
                             letterSpacing = it.layoutInput.style.letterSpacing
-                        }
+                        },
                     )
                 }
             }
@@ -224,7 +224,7 @@ class TextTest {
                             fontSize = it.layoutInput.style.fontSize
                             fontStyle = it.layoutInput.style.fontStyle
                             letterSpacing = it.layoutInput.style.letterSpacing
-                        }
+                        },
                     )
                 }
             }
@@ -244,18 +244,17 @@ class TextTest {
         rule.setContent {
             ProvideTextStyle(ExpectedTextStyle) {
                 Box(Modifier.background(Color.White)) {
-                    Text(
-                        TestText,
-                        modifier = Modifier.testTag("text")
-                    )
+                    Text(TestText, modifier = Modifier.testTag("text"))
                 }
             }
         }
 
         val textLayoutResults = mutableListOf<TextLayoutResult>()
-        rule.onNodeWithTag("text")
-            .assertTextEquals(TestText)
-            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(textLayoutResults) }
+        rule.onNodeWithTag("text").assertTextEquals(TestText).performSemanticsAction(
+            SemanticsActions.GetTextLayoutResult
+        ) {
+            it(textLayoutResults)
+        }
         assert(textLayoutResults.size == 1) { "TextLayoutResult is null" }
     }
 }

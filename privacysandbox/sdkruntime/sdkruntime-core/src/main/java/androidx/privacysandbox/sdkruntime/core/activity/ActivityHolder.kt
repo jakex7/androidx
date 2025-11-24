@@ -29,14 +29,11 @@ import androidx.lifecycle.LifecycleOwner
  *
  * SDK can add [LifecycleObserver]s into it to observe the [Activity] lifecycle state.
  */
-interface ActivityHolder : LifecycleOwner {
-    /**
-     * The [Activity] created for SDK.
-     */
-    fun getActivity(): Activity
+@Deprecated("This library is no longer supported.")
+public interface ActivityHolder : LifecycleOwner {
+    /** The [Activity] created for SDK. */
+    public fun getActivity(): Activity
 
-    /**
-     * The [OnBackPressedDispatcher] for the created [Activity].
-     */
-    fun getOnBackPressedDispatcher(): OnBackPressedDispatcher
+    /** The [OnBackPressedDispatcher] for the created [Activity]. */
+    public fun getOnBackPressedDispatcher(): OnBackPressedDispatcher
 }

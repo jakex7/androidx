@@ -15,7 +15,6 @@
  */
 
 @file:Suppress("NOTHING_TO_INLINE")
-@file:RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 
 package androidx.camera.camera2.pipe.core
 
@@ -25,18 +24,17 @@ import android.hardware.camera2.CameraCharacteristics.REQUEST_AVAILABLE_CAPABILI
 import android.hardware.camera2.CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
-import android.hardware.camera2.params.MeteringRectangle
 import android.os.Build
 import android.os.Trace
-import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraGraph
 import androidx.camera.camera2.pipe.CameraMetadata
+import androidx.camera.camera2.pipe.core.Timestamps.formatMs
 
 /** Internal debug utilities, constants, and checks. */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-object Debug {
-    const val ENABLE_LOGGING: Boolean = true
-    const val ENABLE_TRACING: Boolean = true
+public object Debug {
+    internal val systemTimeSource = SystemTimeSource()
+    public const val ENABLE_LOGGING: Boolean = true
+    public const val ENABLE_TRACING: Boolean = true
 
     /**
      * Wrap the specified [block] in calls to [Trace.beginSection] (with the supplied [label]) and
@@ -45,7 +43,7 @@ object Debug {
      * @param label A name of the code section to appear in the trace.
      * @param block A block of code which is being traced.
      */
-    inline fun <T> trace(label: String, crossinline block: () -> T): T {
+    public inline fun <T> trace(label: String, crossinline block: () -> T): T {
         try {
             traceStart { label }
             return block()
@@ -54,15 +52,28 @@ object Debug {
         }
     }
 
+    /** Wrap the specified [block] in a trace and timing calls. */
+    internal inline fun <T> instrument(label: String, crossinline block: () -> T): T {
+        val start = systemTimeSource.now()
+        try {
+            traceStart { label }
+            return block()
+        } finally {
+            traceStop()
+            val duration = systemTimeSource.now() - start
+            Log.debug { "$label - ${duration.formatMs()}" }
+        }
+    }
+
     /** Forwarding call to [Trace.beginSection] that can be statically disabled at compile time. */
-    inline fun traceStart(crossinline label: () -> String) {
+    public inline fun traceStart(crossinline label: () -> String) {
         if (ENABLE_TRACING) {
             Trace.beginSection(label())
         }
     }
 
     /** Forwarding call to [Trace.endSection] that can be statically disabled at compile time. */
-    inline fun traceStop() {
+    public inline fun traceStop() {
         if (ENABLE_TRACING) {
             Trace.endSection()
         }
@@ -74,8 +85,9 @@ object Debug {
                 append("$name: (None)\n")
             } else {
                 append("${name}\n")
-                parametersToSortedStringPairs(parameters)
-                    .forEach { append("  ${it.first.padEnd(50, ' ')} ${it.second}\n") }
+                parametersToSortedStringPairs(parameters).forEach {
+                    append("  ${it.first.padEnd(50, ' ')} ${it.second}\n")
+                }
             }
         }
     }
@@ -85,42 +97,61 @@ object Debug {
      *
      * Example: `[abc.xyz=1, abc.zyx=something]`
      */
-    fun formatParameterMap(parameters: Map<*, Any?>, limit: Int = -1): String {
-        return parametersToSortedStringPairs(parameters)
-            .joinToString(
-                prefix = "{",
-                postfix = "}",
-                limit = limit
-            ) { "${it.first}=${it.second}" }
+    public fun formatParameterMap(parameters: Map<*, Any?>, limit: Int = -1): String {
+        return parametersToSortedStringPairs(parameters).joinToString(
+            prefix = "{",
+            postfix = "}",
+            limit = limit,
+        ) {
+            "${it.first}=${it.second}"
+        }
+    }
+
+    /**
+     * Format a map of parameters as a line separated list.
+     *
+     * Example: `[<\n>abc.xyz=1,<\n>abc.zyx=something<\n>]`
+     */
+    public fun formatParameterMapToLineSeparatedList(
+        parameters: Map<*, Any?>,
+        limit: Int = -1,
+    ): String {
+        return parametersToSortedStringPairs(parameters).joinToString(
+            separator = ",\n",
+            prefix = "{\n",
+            postfix = "\n}",
+            limit = limit,
+        ) {
+            "${it.first}=${it.second}"
+        }
     }
 
     private fun parametersToSortedStringPairs(
         parameters: Map<*, Any?>
-    ): List<Pair<String, String>> = parameters.map {
-        keyNameToString(it.key) to valueToString(it.value)
-    }.sortedBy { it.first }
+    ): List<Pair<String, String>> =
+        parameters.map { keyNameToString(it.key) to valueToString(it.value) }.sortedBy { it.first }
 
-    private fun keyNameToString(key: Any?): String = when (key) {
-        is CameraCharacteristics.Key<*> -> key.name
-        is CaptureRequest.Key<*> -> key.name
-        is CaptureResult.Key<*> -> key.name
-        else -> key.toString()
-    }
+    private fun keyNameToString(key: Any?): String =
+        when (key) {
+            is CameraCharacteristics.Key<*> -> key.name
+            is CaptureRequest.Key<*> -> key.name
+            is CaptureResult.Key<*> -> key.name
+            else -> key.toString()
+        }
 
     /* Utility for cleaning up some verbose value types for logs */
-    private fun valueToString(value: Any?): String = when (value) {
-        is MeteringRectangle -> "[x=${value.x}, y=${value.y}, " +
-            "w=${value.width}, h=${value.height}, weight=${value.meteringWeight}"
+    private fun valueToString(value: Any?): String =
+        when (value) {
+            is Array<*> -> value.joinToString(prefix = "[", postfix = "]") { valueToString(it) }
+            else -> value.toString()
+        }
 
-        else -> value.toString()
-    }
-
-    fun formatCameraGraphProperties(
+    public fun formatCameraGraphProperties(
         metadata: CameraMetadata,
         graphConfig: CameraGraph.Config,
-        cameraGraph: CameraGraph
+        cameraGraph: CameraGraph,
     ): String {
-        val sharedCameraIds = graphConfig.sharedCameraIds.joinToString()
+        val allCameraIds = graphConfig.concurrentCameraGraphs?.cameraIds
 
         val lensFacing =
             when (metadata[LENS_FACING]) {
@@ -140,8 +171,9 @@ object Debug {
 
         val capabilities = metadata[REQUEST_AVAILABLE_CAPABILITIES]
         val cameraType =
-            if (capabilities != null &&
-                capabilities.contains(REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA)
+            if (
+                capabilities != null &&
+                    capabilities.contains(REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA)
             ) {
                 "Logical"
             } else {
@@ -151,8 +183,8 @@ object Debug {
         return StringBuilder()
             .apply {
                 append("$cameraGraph (Camera ${graphConfig.camera.value})\n")
-                if (sharedCameraIds.isNotEmpty()) {
-                    append("  Shared:    $sharedCameraIds\n")
+                if (allCameraIds != null) {
+                    append("  Concurrent: $allCameraIds\n")
                 }
                 append("  Facing:    $lensFacing ($cameraType)\n")
                 append("  Mode:      $operatingMode\n")
@@ -206,32 +238,32 @@ object Debug {
  *
  * Example: checkApi(Build.VERSION_CODES.LOLLIPOP, "createCameraDevice")
  */
-inline fun checkApi(requiredApi: Int, methodName: String) {
+public inline fun checkApi(requiredApi: Int, methodName: String) {
     check(Build.VERSION.SDK_INT >= requiredApi) {
         "$methodName is not supported on API ${Build.VERSION.SDK_INT} (requires API $requiredApi)"
     }
 }
 
 /** Asserts that this method was invoked on Android L (API 21) or higher. */
-inline fun checkLOrHigher(methodName: String): Unit =
+public inline fun checkLOrHigher(methodName: String): Unit =
     checkApi(Build.VERSION_CODES.LOLLIPOP, methodName)
 
 /** Asserts that this method was invoked on Android M (API 23) or higher. */
-inline fun checkMOrHigher(methodName: String): Unit =
+public inline fun checkMOrHigher(methodName: String): Unit =
     checkApi(Build.VERSION_CODES.M, methodName)
 
 /** Asserts that this method was invoked on Android N (API 24) or higher. */
-inline fun checkNOrHigher(methodName: String): Unit =
+public inline fun checkNOrHigher(methodName: String): Unit =
     checkApi(Build.VERSION_CODES.N, methodName)
 
 /** Asserts that this method was invoked on Android O (API 26) or higher. */
-inline fun checkOOrHigher(methodName: String): Unit =
+public inline fun checkOOrHigher(methodName: String): Unit =
     checkApi(Build.VERSION_CODES.O, methodName)
 
 /** Asserts that this method was invoked on Android P (API 28) or higher. */
-inline fun checkPOrHigher(methodName: String): Unit =
+public inline fun checkPOrHigher(methodName: String): Unit =
     checkApi(Build.VERSION_CODES.P, methodName)
 
 /** Asserts that this method was invoked on Android Q (API 29) or higher. */
-inline fun checkQOrHigher(methodName: String): Unit =
+public inline fun checkQOrHigher(methodName: String): Unit =
     checkApi(Build.VERSION_CODES.Q, methodName)

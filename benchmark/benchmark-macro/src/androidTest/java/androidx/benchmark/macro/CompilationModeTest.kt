@@ -39,8 +39,7 @@ class CompilationModeTest {
     private val vmRunningInterpretedOnly: Boolean
 
     init {
-        vmRunningInterpretedOnly = Shell.getprop("dalvik.vm.extra-opts")
-            .contains("-Xusejit:false")
+        vmRunningInterpretedOnly = Shell.getprop("dalvik.vm.extra-opts").contains("-Xusejit:false")
     }
 
     @SdkSuppress(minSdkVersion = 24)
@@ -63,14 +62,12 @@ class CompilationModeTest {
             assertEquals("BaselineProfile", CompilationMode.Partial().toString())
             assertEquals(
                 "WarmupProfile(iterations=3)",
-                CompilationMode.Partial(
-                    BaselineProfileMode.Disable,
-                    warmupIterations = 3
-                ).toString()
+                CompilationMode.Partial(BaselineProfileMode.Disable, warmupIterations = 3)
+                    .toString(),
             )
             assertEquals(
                 "Partial(baselineProfile=Require,iterations=3)",
-                CompilationMode.Partial(warmupIterations = 3).toString()
+                CompilationMode.Partial(warmupIterations = 3).toString(),
             )
             assertEquals("Full", CompilationMode.Full().toString())
         }
@@ -115,12 +112,12 @@ class CompilationModeTest {
             kotlin.test.assertTrue { path.isEmpty() }
             mode.installPackageFromPaths(
                 packageName = Packages.TARGET,
-                copiedApkPaths = copiedApkPaths
+                copiedApkPaths = copiedApkPaths,
             )
             path = Shell.pmPath(Packages.TARGET)
             kotlin.test.assertTrue { path.isNotEmpty() }
         } finally {
-            Shell.executeScriptSilent("rm $copiedApkPaths")
+            Shell.rm(copiedApkPaths)
         }
     }
 }

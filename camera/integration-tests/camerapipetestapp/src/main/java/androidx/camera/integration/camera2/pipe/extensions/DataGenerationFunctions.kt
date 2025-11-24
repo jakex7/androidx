@@ -21,26 +21,19 @@ import androidx.camera.integration.camera2.pipe.DataGenerator
 import androidx.camera.integration.camera2.pipe.generateNewValue
 
 /** Represents a camera data point, unprocessed */
-data class GeneratedDataPoint1D(
-    val frameNumber: Long,
-    val timestampNanos: Long,
-    val value: Any
-)
+data class GeneratedDataPoint1D(val frameNumber: Long, val timestampNanos: Long, val value: Any)
 
 /**
  * Useful for the Runnable that needs to keep track what frame it is on (can't just increment
  * because of potential delays) and trigger listener for all the new points generated
  */
-data class GeneratedDataPackage1D(
-    val lastFrame: Long,
-    val points: List<GeneratedDataPoint1D>
-)
+data class GeneratedDataPackage1D(val lastFrame: Long, val points: List<GeneratedDataPoint1D>)
 
 /** Returns a package of data generated randomly, using params given */
 fun DataGenerator.generateData1D(
     params: DataGenerationParams1D,
     lastValue: Any? = null,
-    lastFrame: Long
+    lastFrame: Long,
 ): GeneratedDataPackage1D {
 
     var frame = lastFrame
@@ -66,15 +59,7 @@ fun DataGenerator.generateData1D(
          * data points aren't added to the generated points. This simulates missing data
          */
         val currentValue = params.generateNewValue(previousValue)
-        currentValue?.let {
-            points.add(
-                GeneratedDataPoint1D(
-                    frame,
-                    timeStampNanos,
-                    it
-                )
-            )
-        }
+        currentValue?.let { points.add(GeneratedDataPoint1D(frame, timeStampNanos, it)) }
 
         previousValue = currentValue
         frame++
@@ -87,7 +72,7 @@ fun DataGenerator.generateData1D(
 /** Runnable for value graph data generation */
 fun DataGenerator.get1DRunnable(
     params: DataGenerationParams1D,
-    triggerDataListeners: (GeneratedDataPoint1D) -> Unit
+    triggerDataListeners: (GeneratedDataPoint1D) -> Unit,
 ): Runnable = Runnable {
     var lastValue: Any? = null
     var frameNumber = 1L
@@ -101,9 +86,7 @@ fun DataGenerator.get1DRunnable(
             frameNumber = dataPackage.lastFrame
 
             /** Trigger the data listener for each new data point */
-            dataPackage.points.forEach {
-                triggerDataListeners(it)
-            }
+            dataPackage.points.forEach { triggerDataListeners(it) }
         } catch (e: InterruptedException) {
             e.printStackTrace()
         }

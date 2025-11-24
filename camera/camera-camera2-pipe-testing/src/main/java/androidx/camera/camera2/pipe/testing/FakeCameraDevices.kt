@@ -16,22 +16,22 @@
 
 package androidx.camera.camera2.pipe.testing
 
-import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraBackend
 import androidx.camera.camera2.pipe.CameraBackendId
 import androidx.camera.camera2.pipe.CameraDevices
 import androidx.camera.camera2.pipe.CameraId
 import androidx.camera.camera2.pipe.CameraMetadata
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * This provides a fake implementation of [CameraDevices] for tests with a fixed list of Cameras.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-class FakeCameraDevices(
+public class FakeCameraDevices(
     private val defaultCameraBackendId: CameraBackendId,
     private val concurrentCameraBackendIds: Set<Set<CameraBackendId>>,
-    private val cameraMetadataMap: Map<CameraBackendId, List<CameraMetadata>>
+    private val cameraMetadataMap: Map<CameraBackendId, List<CameraMetadata>>,
 ) : CameraDevices {
     private val cameraBackends: Map<CameraBackendId, CameraBackend>
 
@@ -40,10 +40,14 @@ class FakeCameraDevices(
             "FakeCameraDevices must include $defaultCameraBackendId"
         }
 
-        cameraBackends = cameraMetadataMap.mapValues { entry ->
-            FakeCameraBackend(entry.value.associateBy { it.camera })
-        }
+        cameraBackends =
+            cameraMetadataMap.mapValues { entry ->
+                FakeCameraBackend(entry.value.associateBy { it.camera })
+            }
     }
+
+    override fun cameraIdsFlow(cameraBackendId: CameraBackendId?): Flow<List<CameraId>> =
+        flowOf(awaitCameraIds(null) ?: emptyList())
 
     override suspend fun getCameraIds(cameraBackendId: CameraBackendId?): List<CameraId>? =
         awaitCameraIds(cameraBackendId)
@@ -58,21 +62,23 @@ class FakeCameraDevices(
     ): Set<Set<CameraId>> = awaitConcurrentCameraIds(cameraBackendId)
 
     override fun awaitConcurrentCameraIds(cameraBackendId: CameraBackendId?): Set<Set<CameraId>> {
-        return concurrentCameraBackendIds.map { concurrentCameraIds ->
-            concurrentCameraIds.map { cameraId ->
-                CameraId.fromCamera2Id(cameraId.value)
-            }.toSet()
-        }.toSet()
+        return concurrentCameraBackendIds
+            .map { concurrentCameraIds ->
+                concurrentCameraIds
+                    .map { cameraId -> CameraId.fromCamera2Id(cameraId.value) }
+                    .toSet()
+            }
+            .toSet()
     }
 
     override suspend fun getCameraMetadata(
         cameraId: CameraId,
-        cameraBackendId: CameraBackendId?
+        cameraBackendId: CameraBackendId?,
     ): CameraMetadata? = awaitCameraMetadata(cameraId, cameraBackendId)
 
     override fun awaitCameraMetadata(
         cameraId: CameraId,
-        cameraBackendId: CameraBackendId?
+        cameraBackendId: CameraBackendId?,
     ): CameraMetadata? {
         val backendId = cameraBackendId ?: defaultCameraBackendId
         return cameraMetadataMap[backendId]?.firstOrNull { it.camera == cameraId }
@@ -90,7 +96,7 @@ class FakeCameraDevices(
 
     override fun disconnectAsync(
         cameraId: CameraId,
-        cameraBackendId: CameraBackendId?
+        cameraBackendId: CameraBackendId?,
     ): Deferred<Unit> {
         val cameraBackend = getCameraBackend(cameraBackendId)
         return cameraBackend.disconnectAsync(cameraId)
@@ -109,21 +115,21 @@ class FakeCameraDevices(
     @Deprecated(
         "findAll() is not able to specify a specific CameraBackendId to query.",
         replaceWith = ReplaceWith("awaitCameraIds"),
-        level = DeprecationLevel.WARNING
+        level = DeprecationLevel.WARNING,
     )
     override fun findAll(): List<CameraId> = checkNotNull(awaitCameraIds())
 
     @Deprecated(
         "ids() is not able to specify a specific CameraBackendId to query.",
         replaceWith = ReplaceWith("getCameraIds"),
-        level = DeprecationLevel.WARNING
+        level = DeprecationLevel.WARNING,
     )
     override suspend fun ids(): List<CameraId> = checkNotNull(getCameraIds())
 
     @Deprecated(
         "getMetadata() is not able to specify a specific CameraBackendId to query.",
         replaceWith = ReplaceWith("getCameraMetadata"),
-        level = DeprecationLevel.WARNING
+        level = DeprecationLevel.WARNING,
     )
     override suspend fun getMetadata(camera: CameraId): CameraMetadata =
         checkNotNull(getCameraMetadata(camera))
@@ -131,7 +137,7 @@ class FakeCameraDevices(
     @Deprecated(
         "awaitMetadata() is not able to specify a specific CameraBackendId to query.",
         replaceWith = ReplaceWith("awaitCameraMetadata"),
-        level = DeprecationLevel.WARNING
+        level = DeprecationLevel.WARNING,
     )
     override fun awaitMetadata(camera: CameraId): CameraMetadata =
         checkNotNull(awaitCameraMetadata(camera))
