@@ -25,44 +25,39 @@ class DataListener(
     private val dataManager: DataManager,
     private val dataTransformationsKeyValue: DataTransformationsKeyValue,
     private val dataTransformations1D: DataTransformations1D,
-    private val dataGenerationBeginTime: Long
+    private val dataGenerationBeginTime: Long,
 ) {
 
-    /** Receives CaptureResults and metadata from CameraPipe*/
-//    override fun onCompleted(
-//        requestMetadata: RequestMetadata,
-//        frameNumber: FrameNumber,
-//        totalCaptureResult: TotalCaptureResult
-//    ) {
-//
-//          call functions below for each metadata key
-//
-//    }
+    /** Receives CaptureResults and metadata from CameraPipe */
+    //    override fun onCompleted(
+    //        requestMetadata: RequestMetadata,
+    //        frameNumber: FrameNumber,
+    //        totalCaptureResult: TotalCaptureResult
+    //    ) {
+    //
+    //          call functions below for each metadata key
+    //
+    //    }
 
-    /** Calls for keyValueDataHolder update given the new data (will be private in future)*/
+    /** Calls for keyValueDataHolder update given the new data (will be private in future) */
     fun newKeyValueData(key: CameraMetadataKey, keyData: Any?) {
         transformKeyValueData(key, keyData)?.let { transformedData ->
             dataManager.updateKeyValueDataHolder(key, transformedData)
         }
     }
 
-    /** Calls for graphDataHolder update given the new data (will be private in future)*/
+    /** Calls for graphDataHolder update given the new data (will be private in future) */
     fun newGraphData(
         key: CameraMetadataKey,
         frameNumber: Long,
         timestampNanos: Long,
-        keyData: Any?
+        keyData: Any?,
     ) {
         val timeArrivedNanos = System.nanoTime() - dataGenerationBeginTime
 
         transformGraphData(key, keyData)?.let { transformedData ->
             val dataPoint =
-                GraphDataPoint(
-                    frameNumber,
-                    timestampNanos,
-                    timeArrivedNanos,
-                    transformedData
-                )
+                GraphDataPoint(frameNumber, timestampNanos, timeArrivedNanos, transformedData)
             dataManager.updateGraphDataHolder(key, dataPoint)
         }
     }
@@ -70,6 +65,6 @@ class DataListener(
     private fun transformKeyValueData(key: CameraMetadataKey, keyData: Any?) =
         dataTransformationsKeyValue.convert(key, keyData)
 
-    private fun transformGraphData(key: CameraMetadataKey, keyData: Any?) = dataTransformations1D
-        .convert(key, keyData)
+    private fun transformGraphData(key: CameraMetadataKey, keyData: Any?) =
+        dataTransformations1D.convert(key, keyData)
 }

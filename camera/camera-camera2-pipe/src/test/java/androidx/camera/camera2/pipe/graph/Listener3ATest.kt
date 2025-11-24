@@ -17,7 +17,6 @@
 package androidx.camera.camera2.pipe.graph
 
 import android.hardware.camera2.CaptureResult
-import android.os.Build
 import androidx.camera.camera2.pipe.FrameNumber
 import androidx.camera.camera2.pipe.RequestNumber
 import androidx.camera.camera2.pipe.testing.FakeFrameMetadata
@@ -32,7 +31,7 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricCameraPipeTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 internal class Listener3ATest {
     @Test
     fun testListenersInvoked() {
@@ -65,8 +64,7 @@ internal class Listener3ATest {
             UpdateCounting3AStateListener(
                 Result3AStateListenerImpl(
                     mapOf(
-                        CaptureResult.CONTROL_AF_MODE to
-                            listOf(CaptureResult.CONTROL_AF_MODE_AUTO)
+                        CaptureResult.CONTROL_AF_MODE to listOf(CaptureResult.CONTROL_AF_MODE_AUTO)
                     )
                 )
             )
@@ -105,8 +103,7 @@ internal class Listener3ATest {
             UpdateCounting3AStateListener(
                 Result3AStateListenerImpl(
                     mapOf(
-                        CaptureResult.CONTROL_AF_MODE to
-                            listOf(CaptureResult.CONTROL_AF_MODE_AUTO)
+                        CaptureResult.CONTROL_AF_MODE to listOf(CaptureResult.CONTROL_AF_MODE_AUTO)
                     )
                 )
             )
@@ -114,8 +111,7 @@ internal class Listener3ATest {
             UpdateCounting3AStateListener(
                 Result3AStateListenerImpl(
                     mapOf(
-                        CaptureResult.CONTROL_AE_MODE to
-                            listOf(CaptureResult.CONTROL_AE_MODE_OFF)
+                        CaptureResult.CONTROL_AE_MODE to listOf(CaptureResult.CONTROL_AE_MODE_OFF)
                     )
                 )
             )
@@ -150,7 +146,7 @@ internal class Listener3ATest {
             FakeFrameMetadata(
                 mapOf(
                     CaptureResult.CONTROL_AF_MODE to CaptureResult.CONTROL_AF_MODE_AUTO,
-                    CaptureResult.CONTROL_AE_MODE to CaptureResult.CONTROL_AE_MODE_OFF
+                    CaptureResult.CONTROL_AE_MODE to CaptureResult.CONTROL_AE_MODE_OFF,
                 )
             )
         listener3A.onPartialCaptureResult(requestMetadata, frameNumber, captureResult1)

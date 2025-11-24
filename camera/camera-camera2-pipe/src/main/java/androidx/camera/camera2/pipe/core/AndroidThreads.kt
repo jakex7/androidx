@@ -17,14 +17,12 @@
 package androidx.camera.camera2.pipe.core
 
 import android.os.Process
-import androidx.annotation.RequiresApi
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ThreadFactory
 import kotlinx.atomicfu.atomic
 
-@RequiresApi(21)
 internal object AndroidThreads {
 
     /**
@@ -49,7 +47,7 @@ internal object AndroidThreads {
             Process.THREAD_PRIORITY_DEFAULT - 4,
             Process.THREAD_PRIORITY_URGENT_DISPLAY + 3,
             Process.THREAD_PRIORITY_URGENT_DISPLAY + 2,
-            Process.THREAD_PRIORITY_URGENT_DISPLAY // 10 (Thread.MAX_PRIORITY)
+            Process.THREAD_PRIORITY_URGENT_DISPLAY, // 10 (Thread.MAX_PRIORITY)
         )
 
     val factory: ThreadFactory = Executors.defaultThreadFactory()

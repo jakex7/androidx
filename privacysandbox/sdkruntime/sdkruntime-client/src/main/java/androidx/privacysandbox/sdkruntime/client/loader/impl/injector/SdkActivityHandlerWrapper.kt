@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package androidx.privacysandbox.sdkruntime.client.loader.impl.injector
 
@@ -25,7 +26,8 @@ import java.lang.reflect.Method
  * Creates reflection wrapper for implementation of [SdkSandboxActivityHandlerCompat] interface
  * loaded by SDK classloader.
  */
-internal class SdkActivityHandlerWrapper private constructor(
+internal class SdkActivityHandlerWrapper
+private constructor(
     private val activityHolderProxyFactory: ActivityHolderProxyFactory,
     private val handlerOnActivityCreatedMethod: Method,
 ) {
@@ -36,7 +38,7 @@ internal class SdkActivityHandlerWrapper private constructor(
     private class WrappedHandler(
         private val originalHandler: Any,
         private val handlerOnActivityCreatedMethod: Method,
-        private val activityHolderProxyFactory: ActivityHolderProxyFactory
+        private val activityHolderProxyFactory: ActivityHolderProxyFactory,
     ) : SdkSandboxActivityHandlerCompat {
 
         @SuppressLint("BanUncheckedReflection") // using reflection on library classes
@@ -48,27 +50,29 @@ internal class SdkActivityHandlerWrapper private constructor(
 
     companion object {
         fun createFor(classLoader: ClassLoader): SdkActivityHandlerWrapper {
-            val sdkSandboxActivityHandlerCompatClass = Class.forName(
-                SdkSandboxActivityHandlerCompat::class.java.name,
-                /* initialize = */ false,
-                classLoader
-            )
-            val activityHolderClass = Class.forName(
-                ActivityHolder::class.java.name,
-                /* initialize = */ false,
-                classLoader
-            )
+            val sdkSandboxActivityHandlerCompatClass =
+                Class.forName(
+                    "androidx.privacysandbox.sdkruntime.core.activity.SdkSandboxActivityHandlerCompat",
+                    /* initialize = */ false,
+                    classLoader,
+                )
+            val activityHolderClass =
+                Class.forName(
+                    "androidx.privacysandbox.sdkruntime.core.activity.ActivityHolder",
+                    /* initialize = */ false,
+                    classLoader,
+                )
             val handlerOnActivityCreatedMethod =
                 sdkSandboxActivityHandlerCompatClass.getMethod(
                     "onActivityCreated",
-                    activityHolderClass
+                    activityHolderClass,
                 )
 
             val activityHolderProxyFactory = ActivityHolderProxyFactory.createFor(classLoader)
 
             return SdkActivityHandlerWrapper(
                 activityHolderProxyFactory = activityHolderProxyFactory,
-                handlerOnActivityCreatedMethod = handlerOnActivityCreatedMethod
+                handlerOnActivityCreatedMethod = handlerOnActivityCreatedMethod,
             )
         }
     }

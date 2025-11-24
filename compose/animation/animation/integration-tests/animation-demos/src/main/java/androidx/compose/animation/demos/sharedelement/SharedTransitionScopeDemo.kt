@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-@file:OptIn(ExperimentalSharedTransitionApi::class)
-
 package androidx.compose.animation.demos.sharedelement
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.scaleToBounds
 import androidx.compose.animation.samples.R
 import androidx.compose.animation.samples.SharedElementInAnimatedContentSample
 import androidx.compose.animation.samples.SharedElementWithFABInOverlaySample
@@ -55,17 +55,24 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun SharedElementDemos() {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val list = listOf<Pair<String, @Composable () -> Unit>>(
-        "AnimContent\n List To Details" to { ListToDetailsDemo() },
-        "Nested" to { NestedSharedElementDemo() },
-        "Expanded Card" to { SwitchBetweenCollapsedAndExpanded() },
-        "Container Transform" to { ContainerTransformDemo() },
-        "Shared Element\n Caller Managed Vis" to { SharedElementWithCallerManagedVisibility() },
-        "FABInOverlay" to { SharedElementWithFABInOverlaySample() },
-        "AnimatedContent" to { SharedElementInAnimatedContentSample() },
-        "Text transform" to { TextSharedBoundsExperiments() },
-        "Nav Shared Tool Bar" to { NavigationWithSharedToolBarDemo() },
-    )
+    val list =
+        listOf<Pair<String, @Composable () -> Unit>>(
+            "AnimContent\n List To Details" to { ListToDetailsDemo() },
+            "Nested" to { NestedSharedElementDemo() },
+            "Expanded Card" to { SwitchBetweenCollapsedAndExpanded() },
+            "Container Transform" to { ContainerTransformDemo() },
+            "Dynamically Enabled Shared Elements" to { DynamicallyEnableSharedElementsDemo() },
+            "Shared Element\n Caller Managed Vis" to { SharedElementWithCallerManagedVisibility() },
+            "Fling Shared Elements" to { SharedElementWithFlingDemo() },
+            "FABInOverlay" to { SharedElementWithFABInOverlaySample() },
+            "AnimatedContent" to { SharedElementInAnimatedContentSample() },
+            "Text transform" to { TextSharedBoundsExperiments() },
+            "Nav Shared Tool Bar" to { NavigationWithSharedToolBarDemo() },
+            "Shared Element with Movable Content" to { SharedElementWithMovableContent() },
+            "Shared Element in Pager" to { SharedElementInPagerDemo() },
+            "Shared Element in LazyStaggeredGrid" to { SharedElementInLazyStaggeredGridDemo() },
+            "Shared Element in LazyGrid" to { LazyGridSharedElementDemo() },
+        )
 
     Column {
         ScrollableTabRow(selectedTab) {
@@ -73,7 +80,7 @@ fun SharedElementDemos() {
                 Tab(
                     index == selectedTab,
                     { selectedTab = index },
-                    modifier = Modifier.padding(5.dp)
+                    modifier = Modifier.padding(5.dp),
                 ) {
                     Text(text)
                 }
@@ -134,29 +141,31 @@ fun ScaleContentTransition() {
                 Text(
                     text = someText,
                     fontSize = 20.sp,
-                    modifier = Modifier
-                        .padding(20.dp)
-                        .sharedBounds(
-                            rememberSharedContentState(key = rememberSharedKey),
-                            this,
-                            scaleInSharedContentToBounds(contentScale = ContentScale.Crop),
-                            scaleOutSharedContentToBounds(contentScale = ContentScale.Crop)
-                        )
+                    modifier =
+                        Modifier.padding(20.dp)
+                            .sharedBounds(
+                                rememberSharedContentState(key = rememberSharedKey),
+                                this,
+                                EnterTransition.None,
+                                ExitTransition.None,
+                                resizeMode = scaleToBounds(contentScale = ContentScale.Crop),
+                            ),
                 )
             } else {
                 Image(
                     painterResource(id = R.drawable.yt_profile),
                     contentDescription = "cute cat",
-                    modifier = Modifier
-                        .wrapContentSize()
-                        .sharedBounds(
-                            rememberSharedContentState(key = rememberSharedKey),
-                            this,
-                            scaleInSharedContentToBounds(contentScale = ContentScale.Crop),
-                            scaleOutSharedContentToBounds(contentScale = ContentScale.Crop)
-                        )
-                        .requiredSize(200.dp)
-                        .clip(shape = RoundedCornerShape(10))
+                    modifier =
+                        Modifier.wrapContentSize()
+                            .sharedBounds(
+                                rememberSharedContentState(key = rememberSharedKey),
+                                this,
+                                EnterTransition.None,
+                                ExitTransition.None,
+                                resizeMode = scaleToBounds(contentScale = ContentScale.Crop),
+                            )
+                            .requiredSize(200.dp)
+                            .clip(shape = RoundedCornerShape(10)),
                 )
             }
         }

@@ -20,36 +20,35 @@ import androidx.benchmark.Arguments
 import androidx.benchmark.Shell
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
-import androidx.test.filters.SdkSuppress
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Test to help validate compilation occurs.
- * In the future, consider moving this to be a module-wide configurable assert
+ * Test to help validate compilation occurs. In the future, consider moving this to be a module-wide
+ * configurable assert
  *
  * Note that while most non-benchmark tests shouldn't live in benchmark modules, this is an
  * exception, as it's validating runtime conditions (esp in CI)
  */
 @MediumTest
-@SdkSuppress(minSdkVersion = 21)
 @RunWith(AndroidJUnit4::class)
 class VerifyBenchmarkCompiledTest {
     @Test
     fun verifyCompilation() {
         assumeFalse("ignoring compilation state in dry run mode", Arguments.dryRunMode)
-        val stdout = Shell.executeScriptCaptureStdout(
-            "dumpsys package dexopt | grep -A 1 \"androidx.benchmark.benchmark.test\""
-        )
+        val stdout =
+            Shell.executeScriptCaptureStdout(
+                "dumpsys package dexopt | grep -A 1 \"androidx.benchmark.benchmark.test\""
+            )
         assertTrue(
             "expected exactly one instance of compilation status, output = $stdout",
-            stdout.indexOf("[status=") == stdout.lastIndexOf("[status=")
+            stdout.indexOf("[status=") == stdout.lastIndexOf("[status="),
         )
         assertTrue(
             "expected dexopt to show speed compilation, output = $stdout",
-            stdout.contains("[status=speed]")
+            stdout.contains("[status=speed]"),
         )
     }
 }

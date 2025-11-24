@@ -18,11 +18,10 @@
 plugins {
     id("AndroidXPlugin")
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.experimental.built-in-kotlin")
 }
 
 dependencies {
-    implementation(libs.kotlinStdlib)
     implementation(libs.sqldelightAndroid)
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.sqldelightCoroutinesExt)
@@ -41,7 +40,7 @@ android {
     }
     defaultConfig {
         // studio pipeline works only starting with Android O
-        minSdkVersion 26
+        minSdk = 26
     }
-    namespace "androidx.sqlite.inspection.sqldeligttestapp"
+    namespace = "androidx.sqlite.inspection.sqldeligttestapp"
 }

@@ -17,7 +17,6 @@
 package androidx.camera.video.internal.encoder
 
 import android.media.MediaCodec
-import android.os.Build
 import com.google.common.truth.Truth.assertThat
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -30,7 +29,7 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class BufferCopiedEncodedDataTest(
     private val sourceOffset: Int,
     private val sourceSize: Int,
@@ -44,16 +43,17 @@ class BufferCopiedEncodedDataTest(
 
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "offset={0}, size={1}, byteOrder={2}")
-        fun createTestSet() = listOf(
-            arrayOf(0, 1024, ByteOrder.BIG_ENDIAN),
-            arrayOf(0, 0, ByteOrder.BIG_ENDIAN),
-            arrayOf(1024, 0, ByteOrder.BIG_ENDIAN),
-            arrayOf(1023, 1, ByteOrder.BIG_ENDIAN),
-            arrayOf(1, 1023, ByteOrder.LITTLE_ENDIAN),
-            arrayOf(512, 512, ByteOrder.LITTLE_ENDIAN),
-            arrayOf(0, 29, ByteOrder.LITTLE_ENDIAN),
-            arrayOf(947, 73, ByteOrder.LITTLE_ENDIAN),
-        )
+        fun createTestSet() =
+            listOf(
+                arrayOf(0, 1024, ByteOrder.BIG_ENDIAN),
+                arrayOf(0, 0, ByteOrder.BIG_ENDIAN),
+                arrayOf(1024, 0, ByteOrder.BIG_ENDIAN),
+                arrayOf(1023, 1, ByteOrder.BIG_ENDIAN),
+                arrayOf(1, 1023, ByteOrder.LITTLE_ENDIAN),
+                arrayOf(512, 512, ByteOrder.LITTLE_ENDIAN),
+                arrayOf(0, 29, ByteOrder.LITTLE_ENDIAN),
+                arrayOf(947, 73, ByteOrder.LITTLE_ENDIAN),
+            )
     }
 
     private val sourceTimeUs = 123456L

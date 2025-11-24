@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import androidx.build.LibraryType
+import androidx.build.SoftwareType
 plugins {
     id("AndroidXPlugin")
     id("AndroidXComposePlugin")
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.experimental.built-in-kotlin")
 }
 dependencies {
     // You might need to import this to resolve duplicate class in kotlin-stdlib.
@@ -34,15 +34,13 @@ dependencies {
     implementation(project(":compose:foundation:foundation"))
 }
 android {
-    defaultConfig {
-        minSdkVersion 21
-    }
-    namespace "androidx.emoji2.emojipicker.samples"
+    compileSdk = 35
+    namespace = "androidx.emoji2.emojipicker.samples"
 }
 
 androidx {
     name = "Emoji Picker Samples"
-    type = LibraryType.SAMPLES
+    type = SoftwareType.SAMPLES
     inceptionYear = "2022"
     description = "Contains sample code for the Androidx Emoji Picker"
 }

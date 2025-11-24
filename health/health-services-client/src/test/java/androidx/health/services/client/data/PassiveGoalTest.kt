@@ -26,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class PassiveGoalTest {
     @Test
     fun protoRoundTrip() {
@@ -53,11 +54,15 @@ class PassiveGoalTest {
         // side for old clients. Using proto constructor because triggerFrequency constructor is
         // private.
         val goal1 = PassiveGoal(DataTypeCondition(STEPS_DAILY, 400, GREATER_THAN))
-        val goal2 = PassiveGoal(
-            goal1.proto.toBuilder()
-                .setTriggerFrequency(DataProto.PassiveGoal.TriggerFrequency.TRIGGER_FREQUENCY_ONCE)
-                .build()
-        )
+        val goal2 =
+            PassiveGoal(
+                goal1.proto
+                    .toBuilder()
+                    .setTriggerFrequency(
+                        DataProto.PassiveGoal.TriggerFrequency.TRIGGER_FREQUENCY_ONCE
+                    )
+                    .build()
+            )
 
         assertThat(goal1).isNotEqualTo(goal2)
     }

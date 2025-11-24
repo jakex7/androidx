@@ -23,10 +23,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.testutils.assertContainsColor
 import androidx.compose.testutils.assertShape
 import androidx.compose.ui.Modifier
@@ -58,14 +61,15 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.test.filters.SdkSuppress
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Assert
 import org.junit.Rule
 import org.junit.Test
 
 class TextToggleButtonTest {
 
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     fun supports_testTag() {
@@ -74,7 +78,7 @@ class TextToggleButtonTest {
                 checked = true,
                 onCheckedChange = {},
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
@@ -90,7 +94,7 @@ class TextToggleButtonTest {
                 checked = true,
                 onCheckedChange = {},
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
@@ -106,7 +110,7 @@ class TextToggleButtonTest {
                 checked = true,
                 onCheckedChange = {},
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
@@ -122,7 +126,7 @@ class TextToggleButtonTest {
                 checked = true,
                 onCheckedChange = {},
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
@@ -138,7 +142,7 @@ class TextToggleButtonTest {
                 checked = true,
                 onCheckedChange = {},
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
@@ -154,7 +158,7 @@ class TextToggleButtonTest {
                 checked = true,
                 onCheckedChange = {},
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
@@ -169,7 +173,7 @@ class TextToggleButtonTest {
                 checked = true,
                 onCheckedChange = {},
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
@@ -184,7 +188,7 @@ class TextToggleButtonTest {
                 checked = false,
                 onCheckedChange = {},
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
@@ -200,15 +204,12 @@ class TextToggleButtonTest {
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
 
-        rule.onNodeWithTag(TEST_TAG)
-            .assertIsOff()
-            .performClick()
-            .assertIsOn()
+        rule.onNodeWithTag(TEST_TAG).assertIsOff().performClick().assertIsOn()
     }
 
     @Test
@@ -219,15 +220,12 @@ class TextToggleButtonTest {
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
 
-        rule.onNodeWithTag(TEST_TAG)
-            .assertIsOn()
-            .performClick()
-            .assertIsOff()
+        rule.onNodeWithTag(TEST_TAG).assertIsOn().performClick().assertIsOff()
     }
 
     @Test
@@ -239,66 +237,63 @@ class TextToggleButtonTest {
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         rule.waitForIdle()
 
-        rule.onNodeWithTag(TEST_TAG)
-            .assertIsOff()
-            .performClick()
-            .assertIsOff()
+        rule.onNodeWithTag(TEST_TAG).assertIsOff().performClick().assertIsOff()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun is_circular_under_ltr() =
         rule.isShape(
             shape = CircleShape,
             layoutDirection = LayoutDirection.Ltr,
-            shapeColorComposable = { shapeColor() }
+            shapeColorComposable = { shapeColor() },
         ) {
             TextToggleButton(
                 enabled = true,
                 checked = true,
-                onCheckedChange = { },
-                content = { },
-                modifier = Modifier.testTag(TEST_TAG)
+                onCheckedChange = {},
+                content = {},
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun is_circular_under_rtl() =
         rule.isShape(
             shape = CircleShape,
             layoutDirection = LayoutDirection.Rtl,
-            shapeColorComposable = { shapeColor() }
+            shapeColorComposable = { shapeColor() },
         ) {
             TextToggleButton(
                 enabled = true,
                 checked = true,
-                onCheckedChange = { },
-                content = { },
-                modifier = Modifier.testTag(TEST_TAG)
+                onCheckedChange = {},
+                content = {},
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun allows_shape_overrides() =
         rule.isShape(
             shape = RectangleShape,
             layoutDirection = LayoutDirection.Ltr,
-            shapeColorComposable = { shapeColor() }
+            shapeColorComposable = { shapeColor() },
         ) {
             TextToggleButton(
                 enabled = true,
                 checked = true,
-                shape = RectangleShape,
-                onCheckedChange = { },
-                content = { },
-                modifier = Modifier.testTag(TEST_TAG)
+                shapes = TextToggleButtonDefaults.shapes(RectangleShape),
+                onCheckedChange = {},
+                content = {},
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
@@ -308,25 +303,10 @@ class TextToggleButtonTest {
             TextToggleButton(
                 enabled = true,
                 checked = true,
-                onCheckedChange = { },
-                content = { },
-                modifier = Modifier
-                    .testTag(TEST_TAG)
-                    .touchTargetAwareSize(TextButtonDefaults.DefaultButtonSize)
-            )
-        }
-
-    @Test
-    fun gives_small_correct_tapSize() =
-        rule.verifyTapSize(48.dp) {
-            TextToggleButton(
-                enabled = true,
-                checked = true,
-                onCheckedChange = { },
-                content = { },
-                modifier = Modifier
-                    .testTag(TEST_TAG)
-                    .touchTargetAwareSize(TextButtonDefaults.SmallButtonSize)
+                onCheckedChange = {},
+                content = {},
+                modifier =
+                    Modifier.testTag(TEST_TAG).touchTargetAwareSize(TextToggleButtonDefaults.Size),
             )
         }
 
@@ -336,11 +316,25 @@ class TextToggleButtonTest {
             TextToggleButton(
                 enabled = true,
                 checked = true,
-                onCheckedChange = { },
-                content = { },
-                modifier = Modifier
-                    .testTag(TEST_TAG)
-                    .touchTargetAwareSize(TextButtonDefaults.LargeButtonSize)
+                onCheckedChange = {},
+                content = {},
+                modifier =
+                    Modifier.testTag(TEST_TAG)
+                        .touchTargetAwareSize(TextToggleButtonDefaults.LargeSize),
+            )
+        }
+
+    @Test
+    fun gives_extraLarge_correct_tapSize() =
+        rule.verifyTapSize(72.dp) {
+            TextToggleButton(
+                enabled = true,
+                checked = true,
+                onCheckedChange = {},
+                content = {},
+                modifier =
+                    Modifier.testTag(TEST_TAG)
+                        .touchTargetAwareSize(TextToggleButtonDefaults.ExtraLargeSize),
             )
         }
 
@@ -350,25 +344,10 @@ class TextToggleButtonTest {
             TextToggleButton(
                 enabled = true,
                 checked = true,
-                onCheckedChange = { },
-                content = { },
-                modifier = Modifier
-                    .testTag(TEST_TAG)
-                    .touchTargetAwareSize(TextButtonDefaults.DefaultButtonSize)
-            )
-        }
-
-    @Test
-    fun gives_small_correct_size() =
-        rule.verifyActualSize(48.dp) {
-            TextToggleButton(
-                enabled = true,
-                checked = true,
-                onCheckedChange = { },
-                content = { },
-                modifier = Modifier
-                    .testTag(TEST_TAG)
-                    .touchTargetAwareSize(TextButtonDefaults.SmallButtonSize)
+                onCheckedChange = {},
+                content = {},
+                modifier =
+                    Modifier.testTag(TEST_TAG).touchTargetAwareSize(TextToggleButtonDefaults.Size),
             )
         }
 
@@ -378,59 +357,77 @@ class TextToggleButtonTest {
             TextToggleButton(
                 enabled = true,
                 checked = true,
-                onCheckedChange = { },
-                content = { },
-                modifier = Modifier
-                    .testTag(TEST_TAG)
-                    .touchTargetAwareSize(TextButtonDefaults.LargeButtonSize)
+                onCheckedChange = {},
+                content = {},
+                modifier =
+                    Modifier.testTag(TEST_TAG)
+                        .touchTargetAwareSize(TextToggleButtonDefaults.LargeSize),
             )
         }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @Test
+    fun gives_extraLarge_correct_size() =
+        rule.verifyActualSize(72.dp) {
+            TextToggleButton(
+                enabled = true,
+                checked = true,
+                onCheckedChange = {},
+                content = {},
+                modifier =
+                    Modifier.testTag(TEST_TAG)
+                        .touchTargetAwareSize(TextToggleButtonDefaults.ExtraLargeSize),
+            )
+        }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun gives_checked_primary_colors() =
         rule.verifyTextToggleButtonColors(
             status = Status.Enabled,
             checked = true,
-            colors = { TextButtonDefaults.textToggleButtonColors() },
+            colors = { TextToggleButtonDefaults.colors() },
             containerColor = { MaterialTheme.colorScheme.primary },
-            contentColor = { MaterialTheme.colorScheme.onPrimary }
+            contentColor = { MaterialTheme.colorScheme.onPrimary },
         )
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun gives_unchecked_surface_colors() =
         rule.verifyTextToggleButtonColors(
             status = Status.Enabled,
             checked = false,
-            colors = { TextButtonDefaults.textToggleButtonColors() },
+            colors = { TextToggleButtonDefaults.colors() },
             containerColor = { MaterialTheme.colorScheme.surfaceContainer },
-            contentColor = { MaterialTheme.colorScheme.onSurfaceVariant }
+            contentColor = { MaterialTheme.colorScheme.onSurfaceVariant },
         )
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun gives_disabled_unchecked_surface_colors_with_alpha() =
         rule.verifyTextToggleButtonColors(
             status = Status.Disabled,
             checked = false,
-            colors = { TextButtonDefaults.textToggleButtonColors() },
-            containerColor = { MaterialTheme.colorScheme.surfaceContainer.toDisabledColor() },
-            contentColor = { MaterialTheme.colorScheme.onSurfaceVariant.toDisabledColor() }
+            colors = { TextToggleButtonDefaults.colors() },
+            containerColor = {
+                MaterialTheme.colorScheme.onSurface.toDisabledColor(DisabledContainerAlpha)
+            },
+            contentColor = { MaterialTheme.colorScheme.onSurface.toDisabledColor() },
         )
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun gives_disabled_primary_checked_contrasting_content_color() =
         rule.verifyTextToggleButtonColors(
             status = Status.Disabled,
             checked = true,
-            colors = { TextButtonDefaults.textToggleButtonColors() },
-            containerColor = { MaterialTheme.colorScheme.primary.toDisabledColor() },
-            contentColor = { MaterialTheme.colorScheme.onPrimary.toDisabledColor() },
+            colors = { TextToggleButtonDefaults.colors() },
+            containerColor = {
+                MaterialTheme.colorScheme.onSurface.toDisabledColor(DisabledContainerAlpha)
+            },
+            contentColor = { MaterialTheme.colorScheme.onSurface.toDisabledColor() },
         )
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun allows_custom_checked_background_override() {
         val override = Color.Yellow
@@ -438,17 +435,13 @@ class TextToggleButtonTest {
         rule.verifyTextToggleButtonColors(
             status = Status.Enabled,
             checked = true,
-            colors = {
-                TextButtonDefaults.textToggleButtonColors(
-                    checkedContainerColor = override
-                )
-            },
+            colors = { TextToggleButtonDefaults.colors(checkedContainerColor = override) },
             containerColor = { override },
-            contentColor = { MaterialTheme.colorScheme.onPrimary }
+            contentColor = { MaterialTheme.colorScheme.onPrimary },
         )
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun allows_custom_checked_content_override() {
         val override = Color.Green
@@ -456,17 +449,13 @@ class TextToggleButtonTest {
         rule.verifyTextToggleButtonColors(
             status = Status.Enabled,
             checked = true,
-            colors = {
-                TextButtonDefaults.textToggleButtonColors(
-                    checkedContentColor = override
-                )
-            },
+            colors = { TextToggleButtonDefaults.colors(checkedContentColor = override) },
             containerColor = { MaterialTheme.colorScheme.primary },
-            contentColor = { override }
+            contentColor = { override },
         )
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun allows_custom_unchecked_background_override() {
         val override = Color.Red
@@ -474,17 +463,13 @@ class TextToggleButtonTest {
         rule.verifyTextToggleButtonColors(
             status = Status.Enabled,
             checked = false,
-            colors = {
-                TextButtonDefaults.textToggleButtonColors(
-                    uncheckedContainerColor = override
-                )
-            },
+            colors = { TextToggleButtonDefaults.colors(uncheckedContainerColor = override) },
             containerColor = { override },
-            contentColor = { MaterialTheme.colorScheme.onSurfaceVariant }
+            contentColor = { MaterialTheme.colorScheme.onSurfaceVariant },
         )
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun allows_custom_unchecked_content_override() {
         val override = Color.Green
@@ -492,100 +477,84 @@ class TextToggleButtonTest {
         rule.verifyTextToggleButtonColors(
             status = Status.Enabled,
             checked = false,
-            colors = {
-                TextButtonDefaults.textToggleButtonColors(
-                    uncheckedContentColor = override
-                )
-            },
+            colors = { TextToggleButtonDefaults.colors(uncheckedContentColor = override) },
             containerColor = { MaterialTheme.colorScheme.surfaceContainer },
-            contentColor = { override }
+            contentColor = { override },
         )
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun allows_custom_checked_disabled_background_override() {
         val override = Color.Yellow
 
         rule.verifyTextToggleButtonColors(
             status = Status.Disabled,
-            applyAlphaForDisabled = false,
             checked = true,
-            colors = {
-                TextButtonDefaults.textToggleButtonColors(
-                    disabledCheckedContainerColor = override
-                )
-            },
+            colors = { TextToggleButtonDefaults.colors(disabledCheckedContainerColor = override) },
             containerColor = { override },
-            contentColor = {
-                MaterialTheme.colorScheme.onPrimary.toDisabledColor()
-            }
+            contentColor = { MaterialTheme.colorScheme.onSurface.toDisabledColor() },
         )
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun allows_custom_checked_disabled_content_override() {
         val override = Color.Green
 
         rule.verifyTextToggleButtonColors(
             status = Status.Disabled,
-            applyAlphaForDisabled = false,
             checked = true,
             colors = {
-                TextButtonDefaults.textToggleButtonColors(
+                TextToggleButtonDefaults.colors(
                     // Apply the content color override for the content alpha to be applied
                     disabledCheckedContentColor = override
                 )
             },
             containerColor = {
-                MaterialTheme.colorScheme.primary.toDisabledColor()
+                MaterialTheme.colorScheme.onSurface.toDisabledColor(DisabledContainerAlpha)
             },
-            contentColor = { override }
+            contentColor = { override },
         )
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun allows_custom_unchecked_disabled_background_override() {
         val override = Color.Red
 
         rule.verifyTextToggleButtonColors(
             status = Status.Disabled,
-            applyAlphaForDisabled = false,
             checked = false,
             colors = {
-                TextButtonDefaults.textToggleButtonColors(
+                TextToggleButtonDefaults.colors(
                     // Apply the content color override for the content alpha to be applied
                     disabledUncheckedContainerColor = override
                 )
             },
             containerColor = { override },
-            contentColor = {
-                MaterialTheme.colorScheme.onSurfaceVariant.toDisabledColor()
-            }
+            contentColor = { MaterialTheme.colorScheme.onSurface.toDisabledColor() },
         )
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun allows_custom_unchecked_disabled_content_override() {
         val override = Color.Green
 
         rule.verifyTextToggleButtonColors(
             status = Status.Disabled,
-            applyAlphaForDisabled = false,
             checked = false,
             colors = {
-                TextButtonDefaults.textToggleButtonColors(
+                TextToggleButtonDefaults.colors(
                     // Apply the content color override for the content alpha to be applied
                     disabledUncheckedContentColor = override
                 )
             },
             contentColor = { override },
             containerColor = {
-                MaterialTheme.colorScheme.surfaceContainer.toDisabledColor()
-            }
+                MaterialTheme.colorScheme.onSurface.toDisabledColor(DisabledContainerAlpha)
+            },
         )
     }
 
@@ -598,16 +567,13 @@ class TextToggleButtonTest {
                 onCheckedChange = {},
                 enabled = false,
                 content = { Text("ABC") },
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-        rule.onNodeWithTag(TEST_TAG).assert(
-            SemanticsMatcher.expectValue(
-                SemanticsProperties.Role,
-                Role.Checkbox
-            )
-        )
+        rule
+            .onNodeWithTag(TEST_TAG)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Checkbox))
     }
 
     @Test
@@ -620,46 +586,237 @@ class TextToggleButtonTest {
                 onCheckedChange = {},
                 enabled = true,
                 content = { Text("ABC") },
-                modifier = Modifier
-                    .testTag(TEST_TAG)
-                    .semantics { role = overrideRole }
+                modifier = Modifier.testTag(TEST_TAG).semantics { role = overrideRole },
             )
         }
 
-        rule.onNodeWithTag(TEST_TAG).assert(
-            SemanticsMatcher.expectValue(
-                SemanticsProperties.Role,
-                overrideRole
+        rule
+            .onNodeWithTag(TEST_TAG)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, overrideRole))
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+    @Test
+    fun animates_corners_to_75_percent_on_click() {
+        val uncheckedShape = RoundedCornerShape(20.dp)
+        val checkedShape = RoundedCornerShape(10.dp)
+        val pressedShape = RoundedCornerShape(0.dp)
+        // Ignore the color transition from unchecked to checked color
+        val colors =
+            TextToggleButtonColors(
+                Color.Black,
+                Color.Black,
+                Color.Black,
+                Color.Black,
+                Color.Black,
+                Color.Black,
+                Color.Black,
+                Color.Black,
             )
+
+        rule.verifyRoundedButtonTapAnimationEnd(
+            uncheckedShape,
+            pressedShape,
+            0.75f,
+            8,
+            color = { colors.checkedContainerColor },
+        ) { modifier ->
+            TextToggleButton(
+                checked = false,
+                onCheckedChange = {},
+                modifier = modifier,
+                shapes = TextToggleButtonShapes(uncheckedShape, checkedShape, pressedShape),
+                colors = colors,
+            ) {}
+        }
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+    @Test
+    fun changes_unchecked_to_checked_shape_on_click() {
+        val uncheckedShape = RoundedCornerShape(20.dp)
+        val checkedShape = RoundedCornerShape(10.dp)
+        val pressedShape = RoundedCornerShape(0.dp)
+        rule.verifyRoundedButtonTapAnimationEnd(
+            uncheckedShape,
+            checkedShape,
+            1f,
+            100,
+            color = { shapeColor(checked = true) },
+            antiAliasingGap = 4f,
+        ) { modifier ->
+            var checked by remember { mutableStateOf(false) }
+            TextToggleButton(
+                checked = checked,
+                onCheckedChange = { checked = !checked },
+                modifier = modifier,
+                shapes = TextToggleButtonShapes(uncheckedShape, checkedShape, pressedShape),
+            ) {}
+        }
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+    @Test
+    fun changes_checked_to_unchecked_shape_on_click() {
+        val uncheckedShape = RoundedCornerShape(10.dp)
+        val checkedShape = RoundedCornerShape(20.dp)
+        val pressedShape = RoundedCornerShape(0.dp)
+        rule.verifyRoundedButtonTapAnimationEnd(
+            checkedShape,
+            uncheckedShape,
+            1f,
+            100,
+            color = { shapeColor(checked = false) },
+            antiAliasingGap = 4f,
+        ) { modifier ->
+            var checked by remember { mutableStateOf(true) }
+            TextToggleButton(
+                checked = checked,
+                onCheckedChange = { checked = !checked },
+                modifier = modifier,
+                shapes = TextToggleButtonShapes(uncheckedShape, checkedShape, pressedShape),
+            ) {}
+        }
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+    @Test
+    fun changes_to_unchecked_pressed_shape_when_pressed_on_unchecked() {
+        val uncheckedShape = RoundedCornerShape(20.dp)
+        val checkedShape = RoundedCornerShape(10.dp)
+        val uncheckedPressedShape = RoundedCornerShape(0.dp)
+        val checkedPressedShape = RoundedCornerShape(5.dp)
+
+        rule.verifyRoundedButtonTapAnimationEnd(
+            uncheckedShape,
+            uncheckedPressedShape,
+            1f,
+            100,
+            color = { shapeColor(checked = false) },
+            releaseAfterTap = false,
+        ) { modifier ->
+            CompositionLocalProvider(LocalContentColor provides shapeColor(checked = false)) {
+                TextToggleButton(
+                    checked = false,
+                    onCheckedChange = {},
+                    modifier = modifier,
+                    shapes =
+                        TextToggleButtonShapes(
+                            uncheckedShape,
+                            checkedShape,
+                            uncheckedPressedShape,
+                            checkedPressedShape,
+                        ),
+                ) {}
+            }
+        }
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+    @Test
+    fun changes_to_checked_pressed_shape_when_pressed_on_checked() {
+        val uncheckedShape = RoundedCornerShape(10.dp)
+        val checkedShape = RoundedCornerShape(20.dp)
+        val uncheckedPressedShape = RoundedCornerShape(5.dp)
+        val checkedPressedShape = RoundedCornerShape(0.dp)
+
+        rule.verifyRoundedButtonTapAnimationEnd(
+            checkedShape,
+            checkedPressedShape,
+            1f,
+            100,
+            color = { shapeColor(checked = true) },
+            releaseAfterTap = false,
+        ) { modifier ->
+            CompositionLocalProvider(LocalContentColor provides shapeColor(checked = true)) {
+                TextToggleButton(
+                    checked = true,
+                    onCheckedChange = {},
+                    modifier = modifier,
+                    shapes =
+                        TextToggleButtonShapes(
+                            uncheckedShape,
+                            checkedShape,
+                            uncheckedPressedShape,
+                            checkedPressedShape,
+                        ),
+                ) {}
+            }
+        }
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+    @Test
+    fun changes_unchecked_to_checked_shape_when_checked_changed() {
+        val uncheckedShape = RoundedCornerShape(20.dp)
+        val checkedShape = RoundedCornerShape(10.dp)
+        val pressedShape = RoundedCornerShape(0.dp)
+        val checked = mutableStateOf(false)
+
+        rule.verifyCheckedStateChange(
+            updateState = { checked.value = !checked.value },
+            startShape = uncheckedShape,
+            endShape = checkedShape,
+            uncheckedColorComposable = { shapeColor(checked = false) },
+            checkedColorComposable = { shapeColor(checked = true) },
+            content = {
+                IconToggleButton(
+                    checked = checked.value,
+                    onCheckedChange = { checked.value = !checked.value },
+                    shapes = IconToggleButtonShapes(uncheckedShape, checkedShape, pressedShape),
+                    modifier = Modifier.testTag(TEST_TAG),
+                ) {}
+            },
+        )
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
+    @Test
+    fun changes_checked_to_unchecked_shape_when_checked_changed() {
+        val uncheckedShape = RoundedCornerShape(20.dp)
+        val checkedShape = RoundedCornerShape(10.dp)
+        val pressedShape = RoundedCornerShape(0.dp)
+        val checked = mutableStateOf(false)
+
+        rule.verifyCheckedStateChange(
+            updateState = { checked.value = !checked.value },
+            startShape = uncheckedShape,
+            endShape = checkedShape,
+            uncheckedColorComposable = { shapeColor(checked = false) },
+            checkedColorComposable = { shapeColor(checked = true) },
+            content = {
+                IconToggleButton(
+                    checked = checked.value,
+                    onCheckedChange = { checked.value = !checked.value },
+                    shapes = IconToggleButtonShapes(uncheckedShape, checkedShape, pressedShape),
+                    modifier = Modifier.testTag(TEST_TAG),
+                ) {}
+            },
         )
     }
 
     @Composable
-    private fun shapeColor(): Color {
-        return TextButtonDefaults.textToggleButtonColors().containerColor(
-            enabled = true,
-            checked = true
-        ).value
+    private fun shapeColor(checked: Boolean = true): Color {
+        return TextToggleButtonDefaults.colors()
+            .containerColor(enabled = true, checked = checked)
+            .value
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun ComposeContentTestRule.verifyTextToggleButtonColors(
         status: Status,
-        applyAlphaForDisabled: Boolean = true,
         checked: Boolean,
-        colors: @Composable () -> ToggleButtonColors,
+        colors: @Composable () -> TextToggleButtonColors,
         containerColor: @Composable () -> Color,
         contentColor: @Composable () -> Color,
     ) {
         verifyColors(
-            status = status,
-            applyAlphaForDisabled = applyAlphaForDisabled,
             expectedContainerColor = containerColor,
             expectedContentColor = contentColor,
             content = {
                 var actualContentColor = Color.Transparent
                 TextToggleButton(
-                    onCheckedChange = { },
+                    onCheckedChange = {},
                     enabled = status.enabled(),
                     checked = checked,
                     colors = colors(),
@@ -668,7 +825,7 @@ class TextToggleButtonTest {
                     actualContentColor = LocalContentColor.current
                 }
                 return@verifyColors actualContentColor
-            }
+            },
         )
     }
 
@@ -679,19 +836,13 @@ class TextToggleButtonTest {
         padding: Dp = 0.dp,
         backgroundColor: Color = Color.Red,
         shapeColorComposable: @Composable () -> Color,
-        content: @Composable () -> Unit
+        content: @Composable () -> Unit,
     ) {
         var shapeColor = Color.Transparent
         setContentWithTheme {
             shapeColor = shapeColorComposable.invoke()
             CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
-                Box(
-                    Modifier
-                        .padding(padding)
-                        .background(backgroundColor)
-                ) {
-                    content()
-                }
+                Box(Modifier.padding(padding).background(backgroundColor)) { content() }
             }
         }
 
@@ -704,18 +855,16 @@ class TextToggleButtonTest {
                 horizontalPadding = padding,
                 verticalPadding = padding,
                 backgroundColor = backgroundColor,
-                shapeOverlapPixelCount = 2.0f,
-                shapeColor = shapeColor
+                antiAliasingGap = 2.0f,
+                shapeColor = shapeColor,
             )
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun ComposeContentTestRule.verifyColors(
-        status: Status,
         expectedContainerColor: @Composable () -> Color,
         expectedContentColor: @Composable () -> Color,
-        applyAlphaForDisabled: Boolean = true,
-        content: @Composable () -> Color
+        content: @Composable () -> Color,
     ) {
         val testBackgroundColor = Color.White
         var finalExpectedContainerColor = Color.Transparent
@@ -723,42 +872,81 @@ class TextToggleButtonTest {
         var actualContentColor = Color.Transparent
         setContentWithTheme {
             finalExpectedContainerColor =
-                if (status.enabled() || !applyAlphaForDisabled) {
-                    expectedContainerColor()
-                } else {
-                    expectedContainerColor().copy(DisabledContentAlpha)
-                }.compositeOver(testBackgroundColor)
-            finalExpectedContent =
-                if (status.enabled() || !applyAlphaForDisabled) {
-                    expectedContentColor()
-                } else {
-                    expectedContentColor().copy(DisabledContentAlpha)
-                }
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(testBackgroundColor)
-            ) {
+                expectedContainerColor().compositeOver(testBackgroundColor)
+            finalExpectedContent = expectedContentColor()
+            Box(Modifier.fillMaxSize().background(testBackgroundColor)) {
                 actualContentColor = content()
             }
         }
         Assert.assertEquals(finalExpectedContent, actualContentColor)
-        onNodeWithTag(TEST_TAG)
-            .captureToImage()
-            .assertContainsColor(finalExpectedContainerColor)
+        onNodeWithTag(TEST_TAG).captureToImage().assertContainsColor(finalExpectedContainerColor)
     }
 
     private fun ComposeContentTestRule.verifyActualSize(
         expectedSize: Dp,
-        content: @Composable (modifier: Modifier) -> Unit
+        content: @Composable (modifier: Modifier) -> Unit,
     ) {
-        setContentWithTheme {
-            content(Modifier.testTag(TEST_TAG))
-        }
+        setContentWithTheme { content(Modifier.testTag(TEST_TAG)) }
         waitForIdle()
 
         onNodeWithTag(TEST_TAG)
             .assertHeightIsEqualTo(expectedSize)
             .assertWidthIsEqualTo(expectedSize)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun ComposeContentTestRule.verifyCheckedStateChange(
+        updateState: () -> Unit,
+        startShape: Shape,
+        endShape: Shape,
+        padding: Dp = 0.dp,
+        backgroundColor: Color = Color.White,
+        antiAliasingGap: Float = 2f,
+        uncheckedColorComposable: @Composable () -> Color,
+        checkedColorComposable: @Composable () -> Color,
+        content: @Composable (Modifier) -> Unit,
+    ) {
+        var uncheckedColor = Color.Transparent
+        var checkedColor = Color.Transparent
+        rule.setContentWithTheme {
+            uncheckedColor = uncheckedColorComposable()
+            checkedColor = checkedColorComposable()
+            Box(Modifier.padding(padding).background(backgroundColor)) {
+                content(Modifier.testTag(TEST_TAG))
+            }
+        }
+        this.waitForIdle()
+
+        // Confirm that the start state is correct
+        rule
+            .onNodeWithTag(TEST_TAG)
+            .captureToImage()
+            .assertShape(
+                density = rule.density,
+                horizontalPadding = padding,
+                verticalPadding = padding,
+                shapeColor = uncheckedColor,
+                backgroundColor = backgroundColor,
+                antiAliasingGap = antiAliasingGap,
+                shape = startShape,
+            )
+
+        // Update state
+        updateState()
+        this.waitForIdle()
+
+        // Confirm that the end state is correct
+        rule
+            .onNodeWithTag(TEST_TAG)
+            .captureToImage()
+            .assertShape(
+                density = rule.density,
+                horizontalPadding = padding,
+                verticalPadding = padding,
+                shapeColor = checkedColor,
+                backgroundColor = backgroundColor,
+                antiAliasingGap = antiAliasingGap,
+                shape = endShape,
+            )
     }
 }

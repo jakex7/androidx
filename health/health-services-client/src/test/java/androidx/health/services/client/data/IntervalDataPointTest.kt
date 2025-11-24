@@ -24,22 +24,25 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 internal class IntervalDataPointTest {
     fun Int.duration() = Duration.ofSeconds(toLong())
 
     @Test
     fun protoRoundTrip() {
-        val proto = IntervalDataPoint(
-            DataType.CALORIES,
-            value = 130.0,
-            startDurationFromBoot = 10.duration(),
-            endDurationFromBoot = 20.duration(),
-            Bundle().apply {
-                putInt("int", 5)
-                putString("string", "value")
-            },
-            accuracy = null // No interval DataPoints have an accuracy component
-        ).proto
+        val proto =
+            IntervalDataPoint(
+                    DataType.CALORIES,
+                    value = 130.0,
+                    startDurationFromBoot = 10.duration(),
+                    endDurationFromBoot = 20.duration(),
+                    Bundle().apply {
+                        putInt("int", 5)
+                        putString("string", "value")
+                    },
+                    accuracy = null, // No interval DataPoints have an accuracy component
+                )
+                .proto
 
         val dataPoint = IntervalDataPoint.fromProto(proto)
 
@@ -54,14 +57,16 @@ internal class IntervalDataPointTest {
 
     @Test
     fun protoRoundTrip_emptyBundle() {
-        val proto = IntervalDataPoint(
-            DataType.CALORIES,
-            value = 130.0,
-            startDurationFromBoot = 10.duration(),
-            endDurationFromBoot = 20.duration(),
-            metadata = Bundle(),
-            accuracy = null // No interval DataPoints have an accuracy component
-        ).proto
+        val proto =
+            IntervalDataPoint(
+                    DataType.CALORIES,
+                    value = 130.0,
+                    startDurationFromBoot = 10.duration(),
+                    endDurationFromBoot = 20.duration(),
+                    metadata = Bundle(),
+                    accuracy = null, // No interval DataPoints have an accuracy component
+                )
+                .proto
 
         val dataPoint = IntervalDataPoint.fromProto(proto)
 

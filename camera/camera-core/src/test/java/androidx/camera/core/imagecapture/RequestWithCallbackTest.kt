@@ -16,7 +16,7 @@
 
 package androidx.camera.core.imagecapture
 
-import android.os.Build
+import android.graphics.ImageFormat
 import android.os.Looper.getMainLooper
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCapture.ERROR_CAMERA_CLOSED
@@ -39,12 +39,10 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
 
-/**
- * Unit tests for [RequestWithCallback]
- */
+/** Unit tests for [RequestWithCallback] */
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class RequestWithCallbackTest {
 
     private lateinit var abortError: ImageCaptureException
@@ -58,9 +56,8 @@ class RequestWithCallbackTest {
     fun setUp() {
         abortError = ImageCaptureException(ERROR_CAMERA_CLOSED, "", null)
         otherError = ImageCaptureException(ERROR_CAPTURE_FAILED, "", null)
-        imageResult =
-            FakeImageProxy(FakeImageInfo())
-        fileResult = ImageCapture.OutputFileResults(null)
+        imageResult = FakeImageProxy(FakeImageInfo())
+        fileResult = ImageCapture.OutputFileResults(null, ImageFormat.JPEG)
         retryControl = FakeRetryControl()
         captureRequestFuture = CallbackToFutureAdapter.getFuture { "captureRequestFuture" }
     }
@@ -203,11 +200,13 @@ class RequestWithCallbackTest {
         // Arrange.
         var startedCount = 0
         val request = FakeTakePictureRequest(FakeTakePictureRequest.Type.IN_MEMORY)
-        request.setInMemoryCallback(object : OnImageCapturedCallback() {
-            override fun onCaptureStarted() {
-                startedCount++
+        request.setInMemoryCallback(
+            object : OnImageCapturedCallback() {
+                override fun onCaptureStarted() {
+                    startedCount++
+                }
             }
-        })
+        )
         val callback = RequestWithCallback(request, retryControl)
         // Act: call onCaptureStarted twice intentionally.
         callback.onCaptureStarted()
@@ -222,17 +221,17 @@ class RequestWithCallbackTest {
         // Arrange.
         var startedCount = 0
         val request = FakeTakePictureRequest(FakeTakePictureRequest.Type.ON_DISK)
-        request.setOnDiskCallback(object : OnImageSavedCallback {
-            override fun onCaptureStarted() {
-                startedCount++
-            }
+        request.setOnDiskCallback(
+            object : OnImageSavedCallback {
+                override fun onCaptureStarted() {
+                    startedCount++
+                }
 
-            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-            }
+                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {}
 
-            override fun onError(exception: ImageCaptureException) {
+                override fun onError(exception: ImageCaptureException) {}
             }
-        })
+        )
         val callback = RequestWithCallback(request, retryControl)
         // Act: call onCaptureStarted twice intentionally.
         callback.onCaptureStarted()

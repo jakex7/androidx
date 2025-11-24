@@ -21,26 +21,27 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.LibraryType
+
+import androidx.build.SoftwareType
 import androidx.build.PlatformIdentifier
 
 plugins {
     id("AndroidXPlugin")
-    id("com.android.library")
     id("AndroidXComposePlugin")
 }
 
-
 androidXMultiplatform {
-    android()
-    desktop()
+    androidLibrary {
+        namespace = "androidx.compose.ui.geometry"
+    }
+    jvmStubs()
+    linuxX64Stubs()
 
     defaultPlatform(PlatformIdentifier.ANDROID)
 
     sourceSets {
         commonMain {
             dependencies {
-                implementation(libs.kotlinStdlibCommon)
                 implementation(project(":compose:runtime:runtime"))
                 implementation(project(":compose:ui:ui-util"))
             }
@@ -48,46 +49,46 @@ androidXMultiplatform {
 
         commonTest {
             dependencies {
-                implementation(kotlin("test-junit"))
+                implementation(libs.kotlinTest)
             }
         }
 
         jvmMain {
-            dependencies {
-                implementation(libs.kotlinStdlib)
-            }
+            dependsOn(commonMain)
         }
 
+        jvmTest {
+            dependsOn(commonTest)
+        }
 
         androidMain {
             dependsOn(jvmMain)
             dependencies {
-                api("androidx.annotation:annotation:1.1.0")
+                api("androidx.annotation:annotation:1.8.1")
             }
         }
 
-        desktopMain {
+        commonStubsMain {
+            dependsOn(commonMain)
+        }
+
+        jvmStubsMain {
             dependsOn(jvmMain)
+            dependsOn(commonStubsMain)
+        }
+
+        linuxx64StubsMain {
+            dependsOn(commonStubsMain)
+        }
+
+        androidDeviceTest {
+            dependsOn(commonTest)
             dependencies {
+                implementation(libs.testRunner)
             }
         }
 
-        jvmTest {
-            dependencies {
-            }
-        }
-
-        androidInstrumentedTest {
-            dependsOn(jvmTest)
-            dependencies {
-            }
-        }
-
-        androidUnitTest {
-            dependsOn(jvmTest)
-        }
-
-        desktopTest {
+        androidHostTest {
             dependsOn(jvmTest)
         }
     }
@@ -95,12 +96,9 @@ androidXMultiplatform {
 
 androidx {
     name = "Compose Geometry"
-    type = LibraryType.PUBLISHED_LIBRARY_ONLY_USED_BY_KOTLIN_CONSUMERS
+    type = SoftwareType.PUBLISHED_LIBRARY_ONLY_USED_BY_KOTLIN_CONSUMERS
     inceptionYear = "2020"
     description = "Compose classes related to dimensions without units"
     legacyDisableKotlinStrictApiMode = true
 }
 
-android {
-    namespace "androidx.compose.ui.geometry"
-}

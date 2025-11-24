@@ -19,7 +19,6 @@ package androidx.camera.mlkit.vision
 import android.graphics.Rect
 import android.graphics.RectF
 import android.media.Image
-import android.os.Build
 import android.util.Size
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageAnalysis.COORDINATE_SYSTEM_SENSOR
@@ -41,12 +40,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
 
-/**
- * Unit test for [MlKitAnalyzer].
- */
+/** Unit test for [MlKitAnalyzer]. */
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class MlKitAnalyzerTest {
 
     companion object {
@@ -56,11 +53,8 @@ class MlKitAnalyzerTest {
         private val SENSOR_RECT = Rect(0, 0, 4000, 3000)
         private val VIEW_RECT = Rect(0, 0, 1024, 768)
         private val IMAGE_ANALYSIS_RECT = Rect(0, 0, 640, 480)
-        private val SENSOR_TO_BUFFER = getRectToRect(
-            RectF(SENSOR_RECT),
-            RectF(IMAGE_ANALYSIS_RECT),
-            0
-        )
+        private val SENSOR_TO_BUFFER =
+            getRectToRect(RectF(SENSOR_RECT), RectF(IMAGE_ANALYSIS_RECT), 0)
     }
 
     @Test
@@ -70,13 +64,14 @@ class MlKitAnalyzerTest {
         closedDetector.close()
         val openDetector = FakeDetector(RETURN_VALUE, TYPE_BARCODE_SCANNING)
         var result: MlKitAnalyzer.Result? = null
-        val mlKitAnalyzer = MlKitAnalyzer(
-            listOf(closedDetector, openDetector),
-            ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL,
-            directExecutor()
-        ) {
-            result = it
-        }
+        val mlKitAnalyzer =
+            MlKitAnalyzer(
+                listOf(closedDetector, openDetector),
+                ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL,
+                directExecutor(),
+            ) {
+                result = it
+            }
         // Act.
         mlKitAnalyzer.analyze(createFakeImageProxy())
         // Assert: the closed detector contains a Exception. The open one contains the value.
@@ -90,13 +85,14 @@ class MlKitAnalyzerTest {
         val fakeDetector = FakeDetector(RETURN_VALUE, TYPE_BARCODE_SCANNING)
         fakeDetector.taskCanceled = true
         var result: MlKitAnalyzer.Result? = null
-        val mlKitAnalyzer = MlKitAnalyzer(
-            listOf(fakeDetector),
-            ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL,
-            directExecutor()
-        ) {
-            result = it
-        }
+        val mlKitAnalyzer =
+            MlKitAnalyzer(
+                listOf(fakeDetector),
+                ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL,
+                directExecutor(),
+            ) {
+                result = it
+            }
         // Act.
         mlKitAnalyzer.analyze(createFakeImageProxy())
         // Assert: the result has a CancellationException.
@@ -108,11 +104,12 @@ class MlKitAnalyzerTest {
     fun createAnalyzerWith2Detectors_overridesWithHigherResolution() {
         val barcodeScanner = FakeDetector(RETURN_VALUE, TYPE_BARCODE_SCANNING)
         val faceDetector = FakeDetector(RETURN_VALUE, TYPE_FACE_DETECTION)
-        val mlKitAnalyzer = MlKitAnalyzer(
-            listOf(barcodeScanner, faceDetector),
-            ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL,
-            directExecutor()
-        ) {}
+        val mlKitAnalyzer =
+            MlKitAnalyzer(
+                listOf(barcodeScanner, faceDetector),
+                ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL,
+                directExecutor(),
+            ) {}
 
         assertThat(mlKitAnalyzer.defaultTargetResolution).isEqualTo(Size(1280, 720))
     }
@@ -124,13 +121,14 @@ class MlKitAnalyzerTest {
         failDetector.taskException = Exception()
         val successDetector = FakeDetector(RETURN_VALUE, TYPE_BARCODE_SCANNING)
         var result: MlKitAnalyzer.Result? = null
-        val mlKitAnalyzer = MlKitAnalyzer(
-            listOf(failDetector, successDetector),
-            ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL,
-            directExecutor()
-        ) {
-            result = it
-        }
+        val mlKitAnalyzer =
+            MlKitAnalyzer(
+                listOf(failDetector, successDetector),
+                ImageAnalysis.COORDINATE_SYSTEM_ORIGINAL,
+                directExecutor(),
+            ) {
+                result = it
+            }
 
         // Act.
         mlKitAnalyzer.analyze(createFakeImageProxy())
@@ -152,7 +150,7 @@ class MlKitAnalyzerTest {
         MlKitAnalyzer(
             listOf(FakeDetector(RETURN_VALUE, Detector.TYPE_SEGMENTATION)),
             COORDINATE_SYSTEM_VIEW_REFERENCED,
-            directExecutor()
+            directExecutor(),
         ) {}
     }
 
@@ -162,12 +160,8 @@ class MlKitAnalyzerTest {
         val additionalTransform = getRectToRect(RectF(SENSOR_RECT), RectF(VIEW_RECT), 0)
         additionalTransform.setScale(2F, 2F)
         val detector = FakeDetector(RETURN_VALUE, TYPE_BARCODE_SCANNING)
-        val analyzer = MlKitAnalyzer(
-            listOf(detector),
-            COORDINATE_SYSTEM_SENSOR,
-            directExecutor()
-        ) {
-        }
+        val analyzer =
+            MlKitAnalyzer(listOf(detector), COORDINATE_SYSTEM_SENSOR, directExecutor()) {}
         analyzer.updateTransform(additionalTransform)
 
         // Act.
@@ -187,12 +181,8 @@ class MlKitAnalyzerTest {
         val additionalTransform = getRectToRect(RectF(SENSOR_RECT), RectF(VIEW_RECT), 0)
         additionalTransform.setScale(2F, 2F)
         val detector = FakeDetector(RETURN_VALUE, TYPE_BARCODE_SCANNING)
-        val analyzer = MlKitAnalyzer(
-            listOf(detector),
-            COORDINATE_SYSTEM_VIEW_REFERENCED,
-            directExecutor()
-        ) {
-        }
+        val analyzer =
+            MlKitAnalyzer(listOf(detector), COORDINATE_SYSTEM_VIEW_REFERENCED, directExecutor()) {}
         analyzer.updateTransform(additionalTransform)
 
         // Act.
@@ -211,8 +201,7 @@ class MlKitAnalyzerTest {
         imageInfo.rotationDegrees = ROTATION_DEGREES
         imageInfo.sensorToBufferTransformMatrix = SENSOR_TO_BUFFER
 
-        val imageProxy =
-            FakeImageProxy(imageInfo)
+        val imageProxy = FakeImageProxy(imageInfo)
         imageProxy.image = mock(Image::class.java)
         imageProxy.width = IMAGE_ANALYSIS_RECT.width()
         imageProxy.height = IMAGE_ANALYSIS_RECT.height()

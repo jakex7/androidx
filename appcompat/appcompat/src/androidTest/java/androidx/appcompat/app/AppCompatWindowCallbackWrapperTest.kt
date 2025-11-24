@@ -25,7 +25,6 @@ import androidx.appcompat.view.WindowCallbackWrapper
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
-import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import junit.framework.TestCase.assertNotNull
 import org.junit.Test
@@ -46,7 +45,6 @@ class AppCompatWindowCallbackWrapperTest {
      * Regression test for b/173628052 where window callbacks are not dispatched to custom wrappers.
      */
     @Test
-    @SdkSuppress(minSdkVersion = 23) // Mockito requires SDK 23+
     fun testDispatchKeyEventToWrapper() {
         ActivityScenario.launch(AppCompatInflaterDefaultActivity::class.java).let { scenario ->
             val keyEvent = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MENU)
@@ -69,7 +67,6 @@ class AppCompatWindowCallbackWrapperTest {
      * Regression test for b/173628052 where window callbacks are not dispatched to custom wrappers.
      */
     @Test
-    @SdkSuppress(minSdkVersion = 23) // Mockito requires SDK 23+
     fun testOnContentChangedToWrapper() {
         ActivityScenario.launch(AppCompatInflaterDefaultActivity::class.java).let { scenario ->
             var callback: Window.Callback? = null
@@ -91,7 +88,6 @@ class AppCompatWindowCallbackWrapperTest {
      * Regression test for b/173628052 where window callbacks are not dispatched to custom wrappers.
      */
     @Test
-    @SdkSuppress(minSdkVersion = 23) // Mockito requires SDK 23+
     fun testOnPanelClosedWrapper() {
         ActivityScenario.launch(AppCompatInflaterDefaultActivity::class.java).let { scenario ->
             var callback: Window.Callback? = null
@@ -102,17 +98,20 @@ class AppCompatWindowCallbackWrapperTest {
                 // Set up a fake application sub-panel, then close it. This is messy, but it's
                 // likely more reliable than displaying a real panel.
                 val v = FrameLayout(activity)
-                val st = AppCompatDelegateImpl.PanelFeatureState(
-                    Window.FEATURE_CONTEXT_MENU
-                ).apply {
-                    isOpen = true
-                    decorView = v
-                }
-                activity.windowManager.addView(v,
-                    WindowManager.LayoutParams(0, 0,
-                        WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL, 0,
-                        PixelFormat.TRANSLUCENT
-                    )
+                val st =
+                    AppCompatDelegateImpl.PanelFeatureState(Window.FEATURE_CONTEXT_MENU).apply {
+                        isOpen = true
+                        decorView = v
+                    }
+                activity.windowManager.addView(
+                    v,
+                    WindowManager.LayoutParams(
+                        0,
+                        0,
+                        WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL,
+                        0,
+                        PixelFormat.TRANSLUCENT,
+                    ),
                 )
                 (activity.delegate as? AppCompatDelegateImpl)?.closePanel(st, true)
             }

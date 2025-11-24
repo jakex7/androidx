@@ -19,10 +19,11 @@ package androidx.activity.compose.lint
 import androidx.compose.lint.test.bytecodeStub
 import com.android.tools.lint.checks.infrastructure.LintDetectorTest
 
-val BACK_HANDLER = bytecodeStub(
-    filename = "BackHandler.kt",
-    filepath = "androidx/activity/compose",
-    checksum = 0x40a94587,
+val BACK_HANDLER =
+    bytecodeStub(
+        filename = "BackHandler.kt",
+        filepath = "androidx/activity/compose",
+        checksum = 0x40a94587,
         """
     package androidx.activity.compose
 
@@ -33,13 +34,13 @@ val BACK_HANDLER = bytecodeStub(
         enabled: Boolean = true,
         onBack: () -> Unit) { } 
     """,
-    """
+        """
     META-INF/main.kotlin_module:
     H4sIAAAAAAAA/2NgYGBmYGBgBGJWKM3AZcQlmZiXUpSfmVKhl5hcklmWWVKp
     l5yfW5BfnCrE65SYnO0BlM9JLfIuEWILSS0u8S7hEuXiBqrQS61IzC3ISYUJ
     KzFoMQAA3mTzZGMAAAA=
     """,
-    """
+        """
     androidx/activity/compose/BackHandlerKt.class:
     H4sIAAAAAAAA/4VSXU8TQRQ9s/1eoJQiCgURBQRE2YImPFRNlITQWNBY5QGe
     ptuhTrudJbvTBl8Mf8Of4RvxwfDsjzLe2bZY4YEmnft17r3n3r2///z8BeAF
@@ -56,27 +57,28 @@ val BACK_HANDLER = bytecodeStub(
     PQjymIxKpGDjDsWfROgU1vv4NMmn9M8YOA0P5DKYonQW9druc8jOxb99RyJe
     KqxfYLrX8hm9MbB01DuLWNQlSRXTJC1sRKDHcEi+onJmhMIxYmXMljFHL+6X
     MY8HZSzg4TFYiEdYPEYyRCLEUoh89Nohlv8C003RZnYEAAA=
-    """
-)
+    """,
+    )
 
-val COMPONENT_ACTIVITY = bytecodeStub(
-    "ComponentActivity.kt",
-    "androidx/activity",
-    0xd291c9ac,
-    """
+val COMPONENT_ACTIVITY =
+    bytecodeStub(
+        "ComponentActivity.kt",
+        "androidx/activity",
+        0xd291c9ac,
+        """
     package androidx.activity
 
     class ComponentActivity {
         fun onBackPressed() { }
     }
     """,
-    """
+        """
     META-INF/main.kotlin_module:
     H4sIAAAAAAAA/2NgYGBmYGBgBGJWKM3AZcQlmZiXUpSfmVKhl5hcklmWWVKp
     l5yfW5BfnCrE65SYnO0BlM9JLfIuEWILSS0u8S7hEuXiBqrQS61IzC3ISYUJ
     KzFoMQAA3mTzZGMAAAA=
     """,
-    """
+        """
     androidx/activity/ComponentActivity.class:
     H4sIAAAAAAAA/41RTW8TMRB9481uyralm7ZAWuCEkGgrsWnFCVClthJSqrQg
     QLnk5Oxa4Cax0dqJ2lt+C/+AExIHFHHsj0KMQ4QQXGrJb+a98fPH+Prnt+8A
@@ -88,27 +90,28 @@ val COMPONENT_ACTIVITY = bytecodeStub(
     +GjuF2OTWc6RwsN2v2Lpy7y8xZjMxRq2GVd+L8AtpBwbWP5j3gttCfNfY/yX
     kRZGgftzvIcHHJ+zHv5ttYeojdttrDEiC9BoYx0bPZDDJu70EDukDncdEodl
     Tn4B9lImlUcCAAA=
-    """
-)
+    """,
+    )
 
-val ON_BACK_PRESSED_DISPATCHER = bytecodeStub(
-    "OnBackPressedDispatcher.kt",
-    "androidx/activity",
-    0x38be529,
-    """
+val ON_BACK_PRESSED_DISPATCHER =
+    bytecodeStub(
+        "OnBackPressedDispatcher.kt",
+        "androidx/activity",
+        0x38be529,
+        """
     package androidx.activity
 
     class OnBackPressedDispatcher {
         fun onBackPressed() { }
     }
     """,
-    """
+        """
     META-INF/main.kotlin_module:
     H4sIAAAAAAAA/2NgYGBmYGBgBGJWKM3AZcQlmZiXUpSfmVKhl5hcklmWWVKp
     l5yfW5BfnCrE65SYnO0BlM9JLfIuEWILSS0u8S7hEuXiBqrQS61IzC3ISYUJ
     KzFoMQAA3mTzZGMAAAA=
     """,
-    """
+        """
     androidx/activity/OnBackPressedDispatcher.class:
     H4sIAAAAAAAA/41R0UobQRQ9dza7savWjbY1xva9VnCj+GSLoC2FSFqLLXnJ
     02R3qGOSWdmZBH3Lt/QP+lTogwQf+1Gld6KICEIH5tx7zp2zM/fun7+/rwDs
@@ -120,13 +123,14 @@ val ON_BACK_PRESSED_DISPATCHER = bytecodeStub(
     BD+AZ8dYZ5ZyJN/em1+Y+zkrrzFGM7GCBuPCzQE8Qcyxhvk786Yfjt8PjeE9
     I90aBdZnuIqXHPdY9/9wsYughactLDEi8VBrYRkrXZDFMzzvIrSILV5YRBbz
     nPwDYUKQQFkCAAA=
-    """
-)
+    """,
+    )
 
-val PREDICTIVE_BACK_HANDLER = LintDetectorTest.bytecode(
-    "libs/predictivebackhandler.jar",
-    LintDetectorTest.kotlin(
-        """
+val PREDICTIVE_BACK_HANDLER =
+    LintDetectorTest.bytecode(
+        "libs/predictivebackhandler.jar",
+        LintDetectorTest.kotlin(
+                """
     package androidx.activity.compose
 
     import androidx.compose.runtime.Composable
@@ -136,14 +140,15 @@ val PREDICTIVE_BACK_HANDLER = LintDetectorTest.bytecode(
         enabled: Boolean = true,
         onBack: (progress: String) -> Unit) { }
     """
-    ).indented(),
-    0x7806fd68,
-    """
+            )
+            .indented(),
+        0x7806fd68,
+        """
     META-INF/main.kotlin_module:
     H4sIAAAAAAAA/2NgYGBmYGBgBGJWKM3ApcwlmZiXUpSfmVKhl5hcklmWWVKp
     l5yfW5BfnCrEFpJaXOJdwiXKxQ0U0kutSMwtyIELKzFoMQAAfOuo51QAAAA=
     """,
-    """
+        """
     androidx/activity/compose/TestKt.class:
     H4sIAAAAAAAA/4VTW08TQRT+ZnvblltZRaFcFEEtImxBDQ81JkpCbKyVCPIg
     8WHYDnXodpbsTht9MfwNX/0HvhEfDPHRH2U8s20BwYQmPZc535zznXNmf//5
@@ -162,5 +167,5 @@ val PREDICTIVE_BACK_HANDLER = LintDetectorTest.bytecode(
     gVPzQD6LMbrO4lprPQ7DU8kvX5FKlguLxxjvliyRTIDZce1hJOKMacptk7SI
     vgEtYJV0hdKZFgq7SFQwWcEUSUxXMINbFdzG7C5YhDuY20UuQirCfAQnluTe
     jY17Ee5HKP4FMROs2egEAAA=
-    """
-)
+    """,
+    )

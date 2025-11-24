@@ -50,6 +50,7 @@ import androidx.test.filters.LargeTest
 import androidx.test.filters.SdkSuppress
 import com.google.common.truth.Truth
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -58,8 +59,7 @@ import org.junit.Test
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
 class LazyStaggeredGridItemDisappearanceAnimationTest {
 
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(StandardTestDispatcher())
 
     // the numbers should be divisible by 8 to avoid the rounding issues as we run 4 or 8 frames
     // of the animation.
@@ -85,16 +85,10 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
     fun oneItemRemoved() {
         var list by mutableStateOf(listOf(Color.Black))
         rule.setContent {
-            LazyGrid(containerSize = itemSizeDp) {
-                items(list, key = { it.toArgb() }) {
-                    Item(it)
-                }
-            }
+            LazyGrid(containerSize = itemSizeDp) { items(list, key = { it.toArgb() }) { Item(it) } }
         }
 
-        rule.runOnUiThread {
-            list = emptyList()
-        }
+        rule.runOnUiThread { list = emptyList() }
 
         onAnimationFrame { fraction ->
             assertPixels(mainAxisSize = itemSize) { _, _ ->
@@ -108,15 +102,11 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
         var list by mutableStateOf(listOf(Color.Black, Color.Red, Color.Green))
         rule.setContent {
             LazyGrid(containerSize = itemSizeDp * 3) {
-                items(list, key = { it.toArgb() }) {
-                    Item(it)
-                }
+                items(list, key = { it.toArgb() }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(Color.Black)
-        }
+        rule.runOnUiThread { list = listOf(Color.Black) }
 
         onAnimationFrame { fraction ->
             assertPixels(itemSize * 3) { _, offset ->
@@ -135,15 +125,11 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
         var list by mutableStateOf(listOf(Color.Black, Color.Red, Color.Green))
         rule.setContent {
             LazyGrid(containerSize = itemSizeDp * 3, reverseLayout = true) {
-                items(list, key = { it.toArgb() }) {
-                    Item(it)
-                }
+                items(list, key = { it.toArgb() }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(Color.Black)
-        }
+        rule.runOnUiThread { list = listOf(Color.Black) }
 
         onAnimationFrame { fraction ->
             assertPixels(itemSize * 3) { _, offset ->
@@ -163,17 +149,13 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
             LazyGrid(
                 containerSize = itemSizeDp * 3,
                 reverseLayout = true,
-                contentPadding = PaddingValues(bottom = itemSizeDp)
+                contentPadding = PaddingValues(bottom = itemSizeDp),
             ) {
-                items(list, key = { it.toArgb() }) {
-                    Item(it)
-                }
+                items(list, key = { it.toArgb() }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(Color.Black)
-        }
+        rule.runOnUiThread { list = listOf(Color.Black) }
 
         onAnimationFrame { fraction ->
             assertPixels(itemSize * 3) { _, offset ->
@@ -197,9 +179,7 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
             }
         }
 
-        rule.runOnUiThread {
-            list = emptyList()
-        }
+        rule.runOnUiThread { list = emptyList() }
 
         onAnimationFrame { fraction ->
             assertPixels(itemSize * 2) { _, offset ->
@@ -216,9 +196,7 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
         var list by mutableStateOf(listOf(Color.Black, Color.Red, Color.Blue, Color.Green))
         rule.setContent {
             LazyGrid(containerSize = itemSizeDp * 2) {
-                items(list, key = { it.toArgb() }) {
-                    Item(it)
-                }
+                items(list, key = { it.toArgb() }) { Item(it) }
             }
         }
 
@@ -249,23 +227,15 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
     fun itemsBeingRemovedAreAffectingTheContainerSizeForTheDurationOfAnimation() {
         var list by mutableStateOf(listOf(Color.Black, Color.Red))
         rule.setContent {
-            LazyGrid(containerSize = null) {
-                items(list, key = { it.toArgb() }) {
-                    Item(it)
-                }
-            }
+            LazyGrid(containerSize = null) { items(list, key = { it.toArgb() }) { Item(it) } }
         }
 
-        rule.onNodeWithTag(ContainerTag)
-            .assertHeightIsEqualTo(itemSizeDp * 2)
+        rule.onNodeWithTag(ContainerTag).assertHeightIsEqualTo(itemSizeDp * 2)
 
-        rule.runOnUiThread {
-            list = listOf(Color.Black)
-        }
+        rule.runOnUiThread { list = listOf(Color.Black) }
 
         onAnimationFrame { fraction ->
-            val heightDp = rule.onNodeWithTag(ContainerTag)
-                .getBoundsInRoot().height
+            val heightDp = rule.onNodeWithTag(ContainerTag).getBoundsInRoot().height
             val heightPx = with(rule.density) { heightDp.roundToPx() }
             Truth.assertWithMessage("Height on fraction=$fraction")
                 .that(heightPx)
@@ -289,14 +259,11 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
         var list by mutableStateOf(listOf(Color.Black, Color.Red))
         rule.setContent {
             LazyGrid(containerSize = null, reverseLayout = true) {
-                items(list, key = { it.toArgb() }) {
-                    Item(it)
-                }
+                items(list, key = { it.toArgb() }) { Item(it) }
             }
         }
 
-        rule.onNodeWithTag(ContainerTag)
-            .assertHeightIsEqualTo(itemSizeDp * 2)
+        rule.onNodeWithTag(ContainerTag).assertHeightIsEqualTo(itemSizeDp * 2)
 
         assertPixels(itemSize * 2) { _, offset ->
             when (offset) {
@@ -305,13 +272,10 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(Color.Black)
-        }
+        rule.runOnUiThread { list = listOf(Color.Black) }
 
         onAnimationFrame { fraction ->
-            val heightDp = rule.onNodeWithTag(ContainerTag)
-                .getBoundsInRoot().height
+            val heightDp = rule.onNodeWithTag(ContainerTag).getBoundsInRoot().height
             val heightPx = with(rule.density) { heightDp.roundToPx() }
             Truth.assertWithMessage("Height on fraction=$fraction")
                 .that(heightPx)
@@ -334,25 +298,17 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
     fun reAddItemBeingAnimated_withoutAppearanceAnimation() {
         var list by mutableStateOf(listOf(Color.Black))
         rule.setContent {
-            LazyGrid(containerSize = itemSizeDp) {
-                items(list, key = { it.toArgb() }) {
-                    Item(it)
-                }
-            }
+            LazyGrid(containerSize = itemSizeDp) { items(list, key = { it.toArgb() }) { Item(it) } }
         }
 
-        rule.runOnUiThread {
-            list = emptyList()
-        }
+        rule.runOnUiThread { list = emptyList() }
 
         onAnimationFrame { fraction ->
             if (fraction < 0.5f) {
                 assertPixels(itemSize) { _, _ -> Color.Black.copy(alpha = 1f - fraction) }
             } else {
                 if (fraction.isCloseTo(0.5f)) {
-                    rule.runOnUiThread {
-                        list = listOf(Color.Black)
-                    }
+                    rule.runOnUiThread { list = listOf(Color.Black) }
                 }
                 assertPixels(itemSize) { _, _ -> Color.Black }
             }
@@ -370,22 +326,16 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
             }
         }
 
-        rule.runOnUiThread {
-            list = emptyList()
-        }
+        rule.runOnUiThread { list = emptyList() }
 
         onAnimationFrame { fraction ->
             if (fraction < 0.5f) {
                 assertPixels(itemSize) { _, _ -> Color.Black.copy(alpha = 1f - fraction) }
             } else {
                 if (fraction.isCloseTo(0.5f)) {
-                    rule.runOnUiThread {
-                        list = listOf(Color.Black)
-                    }
+                    rule.runOnUiThread { list = listOf(Color.Black) }
                 }
-                assertPixels(itemSize) { _, _ ->
-                Color.Black.copy(alpha = fraction)
-                }
+                assertPixels(itemSize) { _, _ -> Color.Black.copy(alpha = fraction) }
             }
         }
     }
@@ -401,22 +351,16 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
             }
         }
 
-        rule.runOnUiThread {
-            list = listOf(Color.Black)
-        }
+        rule.runOnUiThread { list = listOf(Color.Black) }
 
         onAnimationFrame { fraction ->
             if (fraction < 0.5f) {
                 assertPixels(itemSize) { _, _ -> Color.Black.copy(alpha = fraction) }
             } else {
                 if (fraction.isCloseTo(0.5f)) {
-                    rule.runOnUiThread {
-                        list = emptyList()
-                    }
+                    rule.runOnUiThread { list = emptyList() }
                 }
-                assertPixels(itemSize) { _, _ ->
-                    Color.Black.copy(alpha = 1f - fraction)
-                }
+                assertPixels(itemSize) { _, _ -> Color.Black.copy(alpha = 1f - fraction) }
             }
         }
     }
@@ -426,15 +370,11 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
         var list by mutableStateOf(listOf(Color.Black, Color.Green))
         rule.setContent {
             LazyGrid(cells = 2, containerSize = itemSizeDp, crossAxisSize = itemSizeDp * 2) {
-                items(list, key = { it.toArgb() }) {
-                    Item(it)
-                }
+                items(list, key = { it.toArgb() }) { Item(it) }
             }
         }
 
-        rule.runOnUiThread {
-            list = emptyList()
-        }
+        rule.runOnUiThread { list = emptyList() }
 
         onAnimationFrame { fraction ->
             assertPixels(mainAxisSize = itemSize, crossAxisSize = itemSize * 2) { x, _ ->
@@ -450,13 +390,13 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
     private fun assertPixels(
         mainAxisSize: Int,
         crossAxisSize: Int = this.crossAxisSize,
-        expectedColorProvider: (x: Int, y: Int) -> Color?
+        expectedColorProvider: (x: Int, y: Int) -> Color?,
     ) {
-        rule.onNodeWithTag(ContainerTag)
-            .captureToImage()
-            .assertPixels(IntSize(crossAxisSize, mainAxisSize)) {
-                expectedColorProvider(it.x, it.y)?.compositeOver(Color.White)
-            }
+        rule.onNodeWithTag(ContainerTag).captureToImage().assertPixels(
+            IntSize(crossAxisSize, mainAxisSize)
+        ) {
+            expectedColorProvider(it.x, it.y)?.compositeOver(Color.White)
+        }
     }
 
     private fun onAnimationFrame(duration: Long = Duration, onFrame: (fraction: Float) -> Unit) {
@@ -483,32 +423,33 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
         crossAxisSize: Dp = crossAxisSizeDp,
         reverseLayout: Boolean = false,
         contentPadding: PaddingValues = PaddingValues(0.dp),
-        content: LazyStaggeredGridScope.() -> Unit
+        content: LazyStaggeredGridScope.() -> Unit,
     ) {
         state = rememberLazyStaggeredGridState(startIndex)
 
         LazyVerticalStaggeredGrid(
             StaggeredGridCells.Fixed(cells),
             state = state,
-            modifier = Modifier.then(
-                if (containerSize != null) {
-                    Modifier.requiredHeight(containerSize)
-                } else {
-                    Modifier
-                }
-            )
-                .background(Color.White)
-                .then(
-                    if (crossAxisSize != Dp.Unspecified) {
-                        Modifier.requiredWidth(crossAxisSize)
-                    } else {
-                        Modifier.fillMaxWidth()
-                    }
-                )
-                .testTag(ContainerTag),
+            modifier =
+                Modifier.then(
+                        if (containerSize != null) {
+                            Modifier.requiredHeight(containerSize)
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .background(Color.White)
+                    .then(
+                        if (crossAxisSize != Dp.Unspecified) {
+                            Modifier.requiredWidth(crossAxisSize)
+                        } else {
+                            Modifier.fillMaxWidth()
+                        }
+                    )
+                    .testTag(ContainerTag),
             contentPadding = contentPadding,
             reverseLayout = reverseLayout,
-            content = content
+            content = content,
         )
     }
 
@@ -518,14 +459,13 @@ class LazyStaggeredGridItemDisappearanceAnimationTest {
         size: Dp = itemSizeDp,
         crossAxisSize: Dp = crossAxisSizeDp,
         disappearanceSpec: FiniteAnimationSpec<Float>? = AnimSpec,
-        appearanceSpec: FiniteAnimationSpec<Float>? = null
+        appearanceSpec: FiniteAnimationSpec<Float>? = null,
     ) {
         Box(
-            Modifier
-                .animateItem(
+            Modifier.animateItem(
                     fadeInSpec = appearanceSpec,
                     placementSpec = null,
-                    fadeOutSpec = disappearanceSpec
+                    fadeOutSpec = disappearanceSpec,
                 )
                 .background(color)
                 .requiredHeight(size)

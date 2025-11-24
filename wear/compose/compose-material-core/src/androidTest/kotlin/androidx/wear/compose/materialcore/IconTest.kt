@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.filters.SdkSuppress
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,8 +61,7 @@ import org.junit.runner.RunWith
 @LargeTest
 @RunWith(AndroidJUnit4::class)
 class IconTest {
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     fun vector_materialIconSize_dimensions() {
@@ -70,10 +70,7 @@ class IconTest {
         val vector = Icons.Filled.Menu
         rule
             .setContentForSizeAssertions {
-                IconWithDefaults(
-                    painter = rememberVectorPainter(vector),
-                    contentDescription = null,
-                )
+                IconWithDefaults(painter = rememberVectorPainter(vector), contentDescription = null)
             }
             .assertWidthIsEqualTo(width)
             .assertHeightIsEqualTo(height)
@@ -83,16 +80,17 @@ class IconTest {
     fun vector_customIconSize_dimensions() {
         val width = 35.dp
         val height = 83.dp
-        val vector = ImageVector.Builder(
-            defaultWidth = width, defaultHeight = height,
-            viewportWidth = width.value, viewportHeight = height.value
-        ).build()
+        val vector =
+            ImageVector.Builder(
+                    defaultWidth = width,
+                    defaultHeight = height,
+                    viewportWidth = width.value,
+                    viewportHeight = height.value,
+                )
+                .build()
         rule
             .setContentForSizeAssertions {
-                IconWithDefaults(
-                    painter = rememberVectorPainter(vector),
-                    contentDescription = null,
-                )
+                IconWithDefaults(painter = rememberVectorPainter(vector), contentDescription = null)
             }
             .assertWidthIsEqualTo(width)
             .assertHeightIsEqualTo(height)
@@ -104,14 +102,12 @@ class IconTest {
         val height = 24.dp
         rule
             .setContentForSizeAssertions {
-                val image = with(LocalDensity.current) {
-                    ImageBitmap(width.roundToPx(), height.roundToPx())
-                }
+                val image =
+                    with(LocalDensity.current) {
+                        ImageBitmap(width.roundToPx(), height.roundToPx())
+                    }
                 val painter = remember(image) { BitmapPainter(image) }
-                IconWithDefaults(
-                    painter = painter,
-                    contentDescription = null
-                )
+                IconWithDefaults(painter = painter, contentDescription = null)
             }
             .assertWidthIsEqualTo(width)
             .assertHeightIsEqualTo(height)
@@ -124,14 +120,12 @@ class IconTest {
 
         rule
             .setContentForSizeAssertions {
-                val image = with(LocalDensity.current) {
-                    ImageBitmap(width.roundToPx(), height.roundToPx())
-                }
+                val image =
+                    with(LocalDensity.current) {
+                        ImageBitmap(width.roundToPx(), height.roundToPx())
+                    }
                 val painter = remember(image) { BitmapPainter(image) }
-                IconWithDefaults(
-                    painter = painter,
-                    contentDescription = null
-                )
+                IconWithDefaults(painter = painter, contentDescription = null)
             }
             .assertWidthIsEqualTo(width)
             .assertHeightIsEqualTo(height)
@@ -144,10 +138,7 @@ class IconTest {
         val painter = ColorPainter(Color.Red)
         rule
             .setContentForSizeAssertions {
-                IconWithDefaults(
-                    painter = painter,
-                    contentDescription = null
-                )
+                IconWithDefaults(painter = painter, contentDescription = null)
             }
             .assertWidthIsEqualTo(width)
             .assertHeightIsEqualTo(height)
@@ -160,15 +151,13 @@ class IconTest {
 
         rule
             .setContentForSizeAssertions {
-                val image = with(LocalDensity.current) {
-                    ImageBitmap(width.roundToPx(), height.roundToPx())
-                }
+                val image =
+                    with(LocalDensity.current) {
+                        ImageBitmap(width.roundToPx(), height.roundToPx())
+                    }
 
                 val bitmapPainter = BitmapPainter(image)
-                IconWithDefaults(
-                    painter = bitmapPainter,
-                    contentDescription = null
-                )
+                IconWithDefaults(painter = bitmapPainter, contentDescription = null)
             }
             .assertWidthIsEqualTo(width)
             .assertHeightIsEqualTo(height)
@@ -184,21 +173,15 @@ class IconTest {
         rule.setContent {
             val image: ImageBitmap
             with(LocalDensity.current) {
-                image = createBitmapWithColor(
-                    this,
-                    width.roundToPx(),
-                    height.roundToPx(),
-                    Color.Red
-                )
+                image =
+                    createBitmapWithColor(this, width.roundToPx(), height.roundToPx(), Color.Red)
             }
             val painter = remember(image) { BitmapPainter(image) }
             IconWithDefaults(
                 painter = painter,
                 contentDescription = null,
-                modifier = Modifier
-                    .requiredSize(50.dp)
-                    .testTag(TEST_TAG),
-                tint = Color.Unspecified
+                modifier = Modifier.requiredSize(50.dp).testTag(TEST_TAG),
+                tint = Color.Unspecified,
             )
 
             with(LocalDensity.current) {
@@ -207,12 +190,11 @@ class IconTest {
             }
         }
 
-        rule.onNodeWithTag(TEST_TAG)
+        rule
+            .onNodeWithTag(TEST_TAG)
             .captureToImage()
             // The icon should be 50x50 and fill the whole size with red pixels
-            .assertPixels(expectedSize = expectedIntSize!!) {
-                Color.Red
-            }
+            .assertPixels(expectedSize = expectedIntSize!!) { Color.Red }
     }
 
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
@@ -223,19 +205,15 @@ class IconTest {
         rule.setContent {
             val image: ImageBitmap
             with(LocalDensity.current) {
-                image = createBitmapWithColor(
-                    this,
-                    width.roundToPx(),
-                    height.roundToPx(),
-                    Color.Red
-                )
+                image =
+                    createBitmapWithColor(this, width.roundToPx(), height.roundToPx(), Color.Red)
             }
             val painter = remember(image) { BitmapPainter(image) }
             IconWithDefaults(
                 painter = painter,
                 contentDescription = null,
                 modifier = Modifier.testTag(TEST_TAG),
-                tint = Color.Unspecified
+                tint = Color.Unspecified,
             )
         }
 
@@ -251,19 +229,15 @@ class IconTest {
         rule.setContent {
             val image: ImageBitmap
             with(LocalDensity.current) {
-                image = createBitmapWithColor(
-                    this,
-                    width.roundToPx(),
-                    height.roundToPx(),
-                    Color.Red
-                )
+                image =
+                    createBitmapWithColor(this, width.roundToPx(), height.roundToPx(), Color.Red)
             }
             val painter = remember(image) { BitmapPainter(image) }
             IconWithDefaults(
                 painter = painter,
                 contentDescription = null,
                 modifier = Modifier.testTag(TEST_TAG),
-                tint = Color.Blue
+                tint = Color.Blue,
             )
         }
 
@@ -278,11 +252,12 @@ class IconTest {
             IconWithDefaults(
                 painter = painter,
                 contentDescription = "qwerty",
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
 
-        rule.onNodeWithTag(TEST_TAG)
+        rule
+            .onNodeWithTag(TEST_TAG)
             .assertContentDescriptionEquals("qwerty")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Image))
     }
@@ -291,16 +266,11 @@ class IconTest {
         density: Density,
         width: Int,
         height: Int,
-        color: Color
+        color: Color,
     ): ImageBitmap {
         val size = Size(width.toFloat(), height.toFloat())
         val image = ImageBitmap(width, height)
-        CanvasDrawScope().draw(
-            density,
-            LayoutDirection.Ltr,
-            Canvas(image),
-            size
-        ) {
+        CanvasDrawScope().draw(density, LayoutDirection.Ltr, Canvas(image), size) {
             drawRect(color)
         }
         return image
@@ -312,12 +282,12 @@ internal fun IconWithDefaults(
     painter: Painter,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    tint: Color = Color.Red
+    tint: Color = Color.Red,
 ) {
     Icon(
         painter = painter,
         contentDescription = contentDescription,
         tint = tint,
-        modifier = modifier
+        modifier = modifier,
     )
 }

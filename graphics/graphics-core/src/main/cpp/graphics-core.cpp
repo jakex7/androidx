@@ -309,7 +309,8 @@ void JniBindings_nSetVisibility(
     if (android_get_device_api_level() >= 29) {
         auto st = reinterpret_cast<ASurfaceTransaction *>(surfaceTransaction);
         auto sc = reinterpret_cast<ASurfaceControl *>(surfaceControl);
-        ASurfaceTransaction_setVisibility(st, sc, jVisibility);
+        auto stv = static_cast<ASurfaceTransactionVisibility>(jVisibility);
+        ASurfaceTransaction_setVisibility(st, sc, stv);
     }
 }
 
@@ -368,7 +369,7 @@ void JniBindings_nSetBufferTransparency(
         ASurfaceTransaction_setBufferTransparency(
                 reinterpret_cast<ASurfaceTransaction *>(surfaceTransaction),
                 reinterpret_cast<ASurfaceControl *>(surfaceControl),
-                transparency);
+                static_cast<ASurfaceTransactionTransparency>(transparency));
     }
 }
 
@@ -454,9 +455,15 @@ void JniBindings_nSetGeometry(JNIEnv *env, jclass,
     ASurfaceTransaction_setGeometry(st, sc, src, dest, transformation);
 }
 
-jstring JniBindings_nGetDisplayOrientation(JNIEnv *env, jclass) {
+jstring JniBindings_nGetSurfaceFlingerOrientation(JNIEnv *env, jclass) {
     char name[PROP_VALUE_MAX];
     __system_property_get("ro.surface_flinger.primary_display_orientation", name);
+    return (*env).NewStringUTF(name);
+}
+
+jstring JniBindings_nGetMinUiRotation(JNIEnv *env, jclass) {
+    char name[PROP_VALUE_MAX];
+    __system_property_get("ro.minui.default_rotation", name);
     return (*env).NewStringUTF(name);
 }
 
@@ -644,9 +651,14 @@ static const JNINativeMethod JNI_METHOD_TABLE[] = {
                 (void *) JniBindings_nSetGeometry
         },
         {
-            "nGetDisplayOrientation",
+            "nGetSurfaceFlingerOrientation",
                 "()Ljava/lang/String;",
-                (void *)JniBindings_nGetDisplayOrientation
+                (void *)JniBindings_nGetSurfaceFlingerOrientation
+        },
+        {
+                "nGetMinUiRotation",
+                "()Ljava/lang/String;",
+                (void *)JniBindings_nGetMinUiRotation
         },
         {
             "nGetPreviousReleaseFenceFd",

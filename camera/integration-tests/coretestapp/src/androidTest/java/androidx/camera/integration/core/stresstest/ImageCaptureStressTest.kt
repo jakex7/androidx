@@ -37,7 +37,6 @@ import androidx.camera.testing.impl.StressTestRule
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import androidx.test.uiautomator.UiDevice
@@ -59,43 +58,39 @@ import org.junit.runners.Parameterized
 
 @LargeTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
 class ImageCaptureStressTest(
     val implName: String,
     val cameraConfig: CameraXConfig,
-    val cameraId: String
+    val cameraId: String,
 ) {
     private val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
 
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = implName == CameraPipeConfig::class.simpleName,
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = implName == CameraPipeConfig::class.simpleName)
 
     @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        CameraUtil.PreTestCameraIdList(cameraConfig)
-    )
+    val useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            CameraUtil.PreTestCameraIdList(cameraConfig)
+        )
 
     @get:Rule
     val permissionRule: GrantPermissionRule =
         GrantPermissionRule.grant(
+            Manifest.permission.RECORD_AUDIO,
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
         )
 
-    @get:Rule
-    val labTest: LabTestRule = LabTestRule()
+    @get:Rule val labTest: LabTestRule = LabTestRule()
 
-    @get:Rule
-    val repeatRule = RepeatRule()
+    @get:Rule val repeatRule = RepeatRule()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private lateinit var cameraProvider: ProcessCameraProvider
 
     companion object {
-        @ClassRule
-        @JvmField
-        val stressTest = StressTestRule()
+        @ClassRule @JvmField val stressTest = StressTestRule()
 
         @JvmStatic
         @Parameterized.Parameters(name = "config = {0}, cameraId = {2}")
@@ -130,17 +125,21 @@ class ImageCaptureStressTest(
 
     @After
     fun tearDown(): Unit = runBlocking {
+        device.pressHome()
+        device.waitForIdle(StressTestUtil.HOME_TIMEOUT_MS)
+
+        // Unfreeze rotation so the device can choose the orientation via its own policy. Be nice
+        // to other tests :)
+        device.unfreezeRotation()
+
+        // shutdownAsync should be invoked at the very last step, e.g. device.unfreezeRotation() may
+        // lead to onCreate invocation on test app which may depend on the camera provider still
+        // being active.
         if (::cameraProvider.isInitialized) {
             withContext(Dispatchers.Main) {
                 cameraProvider.shutdownAsync()[10000, TimeUnit.MILLISECONDS]
             }
         }
-
-        // Unfreeze rotation so the device can choose the orientation via its own policy. Be nice
-        // to other tests :)
-        device.unfreezeRotation()
-        device.pressHome()
-        device.waitForIdle(StressTestUtil.HOME_TIMEOUT_MS)
     }
 
     @LabTestRule.LabTestOnly
@@ -235,9 +234,7 @@ class ImageCaptureStressTest(
         with(activityScenario) {
             use {
                 // Checks whether multiple images can be captured successfully
-                repeat(STRESS_TEST_OPERATION_REPEAT_COUNT) {
-                    takePictureAndWaitForImageSavedIdle()
-                }
+                repeat(STRESS_TEST_OPERATION_REPEAT_COUNT) { takePictureAndWaitForImageSavedIdle() }
             }
         }
     }
@@ -263,9 +260,7 @@ class ImageCaptureStressTest(
         }
     }
 
-    /**
-     * Randomly delay for seconds between 1 and the specified number. Default is 3 seconds.
-     */
+    /** Randomly delay for seconds between 1 and the specified number. Default is 3 seconds. */
     private fun randomDelaySeconds(maxDelaySeconds: Int = 3) = runBlocking {
         require(maxDelaySeconds > 0) {
             "The specified max delay seconds value should be larger than 1."

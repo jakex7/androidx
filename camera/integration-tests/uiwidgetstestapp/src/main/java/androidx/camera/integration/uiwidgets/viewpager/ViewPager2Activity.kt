@@ -23,7 +23,9 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.annotation.VisibleForTesting
+import androidx.camera.integration.uiwidgets.R
 import androidx.camera.integration.uiwidgets.databinding.ActivityViewpager2Binding
+import androidx.camera.testing.impl.util.EdgeToEdgeUtil
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -31,20 +33,18 @@ import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.google.android.material.tabs.TabLayoutMediator
 
-/** A activity uses ViewPager2 as container to include {@link CameraFragment} and
- * {@link TextViewFragment} */
+/**
+ * A activity uses ViewPager2 as container to include {@link CameraFragment} and {@link
+ * TextViewFragment}
+ */
 class ViewPager2Activity : BaseActivity() {
 
     companion object {
-        private val REQUIRED_PERMISSIONS = arrayOf(
-            Manifest.permission.CAMERA
-        )
+        private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
         private const val TAG = " ViewPager2Activity"
         private const val REQUEST_CODE_PERMISSIONS = 6
-        @VisibleForTesting
-        val BLANK_VIEW_ID = View.generateViewId()
-        @VisibleForTesting
-        val CAMERA_VIEW_ID = View.generateViewId()
+        @VisibleForTesting val BLANK_VIEW_ID = View.generateViewId()
+        @VisibleForTesting val CAMERA_VIEW_ID = View.generateViewId()
     }
 
     private lateinit var binding: ActivityViewpager2Binding
@@ -56,6 +56,11 @@ class ViewPager2Activity : BaseActivity() {
         binding = ActivityViewpager2Binding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        EdgeToEdgeUtil.enableEdgeToEdge(
+            activity = this,
+            viewIdsTopPaddingRequired = listOf(R.id.root_layout),
+        )
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (allPermissionsGranted()) {
                 setupAdapter()
@@ -63,7 +68,7 @@ class ViewPager2Activity : BaseActivity() {
                 ActivityCompat.requestPermissions(
                     this,
                     REQUIRED_PERMISSIONS,
-                    REQUEST_CODE_PERMISSIONS
+                    REQUEST_CODE_PERMISSIONS,
                 )
             }
         } else {
@@ -74,25 +79,26 @@ class ViewPager2Activity : BaseActivity() {
     private fun setupAdapter() {
         binding.viewPager2.adapter = ViewPager2Adapter(this@ViewPager2Activity)
         TabLayoutMediator(binding.tabLayout, binding.viewPager2) { tab, position ->
-            when (position) {
-                0 -> {
-                    tab.text = "CAMERA_VIEW"
-                    tab.view.id = CAMERA_VIEW_ID
+                when (position) {
+                    0 -> {
+                        tab.text = "CAMERA_VIEW"
+                        tab.view.id = CAMERA_VIEW_ID
+                    }
+                    1 -> {
+                        tab.text = "BLANK_VIEW"
+                        tab.view.id = BLANK_VIEW_ID
+                    }
+                    else -> throw IllegalArgumentException()
                 }
-                1 -> {
-                    tab.text = "BLANK_VIEW"
-                    tab.view.id = BLANK_VIEW_ID
-                }
-                else -> throw IllegalArgumentException()
             }
-        }.attach()
+            .attach()
     }
 
     @Deprecated("Deprecated in ComponentActivity")
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
-        grantResults: IntArray
+        grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
@@ -107,8 +113,9 @@ class ViewPager2Activity : BaseActivity() {
 
     private fun allPermissionsGranted(): Boolean {
         for (permission in REQUIRED_PERMISSIONS) {
-            if (ContextCompat.checkSelfPermission(this, permission)
-                != PackageManager.PERMISSION_GRANTED
+            if (
+                ContextCompat.checkSelfPermission(this, permission) !=
+                    PackageManager.PERMISSION_GRANTED
             ) {
                 return false
             }
@@ -123,10 +130,11 @@ class ViewPager2Activity : BaseActivity() {
             return 2
         }
 
-        override fun createFragment(position: Int): Fragment = when (position) {
-            0 -> CameraFragment.newInstance()
-            1 -> TextViewFragment.newInstance()
-            else -> throw IllegalArgumentException()
-        }
+        override fun createFragment(position: Int): Fragment =
+            when (position) {
+                0 -> CameraFragment.newInstance()
+                1 -> TextViewFragment.newInstance()
+                else -> throw IllegalArgumentException()
+            }
     }
 }

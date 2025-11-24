@@ -23,7 +23,9 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.VisibleForTesting
+import androidx.camera.integration.uiwidgets.R
 import androidx.camera.integration.uiwidgets.databinding.ActivityViewpagerBinding
+import androidx.camera.testing.impl.util.EdgeToEdgeUtil
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -31,25 +33,21 @@ import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentStatePagerAdapter
 
 /**
- * An activity uses ViewPager as a container to include {@link CameraFragment} and
- * {@link TextViewFragment}. The main usage difference between ViewPager2 and ViewPager is the
- * viewpager adapter. ViewPager2 adapter is from {@link FragmentStateAdapter} and ViewPager
- * adapter is the deprecated (@link FragmentStatePagerAdapter}.
+ * An activity uses ViewPager as a container to include {@link CameraFragment} and {@link
+ * TextViewFragment}. The main usage difference between ViewPager2 and ViewPager is the viewpager
+ * adapter. ViewPager2 adapter is from {@link FragmentStateAdapter} and ViewPager adapter is the
+ * deprecated (@link FragmentStatePagerAdapter}.
  */
 class ViewPagerActivity : BaseActivity() {
 
     companion object {
-        private val REQUIRED_PERMISSIONS = arrayOf(
-            Manifest.permission.CAMERA
-        )
+        private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
         private const val TAG = " ViewPagerActivity"
         private const val REQUEST_CODE_PERMISSIONS = 8
 
-        @VisibleForTesting
-        const val CAMERA_FRAGMENT_TAB_TITLE = "CAMERA_VIEW"
+        @VisibleForTesting const val CAMERA_FRAGMENT_TAB_TITLE = "CAMERA_VIEW"
 
-        @VisibleForTesting
-        const val BLANK_FRAGMENT_TAB_TITLE = "BLANK_VIEW"
+        @VisibleForTesting const val BLANK_FRAGMENT_TAB_TITLE = "BLANK_VIEW"
     }
 
     private lateinit var binding: ActivityViewpagerBinding
@@ -61,6 +59,11 @@ class ViewPagerActivity : BaseActivity() {
         binding = ActivityViewpagerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        EdgeToEdgeUtil.enableEdgeToEdge(
+            activity = this,
+            viewIdsTopPaddingRequired = listOf(R.id.root_layout),
+        )
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (allPermissionsGranted()) {
                 setupAdapter()
@@ -68,7 +71,7 @@ class ViewPagerActivity : BaseActivity() {
                 ActivityCompat.requestPermissions(
                     this,
                     REQUIRED_PERMISSIONS,
-                    REQUEST_CODE_PERMISSIONS
+                    REQUEST_CODE_PERMISSIONS,
                 )
             }
         } else {
@@ -77,8 +80,8 @@ class ViewPagerActivity : BaseActivity() {
     }
 
     /**
-     * There are 2 common adapters for ViewPager, they are deprecated
-     * (@link FragmentStatePagerAdapter} and (@link FragmentPagerAdapter}
+     * There are 2 common adapters for ViewPager, they are deprecated (@link
+     * FragmentStatePagerAdapter} and (@link FragmentPagerAdapter}
      */
     private fun setupAdapter() {
         Log.d(TAG, "Setup ViewPagerAdapter. ")
@@ -90,7 +93,7 @@ class ViewPagerActivity : BaseActivity() {
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
-        grantResults: IntArray
+        grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
@@ -105,8 +108,9 @@ class ViewPagerActivity : BaseActivity() {
 
     private fun allPermissionsGranted(): Boolean {
         for (permission in REQUIRED_PERMISSIONS) {
-            if (ContextCompat.checkSelfPermission(this, permission)
-                != PackageManager.PERMISSION_GRANTED
+            if (
+                ContextCompat.checkSelfPermission(this, permission) !=
+                    PackageManager.PERMISSION_GRANTED
             ) {
                 return false
             }
@@ -114,23 +118,24 @@ class ViewPagerActivity : BaseActivity() {
         return true
     }
 
-    internal class ViewPagerAdapter(fm: FragmentManager) :
-        FragmentStatePagerAdapter(fm) {
+    internal class ViewPagerAdapter(fm: FragmentManager) : FragmentStatePagerAdapter(fm) {
 
         override fun getCount(): Int {
             return 2
         }
 
-        override fun getItem(position: Int): Fragment = when (position) {
-            0 -> CameraFragment.newInstance()
-            1 -> TextViewFragment.newInstance()
-            else -> throw IllegalArgumentException()
-        }
+        override fun getItem(position: Int): Fragment =
+            when (position) {
+                0 -> CameraFragment.newInstance()
+                1 -> TextViewFragment.newInstance()
+                else -> throw IllegalArgumentException()
+            }
 
-        override fun getPageTitle(position: Int) = when (position) {
-            0 -> CAMERA_FRAGMENT_TAB_TITLE
-            1 -> BLANK_FRAGMENT_TAB_TITLE
-            else -> throw IllegalArgumentException()
-        }
+        override fun getPageTitle(position: Int) =
+            when (position) {
+                0 -> CAMERA_FRAGMENT_TAB_TITLE
+                1 -> BLANK_FRAGMENT_TAB_TITLE
+                else -> throw IllegalArgumentException()
+            }
     }
 }

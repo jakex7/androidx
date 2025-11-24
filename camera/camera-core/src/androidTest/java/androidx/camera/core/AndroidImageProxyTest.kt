@@ -20,7 +20,6 @@ import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.media.Image
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.SdkSuppress
 import androidx.test.filters.SmallTest
 import com.google.common.truth.Truth.assertThat
 import java.nio.ByteBuffer
@@ -31,13 +30,9 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 
-/**
- * Unit tests for {@link AndroidImageProxy}.
- */
+/** Unit tests for {@link AndroidImageProxy}. */
 @SmallTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 21)
-
 class AndroidImageProxyTest {
     private val INITIAL_TIMESTAMP = 138990020L
 
@@ -118,8 +113,7 @@ class AndroidImageProxyTest {
 
         for (i in 0..2) {
             assertThat(wrappedPlanes[i].rowStride).isEqualTo(originalPlanes[i].rowStride)
-            assertThat(wrappedPlanes[i].pixelStride)
-                .isEqualTo(originalPlanes[i].pixelStride)
+            assertThat(wrappedPlanes[i].pixelStride).isEqualTo(originalPlanes[i].pixelStride)
             assertThat(wrappedPlanes[i].buffer).isEqualTo(originalPlanes[i].buffer)
         }
     }

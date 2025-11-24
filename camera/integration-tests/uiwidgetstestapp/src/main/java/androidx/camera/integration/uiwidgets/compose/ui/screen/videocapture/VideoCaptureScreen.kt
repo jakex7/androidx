@@ -58,7 +58,7 @@ private const val TAG = "VideoCaptureScreen"
 fun VideoCaptureScreen(
     modifier: Modifier = Modifier,
     state: VideoCaptureScreenState = rememberVideoCaptureScreenState(),
-    onStreamStateChange: (PreviewView.StreamState) -> Unit = {}
+    onStreamStateChange: (PreviewView.StreamState) -> Unit = {},
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val localContext = LocalContext.current
@@ -76,12 +76,10 @@ fun VideoCaptureScreen(
         recordState = state.recordState,
         recordingStatsMsg = state.recordingStatsMsg,
         onFlipCameraIconClicked = state::toggleLensFacing,
-        onVideoCaptureIconClicked = {
-            state.captureVideo(localContext)
-        },
+        onVideoCaptureIconClicked = { state.captureVideo(localContext) },
         onSurfaceProviderReady = state::setSurfaceProvider,
         onTouch = state::startTapToFocus,
-        onStreamStateChange = onStreamStateChange
+        onStreamStateChange = onStreamStateChange,
     )
 }
 
@@ -98,23 +96,22 @@ fun VideoCaptureScreen(
     onVideoCaptureIconClicked: () -> Unit,
     onSurfaceProviderReady: (SurfaceProvider) -> Unit,
     onTouch: (MeteringPoint) -> Unit,
-    onStreamStateChange: (PreviewView.StreamState) -> Unit = {}
+    onStreamStateChange: (PreviewView.StreamState) -> Unit = {},
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val localContext = LocalContext.current
 
     val streamStateObserver = remember {
-        Observer<PreviewView.StreamState> { state ->
-            onStreamStateChange(state)
-        }
+        Observer<PreviewView.StreamState> { state -> onStreamStateChange(state) }
     }
 
     val previewView = remember {
         PreviewView(localContext).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            layoutParams =
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
 
             onSurfaceProviderReady(this.surfaceProvider)
 
@@ -144,33 +141,26 @@ fun VideoCaptureScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { previewView }
-        )
+        AndroidView(factory = { previewView })
 
         Column(
             modifier = Modifier.align(Alignment.BottomCenter),
-            verticalArrangement = Arrangement.Bottom
+            verticalArrangement = Arrangement.Bottom,
         ) {
 
             // Display Zoom Slider only when Camera is ready
             if (isCameraReady) {
                 Row(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(modifier = Modifier.weight(1f)) {
-                        Slider(
-                            value = linearZoom,
-                            onValueChange = onLinearZoomChange
-                        )
+                        Slider(value = linearZoom, onValueChange = onLinearZoomChange)
                     }
 
                     Text(
                         text = "%.2f x".format(zoomRatio),
-                        modifier = Modifier
-                            .padding(horizontal = 10.dp)
-                            .background(Color.White)
+                        modifier = Modifier.padding(horizontal = 10.dp).background(Color.White),
                     )
                 }
             }
@@ -179,12 +169,12 @@ fun VideoCaptureScreen(
                 CameraControlButton(
                     imageVector = Icons.Sharp.FlipCameraAndroid,
                     contentDescription = "Toggle Camera Lens",
-                    onClick = onFlipCameraIconClicked
+                    onClick = onFlipCameraIconClicked,
                 )
 
                 VideoRecordButton(
                     recordState = recordState,
-                    onVideoCaptureIconClicked = onVideoCaptureIconClicked
+                    onVideoCaptureIconClicked = onVideoCaptureIconClicked,
                 )
 
                 CameraControlText(text = recordingStatsMsg)
@@ -196,21 +186,21 @@ fun VideoCaptureScreen(
 @Composable
 private fun VideoRecordButton(
     recordState: VideoCaptureScreenState.RecordState,
-    onVideoCaptureIconClicked: () -> Unit
+    onVideoCaptureIconClicked: () -> Unit,
 ) {
-    val iconColor = when (recordState) {
-        VideoCaptureScreenState.RecordState.IDLE -> Color.Black
-        VideoCaptureScreenState.RecordState.RECORDING -> Color.Red
-        VideoCaptureScreenState.RecordState.STOPPING -> Color.Gray
-    }
+    val iconColor =
+        when (recordState) {
+            VideoCaptureScreenState.RecordState.IDLE -> Color.Black
+            VideoCaptureScreenState.RecordState.RECORDING -> Color.Red
+            VideoCaptureScreenState.RecordState.STOPPING -> Color.Gray
+        }
 
     CameraControlButton(
         imageVector = Icons.Sharp.Lens,
         contentDescription = "Video Capture",
-        modifier = Modifier
-            .padding(1.dp)
-            .border(1.dp, MaterialTheme.colors.onSecondary, CircleShape),
+        modifier =
+            Modifier.padding(1.dp).border(1.dp, MaterialTheme.colors.onSecondary, CircleShape),
         tint = iconColor,
-        onClick = onVideoCaptureIconClicked
+        onClick = onVideoCaptureIconClicked,
     )
 }

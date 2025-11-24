@@ -22,20 +22,18 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class ExerciseEventCapabilitiesTest {
-  @Test
-  fun golfShotEventCapabilities_roundTrip_returnsOriginal() {
-    val originalGolfShotCapabilities =
-      GolfShotEventCapabilities(
-        isSupported = true,
-        isSwingTypeClassificationSupported = true,
-      )
+    @Test
+    fun golfShotEventCapabilities_roundTrip_returnsOriginal() {
+        val originalGolfShotCapabilities =
+            GolfShotEventCapabilities(isSupported = true, isSwingTypeClassificationSupported = true)
 
-    val proto = originalGolfShotCapabilities.toProto()
-    val capabilities = ExerciseEventCapabilities.fromProto(proto) as GolfShotEventCapabilities
+        val proto = originalGolfShotCapabilities.toProto()
+        val capabilities = ExerciseEventCapabilities.fromProto(proto) as GolfShotEventCapabilities
 
-    assertThat(capabilities.isSupported).isTrue()
-    assertThat(capabilities.isSwingTypeClassificationSupported).isTrue()
-    assertThat(capabilities).isEqualTo(originalGolfShotCapabilities)
-  }
+        assertThat(capabilities.isSupported).isTrue()
+        assertThat(capabilities.isSwingTypeClassificationSupported).isTrue()
+        assertThat(capabilities).isEqualTo(originalGolfShotCapabilities)
+    }
 }

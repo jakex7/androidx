@@ -23,21 +23,19 @@ import android.view.ViewGroup
 import androidx.camera.integration.antelope.databinding.SettingsDialogBinding
 import androidx.fragment.app.DialogFragment
 
-/**
- * DialogFragment that backs the configuration for both single tests and multiple tests
- */
+/** DialogFragment that backs the configuration for both single tests and multiple tests */
 internal class SettingsDialog : DialogFragment() {
 
     private var _binding: SettingsDialogBinding? = null
-    private val binding get() = _binding!!
+    private val binding
+        get() = _binding!!
 
     override fun onStart() {
         // If we show a dialog with a title, it doesn't take up the whole screen
         // Adjust the window to take up the full screen
-        dialog?.window?.setLayout(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
+        dialog
+            ?.window
+            ?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         super.onStart()
     }
 
@@ -52,7 +50,7 @@ internal class SettingsDialog : DialogFragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ): View? {
         val args = arguments
         val type = args?.getString(DIALOG_TYPE)
@@ -143,7 +141,7 @@ internal class SettingsDialog : DialogFragment() {
             type: String,
             title: String,
             cameraNames: Array<String>,
-            cameraIds: Array<String>
+            cameraIds: Array<String>,
         ): SettingsDialog {
 
             val args = Bundle()

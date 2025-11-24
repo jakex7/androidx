@@ -26,7 +26,12 @@ import org.junit.runners.Parameterized
 @RunWith(Parameterized::class)
 class IncrementalPluginTest(private val generateKotlin: Boolean) : BasePluginTest() {
 
-    private val extension = if (generateKotlin) { ".kt" } else { ".java" }
+    private val extension =
+        if (generateKotlin) {
+            ".kt"
+        } else {
+            ".java"
+        }
 
     private fun setupBuildGradle() {
         if (generateKotlin) {
@@ -40,7 +45,7 @@ class IncrementalPluginTest(private val generateKotlin: Boolean) : BasePluginTes
     fun incrementalAdd() {
         setupBuildGradle()
         runGradle("assembleDebug").assertSuccessfulTask("assembleDebug")
-        val nextLastMod = assertGenerated("debug/$NEXT_DIRECTIONS$extension").lastModified()
+        val nextLastMod = assertGenerated("Debug/$NEXT_DIRECTIONS$extension").lastModified()
 
         testData("incremental-test-data/add_nav.xml").copyTo(navResource("add_nav.xml"))
 
@@ -48,12 +53,9 @@ class IncrementalPluginTest(private val generateKotlin: Boolean) : BasePluginTes
         // so sleep for a second
         Thread.sleep(SEC)
         runGradle("assembleDebug").assertSuccessfulTask("assembleDebug")
-        assertGenerated("debug/$ADDITIONAL_DIRECTIONS$extension")
-        val newNextLastMod = assertGenerated("debug/$NEXT_DIRECTIONS$extension").lastModified()
-        MatcherAssert.assertThat(
-            newNextLastMod,
-            CoreMatchers.`is`(nextLastMod)
-        )
+        assertGenerated("Debug/$ADDITIONAL_DIRECTIONS$extension")
+        val newNextLastMod = assertGenerated("Debug/$NEXT_DIRECTIONS$extension").lastModified()
+        MatcherAssert.assertThat(newNextLastMod, CoreMatchers.`is`(nextLastMod))
     }
 
     @Test
@@ -62,37 +64,28 @@ class IncrementalPluginTest(private val generateKotlin: Boolean) : BasePluginTes
         testData("incremental-test-data/add_nav.xml").copyTo(navResource("add_nav.xml"))
 
         runGradle("assembleDebug").assertSuccessfulTask("assembleDebug")
-        val mainLastMod = assertGenerated("debug/$MAIN_DIRECTIONS$extension").lastModified()
-        val additionalLastMod = assertGenerated("debug/$ADDITIONAL_DIRECTIONS$extension")
-            .lastModified()
-        assertGenerated("debug/$NEXT_DIRECTIONS$extension")
+        val mainLastMod = assertGenerated("Debug/$MAIN_DIRECTIONS$extension").lastModified()
+        val additionalLastMod =
+            assertGenerated("Debug/$ADDITIONAL_DIRECTIONS$extension").lastModified()
+        assertGenerated("Debug/$NEXT_DIRECTIONS$extension")
 
-        testData("incremental-test-data/modified_nav.xml").copyTo(
-            navResource("nav_test.xml"),
-            true
-        )
+        testData("incremental-test-data/modified_nav.xml").copyTo(navResource("nav_test.xml"), true)
 
         // lastModified has one second precision on certain platforms and jdk versions
         // so sleep for a second
         Thread.sleep(SEC)
         runGradle("assembleDebug").assertSuccessfulTask("assembleDebug")
-        val newMainLastMod = assertGenerated("debug/$MAIN_DIRECTIONS$extension").lastModified()
+        val newMainLastMod = assertGenerated("Debug/$MAIN_DIRECTIONS$extension").lastModified()
         // main directions were regenerated
-        MatcherAssert.assertThat(
-            newMainLastMod,
-            CoreMatchers.not(mainLastMod)
-        )
+        MatcherAssert.assertThat(newMainLastMod, CoreMatchers.not(mainLastMod))
 
         // but additional directions weren't touched
         val newAdditionalLastMod =
-            assertGenerated("debug/$ADDITIONAL_DIRECTIONS$extension").lastModified()
-        MatcherAssert.assertThat(
-            newAdditionalLastMod,
-            CoreMatchers.`is`(additionalLastMod)
-        )
+            assertGenerated("Debug/$ADDITIONAL_DIRECTIONS$extension").lastModified()
+        MatcherAssert.assertThat(newAdditionalLastMod, CoreMatchers.`is`(additionalLastMod))
 
-        assertGenerated("debug/$MODIFIED_NEXT_DIRECTIONS$extension")
-        assertNotGenerated("debug/$NEXT_DIRECTIONS$extension")
+        assertGenerated("Debug/$MODIFIED_NEXT_DIRECTIONS$extension")
+        assertNotGenerated("Debug/$NEXT_DIRECTIONS$extension")
     }
 
     @Test
@@ -101,8 +94,8 @@ class IncrementalPluginTest(private val generateKotlin: Boolean) : BasePluginTes
         testData("incremental-test-data/add_nav.xml").copyTo(navResource("add_nav.xml"))
 
         runGradle("assembleDebug").assertSuccessfulTask("assembleDebug")
-        val mainLastMod = assertGenerated("debug/$MAIN_DIRECTIONS$extension").lastModified()
-        assertGenerated("debug/$ADDITIONAL_DIRECTIONS$extension")
+        val mainLastMod = assertGenerated("Debug/$MAIN_DIRECTIONS$extension").lastModified()
+        assertGenerated("Debug/$ADDITIONAL_DIRECTIONS$extension")
 
         val wasRemoved = navResource("add_nav.xml").delete()
         MatcherAssert.assertThat(wasRemoved, CoreMatchers.`is`(true))
@@ -111,15 +104,12 @@ class IncrementalPluginTest(private val generateKotlin: Boolean) : BasePluginTes
         // so sleep for a second
         Thread.sleep(SEC)
         runGradle("assembleDebug").assertSuccessfulTask("assembleDebug")
-        val newMainLastMod = assertGenerated("debug/$MAIN_DIRECTIONS$extension").lastModified()
+        val newMainLastMod = assertGenerated("Debug/$MAIN_DIRECTIONS$extension").lastModified()
         // main directions weren't touched
-        MatcherAssert.assertThat(
-            newMainLastMod,
-            CoreMatchers.`is`(mainLastMod)
-        )
+        MatcherAssert.assertThat(newMainLastMod, CoreMatchers.`is`(mainLastMod))
 
         // but additional directions are removed
-        assertNotGenerated("debug/$ADDITIONAL_DIRECTIONS$extension")
+        assertNotGenerated("Debug/$ADDITIONAL_DIRECTIONS$extension")
     }
 
     @Test
@@ -127,56 +117,40 @@ class IncrementalPluginTest(private val generateKotlin: Boolean) : BasePluginTes
         setupBuildGradle()
         testData("incremental-test-data/add_nav.xml").copyTo(navResource("add_nav.xml"))
         runGradle("generateSafeArgsDebug").assertSuccessfulTask("generateSafeArgsDebug")
-        val step1MainLastMod = assertGenerated("debug/$MAIN_DIRECTIONS$extension").lastModified()
+        val step1MainLastMod = assertGenerated("Debug/$MAIN_DIRECTIONS$extension").lastModified()
         val step1AdditionalLastMod =
-            assertGenerated("debug/$ADDITIONAL_DIRECTIONS$extension").lastModified()
-        assertGenerated("debug/$NEXT_DIRECTIONS$extension")
+            assertGenerated("Debug/$ADDITIONAL_DIRECTIONS$extension").lastModified()
+        assertGenerated("Debug/$NEXT_DIRECTIONS$extension")
 
-        testData("invalid/failing_nav.xml")
-            .copyTo(navResource("nav_test.xml"), true)
+        testData("invalid/failing_nav.xml").copyTo(navResource("nav_test.xml"), true)
         Thread.sleep(SEC)
         runAndFailGradle("generateSafeArgsDebug").assertFailingTask("generateSafeArgsDebug")
-        val step2MainLastMod = assertGenerated("debug/$MAIN_DIRECTIONS$extension").lastModified()
+        val step2MainLastMod = assertGenerated("Debug/$MAIN_DIRECTIONS$extension").lastModified()
         // main directions were regenerated
-        MatcherAssert.assertThat(
-            step2MainLastMod,
-            CoreMatchers.not(step1MainLastMod)
-        )
+        MatcherAssert.assertThat(step2MainLastMod, CoreMatchers.not(step1MainLastMod))
 
         // but additional directions weren't touched
         val step2AdditionalLastMod =
-            assertGenerated("debug/$ADDITIONAL_DIRECTIONS$extension").lastModified()
-        MatcherAssert.assertThat(
-            step2AdditionalLastMod,
-            CoreMatchers.`is`(step1AdditionalLastMod)
-        )
+            assertGenerated("Debug/$ADDITIONAL_DIRECTIONS$extension").lastModified()
+        MatcherAssert.assertThat(step2AdditionalLastMod, CoreMatchers.`is`(step1AdditionalLastMod))
 
         val step2ModifiedTime =
-            assertGenerated("debug/$MODIFIED_NEXT_DIRECTIONS$extension").lastModified()
-        assertNotGenerated("debug/$NEXT_DIRECTIONS$extension")
+            assertGenerated("Debug/$MODIFIED_NEXT_DIRECTIONS$extension").lastModified()
+        assertNotGenerated("Debug/$NEXT_DIRECTIONS$extension")
 
-        testData("incremental-test-data/modified_nav.xml").copyTo(
-            navResource("nav_test.xml"),
-            true
-        )
+        testData("incremental-test-data/modified_nav.xml").copyTo(navResource("nav_test.xml"), true)
         Thread.sleep(SEC)
         runGradle("generateSafeArgsDebug").assertSuccessfulTask("generateSafeArgsDebug")
 
         // additional directions are touched because once task failed,
         // gradle next time makes full run
         val step3AdditionalLastMod =
-            assertGenerated("debug/$ADDITIONAL_DIRECTIONS$extension").lastModified()
-        MatcherAssert.assertThat(
-            step3AdditionalLastMod,
-            CoreMatchers.not(step2AdditionalLastMod)
-        )
+            assertGenerated("Debug/$ADDITIONAL_DIRECTIONS$extension").lastModified()
+        MatcherAssert.assertThat(step3AdditionalLastMod, CoreMatchers.not(step2AdditionalLastMod))
 
         val step3ModifiedTime =
-            assertGenerated("debug/$MODIFIED_NEXT_DIRECTIONS$extension").lastModified()
-        MatcherAssert.assertThat(
-            step2ModifiedTime,
-            CoreMatchers.not(step3ModifiedTime)
-        )
+            assertGenerated("Debug/$MODIFIED_NEXT_DIRECTIONS$extension").lastModified()
+        MatcherAssert.assertThat(step2ModifiedTime, CoreMatchers.not(step3ModifiedTime))
     }
 
     companion object {

@@ -10,6 +10,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class VersionApiServiceTest {
     private lateinit var stub: VersionApiService.VersionApiServiceStub
 
@@ -17,8 +18,9 @@ class VersionApiServiceTest {
     fun setUp() {
         val intent = Intent(IpcConstants.VERSION_API_BIND_ACTION)
 
-        stub = Robolectric.buildService(VersionApiService::class.java).create().get()
-            .onBind(intent) as VersionApiService.VersionApiServiceStub
+        stub =
+            Robolectric.buildService(VersionApiService::class.java).create().get().onBind(intent)
+                as VersionApiService.VersionApiServiceStub
     }
 
     @Test

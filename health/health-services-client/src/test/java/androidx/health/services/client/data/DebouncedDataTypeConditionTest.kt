@@ -25,34 +25,37 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class DebouncedDataTypeConditionTest {
-  @Test
-  fun sampleDataType_protoRoundTrip() {
-    val proto =
-      DebouncedDataTypeCondition.createDebouncedDataTypeCondition(
-        HEART_RATE_BPM,
-        120.0,
-        GREATER_THAN,
-        /* initialDelaySeconds= */ 60,
-        /* durationAtThresholdSeconds=*/ 5
-      ).proto
-    val debouncedDataTypeCondition = DebouncedDataTypeCondition.fromProto(proto)
+    @Test
+    fun sampleDataType_protoRoundTrip() {
+        val proto =
+            DebouncedDataTypeCondition.createDebouncedDataTypeCondition(
+                    HEART_RATE_BPM,
+                    120.0,
+                    GREATER_THAN,
+                    /* initialDelaySeconds= */ 60,
+                    /* durationAtThresholdSeconds=*/ 5,
+                )
+                .proto
+        val debouncedDataTypeCondition = DebouncedDataTypeCondition.fromProto(proto)
 
-    assertThat(debouncedDataTypeCondition.proto).isEqualTo(proto)
-  }
+        assertThat(debouncedDataTypeCondition.proto).isEqualTo(proto)
+    }
 
-  @Test
-  fun aggregateDataType_protoRoundTrip() {
-    val proto =
-      DebouncedDataTypeCondition.createDebouncedDataTypeCondition(
-        PACE_STATS,
-        4.0,
-        GREATER_THAN,
-        /* initialDelaySeconds= */ 60,
-        /* durationAtThresholdSeconds=*/ 5
-      ).proto
-    val debouncedDataTypeCondition = DebouncedDataTypeCondition.fromProto(proto)
+    @Test
+    fun aggregateDataType_protoRoundTrip() {
+        val proto =
+            DebouncedDataTypeCondition.createDebouncedDataTypeCondition(
+                    PACE_STATS,
+                    4.0,
+                    GREATER_THAN,
+                    /* initialDelaySeconds= */ 60,
+                    /* durationAtThresholdSeconds=*/ 5,
+                )
+                .proto
+        val debouncedDataTypeCondition = DebouncedDataTypeCondition.fromProto(proto)
 
-    assertThat(debouncedDataTypeCondition.proto).isEqualTo(proto)
-  }
+        assertThat(debouncedDataTypeCondition.proto).isEqualTo(proto)
+    }
 }

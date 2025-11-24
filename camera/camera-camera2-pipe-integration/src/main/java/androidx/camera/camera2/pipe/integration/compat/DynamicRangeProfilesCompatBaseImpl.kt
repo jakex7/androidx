@@ -17,11 +17,9 @@
 package androidx.camera.camera2.pipe.integration.compat
 
 import android.hardware.camera2.params.DynamicRangeProfiles
-import androidx.annotation.RequiresApi
 import androidx.camera.core.DynamicRange
 import androidx.core.util.Preconditions
 
-@RequiresApi(21)
 internal class DynamicRangeProfilesCompatBaseImpl :
     DynamicRangeProfilesCompat.DynamicRangeProfilesCompatImpl {
     override val supportedDynamicRanges: Set<DynamicRange>
@@ -32,7 +30,7 @@ internal class DynamicRangeProfilesCompatBaseImpl :
     ): Set<DynamicRange> {
         Preconditions.checkArgument(
             DynamicRange.SDR == dynamicRange,
-            "DynamicRange is not supported: $dynamicRange"
+            "DynamicRange is not supported: $dynamicRange",
         )
         return SDR_ONLY
     }
@@ -40,7 +38,7 @@ internal class DynamicRangeProfilesCompatBaseImpl :
     override fun isExtraLatencyPresent(dynamicRange: DynamicRange): Boolean {
         Preconditions.checkArgument(
             DynamicRange.SDR == dynamicRange,
-            "DynamicRange is not supported: $dynamicRange"
+            "DynamicRange is not supported: $dynamicRange",
         )
         return false
     }

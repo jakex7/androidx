@@ -37,6 +37,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.filters.MediumTest
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,8 +46,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @OptIn(ExperimentalTvMaterial3Api::class)
 class RadioButtonTest {
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
     private val itemOne = "Bar"
     private val itemTwo = "Foo"
@@ -71,27 +71,24 @@ class RadioButtonTest {
                         RadioButton(
                             modifier = Modifier.testTag(item),
                             selected = (selected.value == item),
-                            onClick = { selected.value = item }
+                            onClick = { selected.value = item },
                         )
                     }
                 }
             }
         }
 
-        rule.onNodeWithTag(itemOne)
-            .assert(
-                SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
-            )
+        rule
+            .onNodeWithTag(itemOne)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
             .assertHasSelectedSemantics()
-        rule.onNodeWithTag(itemTwo)
+        rule
+            .onNodeWithTag(itemTwo)
             .assertHasUnSelectedSemantics()
-            .assert(
-                SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
-            )
-        rule.onNodeWithTag(itemThree)
-            .assert(
-                SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
-            )
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+        rule
+            .onNodeWithTag(itemThree)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
             .assertHasUnSelectedSemantics()
     }
 
@@ -106,23 +103,22 @@ class RadioButtonTest {
                         RadioButton(
                             modifier = Modifier.testTag(item),
                             selected = (selected.value == item),
-                            onClick = { selected.value = item }
+                            onClick = { selected.value = item },
                         )
                     }
                 }
             }
         }
 
-        rule.onNodeWithTag(itemOne)
+        rule
+            .onNodeWithTag(itemOne)
             .assertHasSelectedSemantics()
             .performClick()
             .assertHasSelectedSemantics()
 
-        rule.onNodeWithTag(itemTwo)
-            .assertHasUnSelectedSemantics()
+        rule.onNodeWithTag(itemTwo).assertHasUnSelectedSemantics()
 
-        rule.onNodeWithTag(itemThree)
-            .assertHasUnSelectedSemantics()
+        rule.onNodeWithTag(itemThree).assertHasUnSelectedSemantics()
     }
 
     @Test
@@ -135,23 +131,22 @@ class RadioButtonTest {
                         RadioButton(
                             modifier = Modifier.testTag(item),
                             selected = (selected.value == item),
-                            onClick = { selected.value = item }
+                            onClick = { selected.value = item },
                         )
                     }
                 }
             }
         }
 
-        rule.onNodeWithTag(itemTwo)
+        rule
+            .onNodeWithTag(itemTwo)
             .assertHasUnSelectedSemantics()
             .performClick()
             .assertHasSelectedSemantics()
 
-        rule.onNodeWithTag(itemOne)
-            .assertHasUnSelectedSemantics()
+        rule.onNodeWithTag(itemOne).assertHasUnSelectedSemantics()
 
-        rule.onNodeWithTag(itemThree)
-            .assertHasUnSelectedSemantics()
+        rule.onNodeWithTag(itemThree).assertHasUnSelectedSemantics()
     }
 
     @Test
@@ -159,20 +154,18 @@ class RadioButtonTest {
         val parentTag = "parent"
         rule.setContent {
             LightMaterialTheme {
-                Column(
-                    Modifier
-                        .semantics(mergeDescendants = true) {}
-                        .testTag(parentTag)) {
+                Column(Modifier.semantics(mergeDescendants = true) {}.testTag(parentTag)) {
                     RadioButton(
                         selected = true,
                         onClick = null,
-                        modifier = Modifier.semantics { focused = true }
+                        modifier = Modifier.semantics { focused = true },
                     )
                 }
             }
         }
 
-        rule.onNodeWithTag(parentTag)
+        rule
+            .onNodeWithTag(parentTag)
             .assertHasNoClickAction()
             .assert(isFocusable()) // Check merged into parent
     }
@@ -189,30 +182,29 @@ class RadioButtonTest {
                         RadioButton(
                             modifier = Modifier.testTag(item),
                             selected = (selected.value == item),
-                            onClick = { selected.value = item }
+                            onClick = { selected.value = item },
                         )
                     }
                 }
             }
         }
 
-        rule.onNodeWithTag(itemTwo)
+        rule
+            .onNodeWithTag(itemTwo)
             .assertHasUnSelectedSemantics()
             .performClick()
             .assertHasSelectedSemantics()
 
-        rule.onNodeWithTag(itemOne)
-            .assertHasUnSelectedSemantics()
+        rule.onNodeWithTag(itemOne).assertHasUnSelectedSemantics()
 
-        rule.onNodeWithTag(itemThree)
+        rule
+            .onNodeWithTag(itemThree)
             .assertHasUnSelectedSemantics()
             .performClick()
             .assertHasSelectedSemantics()
 
-        rule.onNodeWithTag(itemOne)
-            .assertHasUnSelectedSemantics()
+        rule.onNodeWithTag(itemOne).assertHasUnSelectedSemantics()
 
-        rule.onNodeWithTag(itemTwo)
-            .assertHasUnSelectedSemantics()
+        rule.onNodeWithTag(itemTwo).assertHasUnSelectedSemantics()
     }
 }

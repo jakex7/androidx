@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-@file:RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-
 package androidx.camera.camera2.pipe.compat
 
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
 import android.os.Build
 import android.util.ArrayMap
-import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraId
 import androidx.camera.camera2.pipe.FrameInfo
 import androidx.camera.camera2.pipe.FrameMetadata
@@ -33,12 +30,10 @@ import androidx.camera.camera2.pipe.core.Debug
 import kotlin.reflect.KClass
 
 /** An implementation of [FrameMetadata] that retrieves values from a [CaptureResult] object */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 internal class AndroidFrameMetadata(
     private val captureResult: CaptureResult,
-    override val camera: CameraId
-) :
-    FrameMetadata {
+    override val camera: CameraId,
+) : FrameMetadata {
     override fun <T> get(key: Metadata.Key<T>): T? = null
 
     override fun <T> getOrDefault(key: Metadata.Key<T>, default: T): T = default
@@ -69,7 +64,7 @@ internal class AndroidFrameMetadata(
 /** A version of [FrameMetadata] that can override (fix) metadata. */
 internal class CorrectedFrameMetadata(
     private var frameMetadata: FrameMetadata,
-    override var extraMetadata: Map<*, Any?>
+    override var extraMetadata: Map<*, Any?>,
 ) : FrameMetadata {
 
     @Suppress("UNCHECKED_CAST")
@@ -93,11 +88,10 @@ internal class CorrectedFrameMetadata(
 }
 
 /** An implementation of [FrameInfo] that retrieves values from a [TotalCaptureResult] object. */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 internal class AndroidFrameInfo(
     private val totalCaptureResult: TotalCaptureResult,
     override val camera: CameraId,
-    override val requestMetadata: RequestMetadata
+    override val requestMetadata: RequestMetadata,
 ) : FrameInfo {
 
     private val result = AndroidFrameMetadata(totalCaptureResult, camera)
@@ -106,15 +100,16 @@ internal class AndroidFrameInfo(
             // Compute a Map<String, CaptureResult> by calling the appropriate compat method and
             // by treating everything as a CaptureResult. Internally, AndroidFrameMetadata will
             // unwrap the object as a TotalCaptureResult instead.
-            val physicalResults = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                Api31Compat.getPhysicalCameraTotalResults(totalCaptureResult)
-                    as Map<String, CaptureResult>
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                // Android P only supports Map<String, CaptureResult>
-                Api28Compat.getPhysicalCaptureResults(totalCaptureResult)
-            } else {
-                emptyMap()
-            }
+            val physicalResults =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Api31Compat.getPhysicalCameraTotalResults(totalCaptureResult)
+                        as Map<String, CaptureResult>
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    // Android P only supports Map<String, CaptureResult>
+                    Api28Compat.getPhysicalCaptureResults(totalCaptureResult)
+                } else {
+                    emptyMap()
+                }
 
             // Wrap the results using AndroidFrameMetadata.
             if (!physicalResults.isNullOrEmpty()) {

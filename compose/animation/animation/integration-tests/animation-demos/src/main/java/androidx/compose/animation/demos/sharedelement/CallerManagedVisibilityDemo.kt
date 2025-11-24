@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 
-@file:OptIn(ExperimentalSharedTransitionApi::class)
-
 package androidx.compose.animation.demos.sharedelement
 
 import androidx.compose.animation.BoundsTransform
-import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.background
@@ -48,19 +45,13 @@ fun SharedElementWithCallerManagedVisibility() {
     var selectFirst by remember { mutableStateOf(true) }
     val key = remember { Any() }
     SharedTransitionLayout(
-        Modifier
-            .fillMaxSize()
-            .padding(10.dp)
-            .clickable {
-                selectFirst = !selectFirst
-            }
+        Modifier.fillMaxSize().padding(10.dp).clickable { selectFirst = !selectFirst }
     ) {
         Box(
-            Modifier
-                .sharedElementWithCallerManagedVisibility(
+            Modifier.sharedElementWithCallerManagedVisibility(
                     rememberSharedContentState(key = key),
                     !selectFirst,
-                    boundsTransform = boundsTransform
+                    boundsTransform = boundsTransform,
                 )
                 .background(Color.Red)
                 .size(100.dp)
@@ -70,14 +61,11 @@ fun SharedElementWithCallerManagedVisibility() {
         // TODO: Check isTransitionActive is false in the end. Why are the shared bounds not
         // two separate entities when transition is finished?
         Box(
-            Modifier
-                .offset(180.dp, 180.dp)
+            Modifier.offset(180.dp, 180.dp)
                 .sharedElementWithCallerManagedVisibility(
-                    rememberSharedContentState(
-                        key = key,
-                    ),
+                    rememberSharedContentState(key = key),
                     selectFirst,
-                    boundsTransform = boundsTransform
+                    boundsTransform = boundsTransform,
                 )
                 .alpha(0.5f)
                 .background(Color.Blue)

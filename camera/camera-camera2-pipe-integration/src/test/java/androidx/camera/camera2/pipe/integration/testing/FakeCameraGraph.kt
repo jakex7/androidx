@@ -16,12 +16,21 @@
 
 package androidx.camera.camera2.pipe.integration.testing
 
+import android.hardware.camera2.params.MeteringRectangle
 import android.view.Surface
-import androidx.annotation.RequiresApi
+import androidx.camera.camera2.pipe.AeMode
+import androidx.camera.camera2.pipe.AfMode
 import androidx.camera.camera2.pipe.AudioRestrictionMode
 import androidx.camera.camera2.pipe.AudioRestrictionMode.Companion.AUDIO_RESTRICTION_NONE
+import androidx.camera.camera2.pipe.AwbMode
 import androidx.camera.camera2.pipe.CameraGraph
+import androidx.camera.camera2.pipe.CameraGraphId
+import androidx.camera.camera2.pipe.FrameMetadata
 import androidx.camera.camera2.pipe.GraphState
+import androidx.camera.camera2.pipe.Lock3ABehavior
+import androidx.camera.camera2.pipe.Parameters
+import androidx.camera.camera2.pipe.RequestListeners
+import androidx.camera.camera2.pipe.Result3A
 import androidx.camera.camera2.pipe.StreamGraph
 import androidx.camera.camera2.pipe.StreamId
 import kotlinx.coroutines.CancellationException
@@ -31,21 +40,29 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.StateFlow
 
-@RequiresApi(21)
 class FakeCameraGraph(
     val fakeCameraGraphSession: FakeCameraGraphSession = FakeCameraGraphSession()
 ) : CameraGraph {
 
     val setSurfaceResults = mutableMapOf<StreamId, Surface?>()
     private var isClosed = false
+    override val id: CameraGraphId
+        get() = throw NotImplementedError("Not used in testing")
 
     override val streams: StreamGraph
         get() = throw NotImplementedError("Not used in testing")
 
     override val graphState: StateFlow<GraphState>
         get() = throw NotImplementedError("Not used in testing")
-    override var isForeground = false
+
+    override var isForeground = true
     private var audioRestrictionMode = AUDIO_RESTRICTION_NONE
+
+    override val parameters: Parameters
+        get() = throw NotImplementedError("Not used in testing")
+
+    override val listeners: RequestListeners
+        get() = throw NotImplementedError("Not used in testing")
 
     override suspend fun acquireSession(): CameraGraph.Session {
         if (isClosed) {
@@ -55,17 +72,15 @@ class FakeCameraGraph(
     }
 
     override fun acquireSessionOrNull() = if (isClosed) null else fakeCameraGraphSession
+
     override suspend fun <T> useSession(
         action: suspend CoroutineScope.(CameraGraph.Session) -> T
-    ): T =
-        fakeCameraGraphSession.use { coroutineScope { action(it) } }
+    ): T = fakeCameraGraphSession.use { coroutineScope { action(it) } }
 
     override fun <T> useSessionIn(
         scope: CoroutineScope,
-        action: suspend CoroutineScope.(CameraGraph.Session) -> T
-    ): Deferred<T> = scope.async {
-        useSession(action)
-    }
+        action: suspend CoroutineScope.(CameraGraph.Session) -> T,
+    ): Deferred<T> = scope.async { useSession(action) }
 
     override fun close() {
         isClosed = true
@@ -84,6 +99,67 @@ class FakeCameraGraph(
     }
 
     override fun stop() {
+        throw NotImplementedError("Not used in testing")
+    }
+
+    override fun update3A(
+        aeMode: AeMode?,
+        afMode: AfMode?,
+        awbMode: AwbMode?,
+        aeRegions: List<MeteringRectangle>?,
+        afRegions: List<MeteringRectangle>?,
+        awbRegions: List<MeteringRectangle>?,
+    ): Deferred<Result3A> {
+        throw NotImplementedError("Not used in testing")
+    }
+
+    override fun submit3A(
+        aeMode: AeMode?,
+        afMode: AfMode?,
+        awbMode: AwbMode?,
+        aeRegions: List<MeteringRectangle>?,
+        afRegions: List<MeteringRectangle>?,
+        awbRegions: List<MeteringRectangle>?,
+    ): Deferred<Result3A> {
+        throw NotImplementedError("Not used in testing")
+    }
+
+    override fun setTorchOn(): Deferred<Result3A> {
+        throw NotImplementedError("Not used in testing")
+    }
+
+    override fun setTorchOff(aeMode: AeMode?): Deferred<Result3A> {
+        throw NotImplementedError("Not used in testing")
+    }
+
+    override fun lock3A(
+        aeMode: AeMode?,
+        afMode: AfMode?,
+        awbMode: AwbMode?,
+        aeRegions: List<MeteringRectangle>?,
+        afRegions: List<MeteringRectangle>?,
+        awbRegions: List<MeteringRectangle>?,
+        aeLockBehavior: Lock3ABehavior?,
+        afLockBehavior: Lock3ABehavior?,
+        awbLockBehavior: Lock3ABehavior?,
+        afTriggerStartAeMode: AeMode?,
+        convergedCondition: ((FrameMetadata) -> Boolean)?,
+        lockedCondition: ((FrameMetadata) -> Boolean)?,
+        frameLimit: Int,
+        convergedTimeLimitNs: Long,
+        lockedTimeLimitNs: Long,
+    ): Deferred<Result3A> {
+        throw NotImplementedError("Not used in testing")
+    }
+
+    override fun unlock3A(
+        ae: Boolean?,
+        af: Boolean?,
+        awb: Boolean?,
+        unlockedCondition: ((FrameMetadata) -> Boolean)?,
+        frameLimit: Int,
+        timeLimitNs: Long,
+    ): Deferred<Result3A> {
         throw NotImplementedError("Not used in testing")
     }
 }

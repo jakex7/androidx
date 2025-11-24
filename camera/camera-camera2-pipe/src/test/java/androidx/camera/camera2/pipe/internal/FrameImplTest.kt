@@ -16,7 +16,6 @@
 
 package androidx.camera.camera2.pipe.internal
 
-import android.os.Build
 import android.util.Size
 import androidx.camera.camera2.pipe.CameraTimestamp
 import androidx.camera.camera2.pipe.Frame.Companion.isFrameInfoAvailable
@@ -42,7 +41,7 @@ import org.robolectric.annotation.Config
 
 /** Tests for [FrameImpl] */
 @RunWith(RobolectricTestRunner::class)
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class FrameImplTest {
     private val stream1Id = StreamId(1)
     private val stream2Id = StreamId(2)
@@ -62,18 +61,16 @@ class FrameImplTest {
 
     private val imageStreams = setOf(stream1Id, stream2Id)
     private val request = Request(streams = listOf(stream1Id, stream2Id))
-    private val fakeRequestMetadata = FakeRequestMetadata.from(
-        request,
-        streamToSurfaceMap,
-        repeating = false
-    )
+    private val fakeRequestMetadata =
+        FakeRequestMetadata.from(request, streamToSurfaceMap, repeating = false)
 
-    private val frameState = FrameState(
-        requestMetadata = fakeRequestMetadata,
-        frameNumber = frameNumber,
-        frameTimestamp = frameTimestamp,
-        imageStreams
-    )
+    private val frameState =
+        FrameState(
+            requestMetadata = fakeRequestMetadata,
+            frameNumber = frameNumber,
+            frameTimestamp = frameTimestamp,
+            imageStreams,
+        )
 
     private val frameInfoResult = frameState.frameInfoOutput
     private val streamResult1 = frameState.imageOutputs.first { it.streamId == stream1Id }
@@ -308,7 +305,7 @@ class FrameImplTest {
             frameTimestamp,
             42,
             frameTimestamp.value,
-            OutputResult.failure(OutputStatus.ERROR_OUTPUT_DROPPED)
+            OutputResult.failure(OutputStatus.ERROR_OUTPUT_DROPPED),
         )
 
         assertThat(sharedOutputFrame.imageStatus(stream1Id))
@@ -317,8 +314,7 @@ class FrameImplTest {
 
         sharedOutputFrame.close()
 
-        assertThat(sharedOutputFrame.imageStatus(stream1Id))
-            .isEqualTo(OutputStatus.UNAVAILABLE)
+        assertThat(sharedOutputFrame.imageStatus(stream1Id)).isEqualTo(OutputStatus.UNAVAILABLE)
         assertThat(sharedOutputFrame.getImage(stream1Id)).isNull()
     }
 
@@ -334,7 +330,7 @@ class FrameImplTest {
             frameTimestamp,
             42,
             frameTimestamp.value,
-            OutputResult.from(stream1OutputImage)
+            OutputResult.from(stream1OutputImage),
         )
 
         // Complete streamResult2 with stream2Output3Image
@@ -343,7 +339,7 @@ class FrameImplTest {
             frameTimestamp,
             42,
             frameTimestamp.value,
-            OutputResult.from(stream2OutputImage)
+            OutputResult.from(stream2OutputImage),
         )
 
         // Complete frameInfoResult
@@ -352,7 +348,7 @@ class FrameImplTest {
             frameTimestamp,
             42,
             frameNumber.value,
-            OutputResult.from(fakeFrameInfo)
+            OutputResult.from(fakeFrameInfo),
         )
     }
 }

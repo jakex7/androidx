@@ -16,7 +16,6 @@
 
 package androidx.camera.core.impl
 
-import android.os.Build
 import android.util.Range
 import android.util.Size
 import androidx.camera.core.DynamicRange
@@ -32,7 +31,7 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class StreamSpecTest {
 
     @Test
@@ -66,9 +65,10 @@ class StreamSpecTest {
 
     @Test
     fun canRetrieveExpectedFrameRateRange() {
-        val streamSpec = StreamSpec.builder(TEST_RESOLUTION)
-            .setExpectedFrameRateRange(TEST_EXPECTED_FRAME_RATE_RANGE)
-            .build()
+        val streamSpec =
+            StreamSpec.builder(TEST_RESOLUTION)
+                .setExpectedFrameRateRange(TEST_EXPECTED_FRAME_RATE_RANGE)
+                .build()
 
         assertThat(streamSpec.expectedFrameRateRange).isEqualTo(TEST_EXPECTED_FRAME_RATE_RANGE)
     }
@@ -77,15 +77,15 @@ class StreamSpecTest {
     fun defaultImplementationOptionsIsNull() {
         val streamSpec = StreamSpec.builder(TEST_RESOLUTION).build()
 
-        assertThat(streamSpec.implementationOptions)
-            .isNull()
+        assertThat(streamSpec.implementationOptions).isNull()
     }
 
     @Test
     fun canRetrieveStreamUseCase() {
-        val streamSpec = StreamSpec.builder(TEST_RESOLUTION)
-            .setImplementationOptions(TEST_IMPLEMENTATION_OPTION)
-            .build()
+        val streamSpec =
+            StreamSpec.builder(TEST_RESOLUTION)
+                .setImplementationOptions(TEST_IMPLEMENTATION_OPTION)
+                .build()
 
         assertThat(streamSpec.implementationOptions!!.containsOption(OPTION_INPUT_FORMAT)).isTrue()
         assertThat(streamSpec.implementationOptions!!.retrieveOption(OPTION_INPUT_FORMAT))

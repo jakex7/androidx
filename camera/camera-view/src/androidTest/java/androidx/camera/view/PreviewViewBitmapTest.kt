@@ -18,7 +18,6 @@ package androidx.camera.view
 import android.content.Context
 import android.os.Build
 import android.view.WindowManager
-import androidx.camera.camera2.Camera2Config
 import androidx.camera.camera2.pipe.integration.CameraPipeConfig
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraXConfig
@@ -30,20 +29,19 @@ import androidx.camera.testing.impl.CameraPipeConfigTestRule
 import androidx.camera.testing.impl.CameraUtil
 import androidx.camera.testing.impl.CameraUtil.PreTestCameraIdList
 import androidx.camera.testing.impl.CoreAppTestUtil
+import androidx.camera.testing.impl.ParameterizedTestConfigUtil
 import androidx.camera.testing.impl.fakes.FakeActivity
 import androidx.camera.testing.impl.fakes.FakeLifecycleOwner
+import androidx.camera.testing.impl.testrule.CameraTestActivityScenarioRule
 import androidx.lifecycle.Observer
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.After
-import org.junit.Assume
 import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Rule
@@ -53,31 +51,23 @@ import org.junit.runners.Parameterized
 
 @LargeTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
-class PreviewViewBitmapTest(
-    private val implName: String,
-    private val cameraConfig: CameraXConfig
-) {
-    @get:Rule
-    val activityRule = ActivityScenarioRule(
-        FakeActivity::class.java
-    )
+class PreviewViewBitmapTest(private val implName: String, private val cameraConfig: CameraXConfig) {
+    @get:Rule val activityRule = CameraTestActivityScenarioRule(FakeActivity::class.java)
 
     @get:Rule
-    var useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        PreTestCameraIdList(cameraConfig)
-    )
+    var useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(PreTestCameraIdList(cameraConfig))
 
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = implName == CameraPipeConfig::class.simpleName,
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = implName == CameraPipeConfig::class.simpleName)
 
     private var cameraProvider: ProcessCameraProvider? = null
+    private lateinit var cameraSelector: CameraSelector
 
     @Before
     fun setUp() {
-        Assume.assumeTrue(CameraUtil.hasCameraWithLensFacing(CAMERA_LENS))
+        cameraSelector = CameraUtil.assumeFirstAvailableCameraSelector()
         val context = ApplicationProvider.getApplicationContext<Context>()
         ProcessCameraProvider.configureInstance(cameraConfig)
         cameraProvider = ProcessCameraProvider.getInstance(context).get()
@@ -107,7 +97,6 @@ class PreviewViewBitmapTest(
         // Arrange
         val previewView = setUpPreviewView(implementationMode)
         val preview = Preview.Builder().build()
-        val cameraSelector = CameraSelector.Builder().requireLensFacing(CAMERA_LENS).build()
         runOnMainThread {
             val lifecycleOwner = FakeLifecycleOwner()
             lifecycleOwner.startAndResume()
@@ -159,7 +148,7 @@ class PreviewViewBitmapTest(
     fun bitmapHasSameSizeAsPreviewView_fillStart_textureView() {
         bitmapHasSameSizeAsPreviewView(
             PreviewView.ImplementationMode.COMPATIBLE,
-            PreviewView.ScaleType.FILL_START
+            PreviewView.ScaleType.FILL_START,
         )
     }
 
@@ -167,7 +156,7 @@ class PreviewViewBitmapTest(
     fun bitmapHasSameSizeAsPreviewView_fillCenter_textureView() {
         bitmapHasSameSizeAsPreviewView(
             PreviewView.ImplementationMode.COMPATIBLE,
-            PreviewView.ScaleType.FILL_CENTER
+            PreviewView.ScaleType.FILL_CENTER,
         )
     }
 
@@ -175,7 +164,7 @@ class PreviewViewBitmapTest(
     fun bitmapHasSameSizeAsPreviewView_fillEnd_textureView() {
         bitmapHasSameSizeAsPreviewView(
             PreviewView.ImplementationMode.COMPATIBLE,
-            PreviewView.ScaleType.FILL_END
+            PreviewView.ScaleType.FILL_END,
         )
     }
 
@@ -183,7 +172,7 @@ class PreviewViewBitmapTest(
     fun bitmapHasSameSizeAsPreviewView_fillStart_surfaceView() {
         bitmapHasSameSizeAsPreviewView(
             PreviewView.ImplementationMode.PERFORMANCE,
-            PreviewView.ScaleType.FILL_START
+            PreviewView.ScaleType.FILL_START,
         )
     }
 
@@ -191,7 +180,7 @@ class PreviewViewBitmapTest(
     fun bitmapHasSameSizeAsPreviewView_fillCenter_surfaceView() {
         bitmapHasSameSizeAsPreviewView(
             PreviewView.ImplementationMode.PERFORMANCE,
-            PreviewView.ScaleType.FILL_CENTER
+            PreviewView.ScaleType.FILL_CENTER,
         )
     }
 
@@ -199,13 +188,13 @@ class PreviewViewBitmapTest(
     fun bitmapHasSameSizeAsPreviewView_fillEnd_surfaceView() {
         bitmapHasSameSizeAsPreviewView(
             PreviewView.ImplementationMode.PERFORMANCE,
-            PreviewView.ScaleType.FILL_END
+            PreviewView.ScaleType.FILL_END,
         )
     }
 
     private fun bitmapHasSameSizeAsPreviewView(
         mode: PreviewView.ImplementationMode,
-        scaleType: PreviewView.ScaleType
+        scaleType: PreviewView.ScaleType,
     ) {
         // Arrange
         val previewView = setUpPreviewView(mode, scaleType)
@@ -227,7 +216,7 @@ class PreviewViewBitmapTest(
     fun bitmapSmallerInSizeThanPreviewView_fitStart_textureView() {
         bitmapSmallerInSizeThanPreviewView(
             PreviewView.ImplementationMode.COMPATIBLE,
-            PreviewView.ScaleType.FIT_START
+            PreviewView.ScaleType.FIT_START,
         )
     }
 
@@ -235,7 +224,7 @@ class PreviewViewBitmapTest(
     fun bitmapSmallerInSizeThanPreviewView_fitCenter_textureView() {
         bitmapSmallerInSizeThanPreviewView(
             PreviewView.ImplementationMode.COMPATIBLE,
-            PreviewView.ScaleType.FIT_CENTER
+            PreviewView.ScaleType.FIT_CENTER,
         )
     }
 
@@ -243,7 +232,7 @@ class PreviewViewBitmapTest(
     fun bitmapSmallerInSizeThanPreviewView_fitEnd_textureView() {
         bitmapSmallerInSizeThanPreviewView(
             PreviewView.ImplementationMode.COMPATIBLE,
-            PreviewView.ScaleType.FIT_END
+            PreviewView.ScaleType.FIT_END,
         )
     }
 
@@ -251,7 +240,7 @@ class PreviewViewBitmapTest(
     fun bitmapSmallerInSizeThanPreviewView_fitStart_surfaceView() {
         bitmapSmallerInSizeThanPreviewView(
             PreviewView.ImplementationMode.PERFORMANCE,
-            PreviewView.ScaleType.FIT_START
+            PreviewView.ScaleType.FIT_START,
         )
     }
 
@@ -259,7 +248,7 @@ class PreviewViewBitmapTest(
     fun bitmapSmallerInSizeThanPreviewView_fitCenter_surfaceView() {
         bitmapSmallerInSizeThanPreviewView(
             PreviewView.ImplementationMode.PERFORMANCE,
-            PreviewView.ScaleType.FIT_CENTER
+            PreviewView.ScaleType.FIT_CENTER,
         )
     }
 
@@ -267,13 +256,13 @@ class PreviewViewBitmapTest(
     fun bitmapSmallerInSizeThanPreviewView_fitEnd_surfaceView() {
         bitmapSmallerInSizeThanPreviewView(
             PreviewView.ImplementationMode.PERFORMANCE,
-            PreviewView.ScaleType.FIT_END
+            PreviewView.ScaleType.FIT_END,
         )
     }
 
     private fun bitmapSmallerInSizeThanPreviewView(
         mode: PreviewView.ImplementationMode,
-        scaleType: PreviewView.ScaleType
+        scaleType: PreviewView.ScaleType,
     ) {
         // Arrange
         val previewView = setUpPreviewView(mode, scaleType)
@@ -289,9 +278,9 @@ class PreviewViewBitmapTest(
             Truth.assertThat(bitmap!!.width).isAtMost(previewView.width)
             Truth.assertThat(bitmap.height).isAtMost(previewView.height)
             Truth.assertThat(
-                bitmap.width == previewView.width ||
-                    bitmap.height == previewView.height
-            ).isTrue()
+                    bitmap.width == previewView.width || bitmap.height == previewView.height
+                )
+                .isTrue()
         }
     }
 
@@ -301,7 +290,7 @@ class PreviewViewBitmapTest(
 
     private fun setUpPreviewView(
         mode: PreviewView.ImplementationMode,
-        scaleType: PreviewView.ScaleType
+        scaleType: PreviewView.ScaleType,
     ): PreviewView {
         val previewViewAtomicReference = AtomicReference<PreviewView>()
         runOnMainThread {
@@ -312,20 +301,16 @@ class PreviewViewBitmapTest(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                     activity.setShowWhenLocked()
                     activity.setTurnScreenOn()
-                    activity.window.addFlags(
-                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                    )
+                    activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 } else {
                     @Suppress("DEPRECATION")
                     activity.window.addFlags(
-                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-                            or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                            or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                     )
                 }
-                activity.setContentView(
-                    previewView
-                )
+                activity.setContentView(previewView)
             }
             previewViewAtomicReference.set(previewView)
         }
@@ -334,7 +319,6 @@ class PreviewViewBitmapTest(
 
     private fun startPreview(previewView: PreviewView) {
         val preview = Preview.Builder().build()
-        val cameraSelector = CameraSelector.Builder().requireLensFacing(CAMERA_LENS).build()
         runOnMainThread {
             val lifecycleOwner = FakeLifecycleOwner()
             lifecycleOwner.startAndResume()
@@ -363,7 +347,6 @@ class PreviewViewBitmapTest(
     }
 
     companion object {
-        private const val CAMERA_LENS = CameraSelector.LENS_FACING_BACK
 
         @BeforeClass
         @JvmStatic
@@ -373,9 +356,9 @@ class PreviewViewBitmapTest(
 
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
-        fun data() = listOf(
-            arrayOf(Camera2Config::class.simpleName, Camera2Config.defaultConfig()),
-            arrayOf(CameraPipeConfig::class.simpleName, CameraPipeConfig.defaultConfig())
-        )
+        fun data() =
+            ParameterizedTestConfigUtil.generateCameraXConfigParameterizedTestConfigs(
+                inLabTestRequired = true
+            )
     }
 }

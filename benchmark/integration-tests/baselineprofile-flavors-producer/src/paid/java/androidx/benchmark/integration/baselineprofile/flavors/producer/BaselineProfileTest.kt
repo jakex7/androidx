@@ -30,8 +30,7 @@ import org.junit.Test
 @SdkSuppress(minSdkVersion = 29)
 class BaselineProfileTest {
 
-    @get:Rule
-    val baselineRule = BaselineProfileRule()
+    @get:Rule val baselineRule = BaselineProfileRule()
 
     @Test
     fun startupBaselineProfile() {
@@ -43,7 +42,7 @@ class BaselineProfileTest {
             profileBlock = {
                 startActivityAndWait(Intent(ACTION))
                 device.waitForIdle()
-            }
+            },
         )
     }
 

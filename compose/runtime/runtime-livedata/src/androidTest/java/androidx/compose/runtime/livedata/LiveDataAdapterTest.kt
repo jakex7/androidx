@@ -28,6 +28,7 @@ import androidx.lifecycle.testing.TestLifecycleOwner
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,16 +37,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class LiveDataAdapterTest {
 
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(StandardTestDispatcher())
 
     @Test
     fun whenValueIsNotSetWeGotNull() {
         val liveData = MutableLiveData<String>()
         var realValue: String? = "to-be-updated"
-        rule.setContent {
-            realValue = liveData.observeAsState().value
-        }
+        rule.setContent { realValue = liveData.observeAsState().value }
 
         assertThat(realValue).isNull()
     }
@@ -55,9 +53,7 @@ class LiveDataAdapterTest {
         val liveData = MutableLiveData<String>()
         liveData.postValue("value")
         var realValue: String? = null
-        rule.setContent {
-            realValue = liveData.observeAsState().value
-        }
+        rule.setContent { realValue = liveData.observeAsState().value }
 
         assertThat(realValue).isEqualTo("value")
     }
@@ -82,17 +78,11 @@ class LiveDataAdapterTest {
         val liveData = MutableLiveData<String>()
         liveData.postValue("value")
         var realValue: String? = null
-        rule.setContent {
-            realValue = liveData.observeAsState().value
-        }
+        rule.setContent { realValue = liveData.observeAsState().value }
 
-        rule.runOnIdle {
-            liveData.postValue("value2")
-        }
+        rule.runOnIdle { liveData.postValue("value2") }
 
-        rule.runOnIdle {
-            assertThat(realValue).isEqualTo("value2")
-        }
+        rule.runOnIdle { assertThat(realValue).isEqualTo("value2") }
     }
 
     @Test
@@ -109,13 +99,9 @@ class LiveDataAdapterTest {
 
         lifecycleOwner.currentState = Lifecycle.State.DESTROYED
 
-        rule.runOnIdle {
-            liveData.postValue("value2")
-        }
+        rule.runOnIdle { liveData.postValue("value2") }
 
-        rule.runOnIdle {
-            assertThat(realValue).isEqualTo("value")
-        }
+        rule.runOnIdle { assertThat(realValue).isEqualTo("value") }
     }
 
     @Test
@@ -135,13 +121,11 @@ class LiveDataAdapterTest {
 
         rule.runOnIdle { emit = true }
 
-        assertThat(rule.runOnIdle { lifecycleOwner.observerCount })
-            .isEqualTo(initialCount + 1)
+        assertThat(rule.runOnIdle { lifecycleOwner.observerCount }).isEqualTo(initialCount + 1)
 
         rule.runOnIdle { emit = false }
 
-        assertThat(rule.runOnIdle { lifecycleOwner.observerCount })
-            .isEqualTo(initialCount)
+        assertThat(rule.runOnIdle { lifecycleOwner.observerCount }).isEqualTo(initialCount)
     }
 
     @Test
@@ -158,19 +142,13 @@ class LiveDataAdapterTest {
         // activity stopped
         lifecycleOwner.currentState = Lifecycle.State.CREATED
 
-        rule.runOnIdle {
-            liveData.postValue("value2")
-        }
+        rule.runOnIdle { liveData.postValue("value2") }
 
-        rule.runOnIdle {
-            assertThat(realValue).isNull()
-        }
+        rule.runOnIdle { assertThat(realValue).isNull() }
 
         lifecycleOwner.currentState = Lifecycle.State.RESUMED
 
-        rule.runOnIdle {
-            assertThat(realValue).isEqualTo("value2")
-        }
+        rule.runOnIdle { assertThat(realValue).isEqualTo("value2") }
     }
 
     @Test

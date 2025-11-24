@@ -27,13 +27,14 @@ class TextViewFragment : Fragment() {
 
     companion object {
         fun newInstance() = TextViewFragment()
+
         private const val TAG = "TextViewFragment"
     }
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ): View? {
         return inflater.inflate(R.layout.fragment_textview, container, false)
     }

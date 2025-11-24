@@ -8,11 +8,11 @@
 plugins {
     id("AndroidXPlugin")
     id("com.android.application")
-    id("kotlin-android")
+    id("com.android.experimental.built-in-kotlin")
 }
 
 dependencies {
-    implementation(libs.kotlinStdlib)
+    api(libs.jspecify)
     implementation("androidx.core:core-ktx:1.5.0")
     implementation(project(":appcompat:appcompat"))
     implementation(project(":preference:preference"))
@@ -26,5 +26,6 @@ dependencies {
 }
 
 android {
-    namespace "com.example.androidx.preference"
+    compileSdk = 35
+    namespace = "com.example.androidx.preference"
 }

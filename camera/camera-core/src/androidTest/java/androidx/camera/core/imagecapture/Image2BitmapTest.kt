@@ -25,7 +25,6 @@ import androidx.camera.testing.impl.ExifUtil
 import androidx.camera.testing.impl.TestImageUtil
 import androidx.camera.testing.impl.fakes.FakeImageInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.SdkSuppress
 import androidx.test.filters.SmallTest
 import com.google.common.truth.Truth
 import org.junit.Test
@@ -33,7 +32,6 @@ import org.junit.runner.RunWith
 
 @SmallTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 21)
 class Image2BitmapTest {
     private val operation = Image2Bitmap()
 
@@ -41,6 +39,7 @@ class Image2BitmapTest {
     fun processYuvImage_rotation0_assertOutput() {
         processYuvImage_assertOutput(rotationDegrees = 0)
     }
+
     @Test
     fun processYuvImage_rotation90_assertOutput() {
         processYuvImage_assertOutput(rotationDegrees = 90)
@@ -60,14 +59,15 @@ class Image2BitmapTest {
         // Arrange.
         val imageInfo = FakeImageInfo()
         val yuvImage = TestImageUtil.createYuvFakeImageProxy(imageInfo, Utils.WIDTH, Utils.HEIGHT)
-        val input = Packet.of(
-            yuvImage,
-            null, // YuvImage doesn't have exif info.
-            Rect(0, 0, Utils.WIDTH, Utils.HEIGHT),
-            rotationDegrees,
-            Matrix(),
-            Utils.CAMERA_CAPTURE_RESULT
-        )
+        val input =
+            Packet.of(
+                yuvImage,
+                null, // YuvImage doesn't have exif info.
+                Rect(0, 0, Utils.WIDTH, Utils.HEIGHT),
+                rotationDegrees,
+                Matrix(),
+                Utils.CAMERA_CAPTURE_RESULT,
+            )
         val inputDecodedBitmap = ImageUtil.createBitmapFromImageProxy(yuvImage)
 
         // Act.
@@ -75,8 +75,8 @@ class Image2BitmapTest {
 
         // Assert: the image is the same.
         val inputRotatedBitmap = TestImageUtil.rotateBitmap(inputDecodedBitmap, rotationDegrees)
-        Truth.assertThat(TestImageUtil.getAverageDiff(
-            inputRotatedBitmap, outputBitmap)).isEqualTo(0)
+        Truth.assertThat(TestImageUtil.getAverageDiff(inputRotatedBitmap, outputBitmap))
+            .isEqualTo(0)
 
         // Assert: image is closed.
         Truth.assertThat(yuvImage.isClosed).isTrue()
@@ -108,14 +108,15 @@ class Image2BitmapTest {
         val jpegBytes = TestImageUtil.createJpegBytes(Utils.WIDTH, Utils.HEIGHT)
         val jpegImage = TestImageUtil.createJpegFakeImageProxy(imageInfo, jpegBytes)
         val exif = ExifUtil.createExif(jpegBytes)
-        val input = Packet.of(
-            jpegImage,
-            exif,
-            Rect(0, 0, Utils.WIDTH, Utils.HEIGHT),
-            rotationDegrees,
-            Matrix(),
-            Utils.CAMERA_CAPTURE_RESULT
-        )
+        val input =
+            Packet.of(
+                jpegImage,
+                exif,
+                Rect(0, 0, Utils.WIDTH, Utils.HEIGHT),
+                rotationDegrees,
+                Matrix(),
+                Utils.CAMERA_CAPTURE_RESULT,
+            )
         val inputDecodedBitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
 
         // Act.
@@ -123,8 +124,8 @@ class Image2BitmapTest {
 
         // Assert: the image is the same.
         val inputRotatedBitmap = TestImageUtil.rotateBitmap(inputDecodedBitmap, rotationDegrees)
-        Truth.assertThat(TestImageUtil.getAverageDiff(
-            inputRotatedBitmap, outputBitmap)).isEqualTo(0)
+        Truth.assertThat(TestImageUtil.getAverageDiff(inputRotatedBitmap, outputBitmap))
+            .isEqualTo(0)
 
         // Assert: image is closed.
         Truth.assertThat(jpegImage.isClosed).isTrue()

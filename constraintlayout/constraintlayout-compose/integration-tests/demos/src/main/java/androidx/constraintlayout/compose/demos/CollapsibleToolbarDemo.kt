@@ -67,12 +67,14 @@ import androidx.constraintlayout.compose.MotionScene
  *  modifier = Modifier.verticalScroll(scroll)
  * )
  * ```
- * The Column's modifier  Modifier.verticalScroll(scroll) will modify scroll.value as it scrolls.
- * We can use this value with a little math to calculate the appropriate progress.
+ *
+ * The Column's modifier Modifier.verticalScroll(scroll) will modify scroll.value as it scrolls. We
+ * can use this value with a little math to calculate the appropriate progress.
  *
  * When the Column is at the start the MotionLayout sits on top of the Spacer. As the user scrolls
  * up the MotionLayout shrinks with the scrolling Spacer then, stops.
  */
+@Suppress("FrequentlyChangingValue")
 @Preview(group = "scroll", device = "spec:width=480dp,height=800dp,dpi=440")
 @Composable
 fun ToolBarDslDemo() {
@@ -123,46 +125,38 @@ fun ToolBarDslDemo() {
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.verticalScroll(scroll)
+        modifier = Modifier.verticalScroll(scroll),
     ) {
         Spacer(Modifier.height(big))
         repeat(5) {
             Text(
                 text = LoremIpsum(222).values.first(),
-                modifier = Modifier
-                    .background(Color.White)
-                    .padding(16.dp)
+                modifier = Modifier.background(Color.White).padding(16.dp),
             )
         }
     }
     val gap = with(LocalDensity.current) { big.toPx() - small.toPx() }
     val progress = minOf(scroll.value / gap, 1f)
 
-    MotionLayout(
-        modifier = Modifier.fillMaxSize(),
-        motionScene = scene,
-        progress = progress
-    ) {
+    MotionLayout(modifier = Modifier.fillMaxSize(), motionScene = scene, progress = progress) {
         Image(
-            modifier = Modifier
-                .layoutId("image")
-                .background(customColor("image", "cover")),
+            modifier = Modifier.layoutId("image").background(customColor("image", "cover")),
             imageVector = Icons.Default.Face,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            colorFilter = ColorFilter.tint(Color(0x51FFFFFF))
+            colorFilter = ColorFilter.tint(Color(0x51FFFFFF)),
         )
         Image(
             modifier = Modifier.layoutId("icon"),
             imageVector = Icons.Default.Menu,
             contentDescription = null,
-            colorFilter = ColorFilter.tint(Color.White)
+            colorFilter = ColorFilter.tint(Color.White),
         )
         Text(
             modifier = Modifier.layoutId("title"),
             text = "San Francisco",
             fontSize = 30.sp,
-            color = Color.White
+            color = Color.White,
         )
     }
 }
@@ -267,41 +261,29 @@ fun ToolBarLazyDslDemo() {
     val progress = 1 - (toolbarHeight.floatValue - minPx) / (maxPx - minPx)
 
     Column {
-        MotionLayout(
-            modifier = Modifier,
-            motionScene = scene,
-            progress = progress
-        ) {
+        MotionLayout(modifier = Modifier, motionScene = scene, progress = progress) {
             Image(
-                modifier = Modifier
-                    .layoutId("image")
-                    .background(customColor("image", "cover")),
+                modifier = Modifier.layoutId("image").background(customColor("image", "cover")),
                 imageVector = Icons.Default.Face,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                colorFilter = ColorFilter.tint(Color(0x51FFFFFF))
+                colorFilter = ColorFilter.tint(Color(0x51FFFFFF)),
             )
             Image(
                 modifier = Modifier.layoutId("icon"),
                 imageVector = Icons.Default.Menu,
                 contentDescription = null,
-                colorFilter = ColorFilter.tint(Color.White)
+                colorFilter = ColorFilter.tint(Color.White),
             )
             Text(
                 modifier = Modifier.layoutId("title"),
                 text = "San Francisco",
                 fontSize = 30.sp,
-                color = Color.White
+                color = Color.White,
             )
         }
-        LazyColumn(
-            Modifier
-                .fillMaxWidth()
-                .nestedScroll(nestedScrollConnection)
-        ) {
-            items(100) {
-                Text(text = "item $it", modifier = Modifier.padding(4.dp))
-            }
+        LazyColumn(Modifier.fillMaxWidth().nestedScroll(nestedScrollConnection)) {
+            items(100) { Text(text = "item $it", modifier = Modifier.padding(4.dp)) }
         }
     }
 }

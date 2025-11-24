@@ -39,6 +39,7 @@ import androidx.camera.integration.extensions.IntentExtraKey.INTENT_EXTRA_KEY_TE
 import androidx.camera.integration.extensions.R
 import androidx.camera.integration.extensions.TestResultType.TEST_RESULT_NOT_SUPPORTED
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.testing.impl.util.EdgeToEdgeUtil
 import androidx.concurrent.futures.await
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
@@ -56,14 +57,19 @@ class CameraValidationResultActivity : AppCompatActivity() {
     private lateinit var adapter: BaseAdapter
     private lateinit var testResults: TestResults
     private lateinit var cameraLensFacingMap: LinkedHashMap<String, Int>
-    private lateinit var cameraExtensionResultMap: LinkedHashMap<Pair<String, String>,
-        LinkedHashMap<Int, Pair<Int, String>>>
+    private lateinit var cameraExtensionResultMap:
+        LinkedHashMap<Pair<String, String>, LinkedHashMap<Int, Pair<Int, String>>>
     private val extensionValidationActivityRequestCode =
         ExtensionValidationResultActivity::class.java.hashCode() % 1000
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.full_listview)
+
+        EdgeToEdgeUtil.enableEdgeToEdge(
+            activity = this,
+            viewIdsTopPaddingRequired = listOf(R.id.full_listview_root),
+        )
 
         supportActionBar?.title = resources.getString(R.string.extensions_validator)
         initialize()
@@ -73,10 +79,12 @@ class CameraValidationResultActivity : AppCompatActivity() {
         lifecycleScope.launch {
             cameraProvider =
                 ProcessCameraProvider.getInstance(this@CameraValidationResultActivity).await()
-            extensionsManager = ExtensionsManager.getInstanceAsync(
-                this@CameraValidationResultActivity,
-                cameraProvider
-            ).await()
+            extensionsManager =
+                ExtensionsManager.getInstanceAsync(
+                        this@CameraValidationResultActivity,
+                        cameraProvider,
+                    )
+                    .await()
 
             testResults = TestResults.getInstance(this@CameraValidationResultActivity)
             testResults.loadTestResults(cameraProvider, extensionsManager)
@@ -90,11 +98,12 @@ class CameraValidationResultActivity : AppCompatActivity() {
             }
 
             val layoutInflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
-            adapter = CameraValidationResultAdapter(
-                layoutInflater,
-                cameraLensFacingMap,
-                cameraExtensionResultMap
-            )
+            adapter =
+                CameraValidationResultAdapter(
+                    layoutInflater,
+                    cameraLensFacingMap,
+                    cameraExtensionResultMap,
+                )
 
             val listView = findViewById<ListView>(R.id.listView)
             listView.adapter = adapter
@@ -103,39 +112,32 @@ class CameraValidationResultActivity : AppCompatActivity() {
                     val (testType, cameraId) = cameraExtensionResultMap.keys.elementAt(position)
                     if (!isAnyExtensionModeSupported(testType, cameraId)) {
                         Toast.makeText(
-                            this@CameraValidationResultActivity,
-                            "No extension mode is supported by the camera!",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                                this@CameraValidationResultActivity,
+                                "No extension mode is supported by the camera!",
+                                Toast.LENGTH_SHORT,
+                            )
+                            .show()
                         return@OnItemClickListener
                     }
 
-                    val intent = Intent(
-                        this@CameraValidationResultActivity,
-                        ExtensionValidationResultActivity::class.java
-                    )
-                    intent.putExtra(
-                        INTENT_EXTRA_KEY_TEST_TYPE,
-                        testType
-                    )
-                    intent.putExtra(
-                        INTENT_EXTRA_KEY_CAMERA_ID,
-                        cameraId
-                    )
-                    intent.putExtra(
-                        INTENT_EXTRA_KEY_LENS_FACING,
-                        cameraLensFacingMap[cameraId]
-                    )
+                    val intent =
+                        Intent(
+                            this@CameraValidationResultActivity,
+                            ExtensionValidationResultActivity::class.java,
+                        )
+                    intent.putExtra(INTENT_EXTRA_KEY_TEST_TYPE, testType)
+                    intent.putExtra(INTENT_EXTRA_KEY_CAMERA_ID, cameraId)
+                    intent.putExtra(INTENT_EXTRA_KEY_LENS_FACING, cameraLensFacingMap[cameraId])
                     intent.putExtra(
                         INTENT_EXTRA_KEY_REQUEST_CODE,
-                        extensionValidationActivityRequestCode
+                        extensionValidationActivityRequestCode,
                     )
 
                     ActivityCompat.startActivityForResult(
                         this@CameraValidationResultActivity,
                         intent,
                         extensionValidationActivityRequestCode,
-                        null
+                        null,
                     )
                 }
         }
@@ -181,10 +183,11 @@ class CameraValidationResultActivity : AppCompatActivity() {
                 val outputFilePath = testResults.exportTestResults(contentResolver)
                 if (outputFilePath != null) {
                     Toast.makeText(
-                        this,
-                        "Test results have been saved in $outputFilePath!",
-                        Toast.LENGTH_LONG
-                    ).show()
+                            this,
+                            "Test results have been saved in $outputFilePath!",
+                            Toast.LENGTH_LONG,
+                        )
+                        .show()
                 } else {
                     Toast.makeText(this, "Failed to export the test results!", Toast.LENGTH_LONG)
                         .show()
@@ -209,11 +212,12 @@ class CameraValidationResultActivity : AppCompatActivity() {
 
     companion object {
 
-        fun getLensFacingStringFromInt(lensFacing: Int): String = when (lensFacing) {
-            CameraMetadata.LENS_FACING_BACK -> "BACK"
-            CameraMetadata.LENS_FACING_FRONT -> "FRONT"
-            CameraMetadata.LENS_FACING_EXTERNAL -> "EXTERNAL"
-            else -> throw IllegalArgumentException("Invalid lens facing!!")
-        }
+        fun getLensFacingStringFromInt(lensFacing: Int): String =
+            when (lensFacing) {
+                CameraMetadata.LENS_FACING_BACK -> "BACK"
+                CameraMetadata.LENS_FACING_FRONT -> "FRONT"
+                CameraMetadata.LENS_FACING_EXTERNAL -> "EXTERNAL"
+                else -> throw IllegalArgumentException("Invalid lens facing!!")
+            }
     }
 }

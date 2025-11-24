@@ -25,7 +25,6 @@ import androidx.camera.integration.core.util.StressTestUtil.LARGE_STRESS_TEST_RE
 import androidx.camera.integration.core.util.StressTestUtil.VERIFICATION_TARGET_PREVIEW
 import androidx.camera.testing.impl.LabTestRule
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.testutils.RepeatRule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,12 +32,9 @@ import org.junit.runners.Parameterized
 
 @LargeTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
-class PreviewSwitchCameraStressTest constructor(
-    implName: String,
-    cameraConfig: CameraXConfig,
-    cameraId: String
-) : SwitchCameraStressTestBase(implName, cameraConfig, cameraId) {
+class PreviewSwitchCameraStressTest
+constructor(implName: String, cameraConfig: CameraXConfig, cameraId: String) :
+    SwitchCameraStressTestBase(implName, cameraConfig, cameraId) {
 
     @LabTestRule.LabTestOnly
     @Test
@@ -48,7 +44,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_checkOutput_repeatedly(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 
@@ -61,7 +57,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_checkOutput_repeatedly(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 
@@ -73,7 +69,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_checkOutput_repeatedly(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 
@@ -86,7 +82,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_checkOutput_repeatedly(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 
@@ -99,7 +95,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_checkOutput_repeatedly(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 
@@ -111,7 +107,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_repeatedly_thenCheckOutput(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 
@@ -124,7 +120,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_repeatedly_thenCheckOutput(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 
@@ -136,7 +132,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_repeatedly_thenCheckOutput(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 
@@ -149,7 +145,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_repeatedly_thenCheckOutput(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 
@@ -162,7 +158,7 @@ class PreviewSwitchCameraStressTest constructor(
         switchCamera_repeatedly_thenCheckOutput(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_PREVIEW
+            VERIFICATION_TARGET_PREVIEW,
         )
     }
 }

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-@file:Suppress("DEPRECATION") // b/220884819
-
 package androidx.paging
 
 import android.view.View
@@ -33,12 +31,9 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.test.TestCoroutineScope
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runBlockingTest
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
 import org.junit.Test
@@ -46,14 +41,9 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 @SmallTest
-@Suppress("DEPRECATION")
-@OptIn(ExperimentalCoroutinesApi::class)
+@Suppress("DEPRECATION") // LivePagedList is deprecated.
 class LivePagedListTest {
-    @JvmField
-    @Rule
-    val instantTaskExecutorRule = InstantTaskExecutorRule()
-
-    private val testScope = TestCoroutineScope()
+    @JvmField @Rule val instantTaskExecutorRule = InstantTaskExecutorRule()
 
     @OptIn(DelicateCoroutinesApi::class)
     @Test
@@ -61,24 +51,23 @@ class LivePagedListTest {
         var pagingSourcesCreated = 0
         val pagingSourceFactory = {
             when (pagingSourcesCreated++) {
-                0 -> TestPagingSource().apply {
-                    invalidate()
-                }
+                0 -> TestPagingSource().apply { invalidate() }
                 else -> TestPagingSource()
             }
         }
 
-        val livePagedList = LivePagedList(
-            coroutineScope = GlobalScope,
-            initialKey = null,
-            config = PagedList.Config.Builder().setPageSize(10).build(),
-            boundaryCallback = null,
-            pagingSourceFactory = pagingSourceFactory,
-            notifyDispatcher = ArchTaskExecutor.getMainThreadExecutor().asCoroutineDispatcher(),
-            fetchDispatcher = ArchTaskExecutor.getIOThreadExecutor().asCoroutineDispatcher(),
-        )
+        val livePagedList =
+            LivePagedList(
+                coroutineScope = GlobalScope,
+                initialKey = null,
+                config = PagedList.Config.Builder().setPageSize(10).build(),
+                boundaryCallback = null,
+                pagingSourceFactory = pagingSourceFactory,
+                notifyDispatcher = ArchTaskExecutor.getMainThreadExecutor().asCoroutineDispatcher(),
+                fetchDispatcher = ArchTaskExecutor.getIOThreadExecutor().asCoroutineDispatcher(),
+            )
 
-        livePagedList.observeForever { }
+        livePagedList.observeForever {}
         assertThat(pagingSourcesCreated).isEqualTo(2)
     }
 
@@ -91,20 +80,21 @@ class LivePagedListTest {
             TestPagingSource()
         }
         val testDispatcher = TestDispatcher()
-        val livePagedList = LivePagedList(
-            coroutineScope = GlobalScope,
-            initialKey = null,
-            config = PagedList.Config.Builder().setPageSize(10).build(),
-            boundaryCallback = null,
-            pagingSourceFactory = pagingSourceFactory,
-            notifyDispatcher = ArchTaskExecutor.getMainThreadExecutor().asCoroutineDispatcher(),
-            fetchDispatcher = testDispatcher,
-        )
+        val livePagedList =
+            LivePagedList(
+                coroutineScope = GlobalScope,
+                initialKey = null,
+                config = PagedList.Config.Builder().setPageSize(10).build(),
+                boundaryCallback = null,
+                pagingSourceFactory = pagingSourceFactory,
+                notifyDispatcher = ArchTaskExecutor.getMainThreadExecutor().asCoroutineDispatcher(),
+                fetchDispatcher = testDispatcher,
+            )
 
         assertTrue { testDispatcher.queue.isEmpty() }
         assertEquals(0, pagingSourcesCreated)
 
-        livePagedList.observeForever { }
+        livePagedList.observeForever {}
 
         assertTrue { testDispatcher.queue.isNotEmpty() }
         assertEquals(0, pagingSourcesCreated)
@@ -147,22 +137,21 @@ class LivePagedListTest {
 
     /**
      * Some paging2 tests might be using InstantTaskExecutor and expect first page to be loaded
-     * immediately. This test replicates that by checking observe forever receives the value in
-     * its own call stack.
+     * immediately. This test replicates that by checking observe forever receives the value in its
+     * own call stack.
      */
     @Test
     fun instantExecutionWorksWithLegacy() {
         val totalSize = 300
         val data = (0 until totalSize).map { "$it/$it" }
-        val factory = object : DataSource.Factory<Int, String>() {
-            override fun create(): DataSource<Int, String> {
-                return TestPositionalDataSource(data)
+        val factory =
+            object : DataSource.Factory<Int, String>() {
+                override fun create(): DataSource<Int, String> {
+                    return TestPositionalDataSource(data)
+                }
             }
-        }
 
-        class TestAdapter : PagedListAdapter<String, RecyclerView.ViewHolder>(
-            DIFF_STRING
-        ) {
+        class TestAdapter : PagedListAdapter<String, RecyclerView.ViewHolder>(DIFF_STRING) {
             // open it up by overriding
             public override fun getItem(position: Int): String? {
                 return super.getItem(position)
@@ -170,29 +159,25 @@ class LivePagedListTest {
 
             override fun onCreateViewHolder(
                 parent: ViewGroup,
-                viewType: Int
+                viewType: Int,
             ): RecyclerView.ViewHolder {
                 return object : RecyclerView.ViewHolder(View(parent.context)) {}
             }
 
-            override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            }
+            override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {}
         }
 
-        val livePagedList = LivePagedListBuilder(
-            factory,
-            PagedList.Config.Builder()
-                .setEnablePlaceholders(false)
-                .setPageSize(30)
+        val livePagedList =
+            LivePagedListBuilder(
+                    factory,
+                    PagedList.Config.Builder().setEnablePlaceholders(false).setPageSize(30).build(),
+                )
                 .build()
-        ).build()
 
         val adapter = TestAdapter()
         livePagedList.observeForever { pagedList ->
             // make sure observeForever worked sync where it did load the data immediately
-            assertThat(
-                Throwable().stackTraceToString()
-            ).contains("observeForever")
+            assertThat(Throwable().stackTraceToString()).contains("observeForever")
             assertThat(pagedList.loadedCount).isEqualTo(90)
         }
         adapter.submitList(checkNotNull(livePagedList.value))
@@ -204,76 +189,74 @@ class LivePagedListTest {
         }
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     @Test
-    fun initialLoad_loadResultInvalid() = testScope.runBlockingTest {
+    fun initialLoad_loadResultInvalid() = runTest {
+        @OptIn(ExperimentalStdlibApi::class)
         val dispatcher = coroutineContext[CoroutineDispatcher.Key]!!
         val pagingSources = mutableListOf<TestPagingSource>()
         val factory = {
             TestPagingSource().also {
-                if (pagingSources.size == 0) it.nextLoadResult = PagingSource.LoadResult.Invalid()
+                if (pagingSources.isEmpty()) it.nextLoadResult = PagingSource.LoadResult.Invalid()
                 pagingSources.add(it)
             }
         }
-        val config = PagedList.Config.Builder()
-            .setEnablePlaceholders(false)
-            .setPageSize(3)
-            .build()
+        val config = PagedList.Config.Builder().setEnablePlaceholders(false).setPageSize(3).build()
 
-        val livePagedList = LivePagedList(
-            coroutineScope = testScope,
-            initialKey = null,
-            config = config,
-            boundaryCallback = null,
-            pagingSourceFactory = factory,
-            notifyDispatcher = dispatcher,
-            fetchDispatcher = dispatcher,
-        )
+        val livePagedList =
+            LivePagedList(
+                coroutineScope = this@runTest,
+                initialKey = null,
+                config = config,
+                boundaryCallback = null,
+                pagingSourceFactory = factory,
+                notifyDispatcher = dispatcher,
+                fetchDispatcher = dispatcher,
+            )
 
         val pagedLists = mutableListOf<PagedList<Int>>()
-        livePagedList.observeForever {
-            pagedLists.add(it)
-        }
+        livePagedList.observeForever { pagedLists.add(it) }
 
-        advanceUntilIdle()
+        testScheduler.advanceUntilIdle()
 
         assertThat(pagedLists.size).isEqualTo(2)
         assertThat(pagingSources.size).isEqualTo(2)
         assertThat(pagedLists.size).isEqualTo(2)
-        assertThat(pagedLists[1]).containsExactly(
-            0, 1, 2, 3, 4, 5, 6, 7, 8
-        )
+        assertThat(pagedLists[1]).containsExactly(0, 1, 2, 3, 4, 5, 6, 7, 8)
     }
 
     companion object {
         @Suppress("DEPRECATION")
-        private val dataSource = object : PositionalDataSource<String>() {
-            override fun loadInitial(
-                params: LoadInitialParams,
-                callback: LoadInitialCallback<String>
-            ) {
+        private val dataSource =
+            object : PositionalDataSource<String>() {
+                override fun loadInitial(
+                    params: LoadInitialParams,
+                    callback: LoadInitialCallback<String>,
+                ) {}
+
+                override fun loadRange(
+                    params: LoadRangeParams,
+                    callback: LoadRangeCallback<String>,
+                ) {}
             }
 
-            override fun loadRange(params: LoadRangeParams, callback: LoadRangeCallback<String>) {}
-        }
+        private val dataSourceFactory =
+            object : DataSource.Factory<Int, String>() {
+                override fun create(): DataSource<Int, String> = dataSource
+            }
 
-        private val dataSourceFactory = object : DataSource.Factory<Int, String>() {
-            override fun create(): DataSource<Int, String> = dataSource
-        }
-
-        private val pagingSourceFactory = dataSourceFactory.asPagingSourceFactory(
-            fetchDispatcher = Dispatchers.Main
-        )
+        private val pagingSourceFactory =
+            dataSourceFactory.asPagingSourceFactory(fetchDispatcher = Dispatchers.Main)
 
         private val config = Config(10)
-        private val DIFF_STRING = object : DiffUtil.ItemCallback<String>() {
-            override fun areItemsTheSame(oldItem: String, newItem: String): Boolean {
-                return oldItem == newItem
-            }
+        private val DIFF_STRING =
+            object : DiffUtil.ItemCallback<String>() {
+                override fun areItemsTheSame(oldItem: String, newItem: String): Boolean {
+                    return oldItem == newItem
+                }
 
-            override fun areContentsTheSame(oldItem: String, newItem: String): Boolean {
-                return oldItem == newItem
+                override fun areContentsTheSame(oldItem: String, newItem: String): Boolean {
+                    return oldItem == newItem
+                }
             }
-        }
     }
 }

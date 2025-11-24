@@ -42,14 +42,14 @@ import org.junit.runners.Parameterized
 @SdkSuppress(minSdkVersion = 31)
 class Camera2ExtensionsSwitchModeStressTest(private val config: CameraIdExtensionModePair) {
     @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        CameraUtil.PreTestCameraIdList(Camera2Config.defaultConfig())
-    )
+    val useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            CameraUtil.PreTestCameraIdList(Camera2Config.defaultConfig())
+        )
 
     companion object {
-        @ClassRule
-        @JvmField
-        val stressTest = StressTestRule()
+        @ClassRule @JvmField val stressTest = StressTestRule()
+        val context = ApplicationProvider.getApplicationContext<Context>()
 
         @Parameterized.Parameters(name = "cameraId = {0}, extensionMode = {1}")
         @JvmStatic
@@ -73,13 +73,13 @@ class Camera2ExtensionsSwitchModeStressTest(private val config: CameraIdExtensio
             Camera2ExtensionsTestUtil.assertCanOpenExtensionsSession(
                 cameraManager,
                 cameraId,
-                extensionMode
+                extensionMode,
             )
 
             Camera2ExtensionsTestUtil.assertCanOpenExtensionsSession(
                 cameraManager,
                 cameraId,
-                nextMode
+                nextMode,
             )
         }
 
@@ -88,7 +88,7 @@ class Camera2ExtensionsSwitchModeStressTest(private val config: CameraIdExtensio
             cameraManager,
             cameraId,
             extensionMode,
-            verifyOutput = true
+            verifyOutput = true,
         )
     }
 }

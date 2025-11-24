@@ -19,30 +19,35 @@ import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
 import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraDevices
 import androidx.camera.camera2.pipe.CameraId
-import androidx.camera.camera2.pipe.core.Log
+import androidx.camera.camera2.pipe.integration.impl.Camera2Logger
 import androidx.camera.core.InitializationException
 
 /**
- * The [CameraCompatibilityFilter] is responsible for filtering out Cameras that
- * doesn't contains REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE capability.
+ * The [CameraCompatibilityFilter] is responsible for filtering out Cameras that don't contain
+ * REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE capability.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-object CameraCompatibilityFilter {
+public object CameraCompatibilityFilter {
 
     @JvmStatic
-    fun getBackwardCompatibleCameraIds(
+    public fun getBackwardCompatibleCameraIds(
         cameraDevices: CameraDevices,
-        availableCameraIds: List<String>
+        availableCameraIds: List<String>,
     ): List<String> {
         val backwardCompatibleCameraIds = mutableListOf<String>()
         for (cameraId in availableCameraIds) {
+            // Heuristic: Always include camera IDs "0" and "1" to align with camera-camera2
+            // behavior, assuming they are the default back and front cameras.
+            if (cameraId == "0" || cameraId == "1") {
+                backwardCompatibleCameraIds.add(cameraId)
+                continue
+            }
+
             if (isBackwardCompatible(cameraId, cameraDevices)) {
                 backwardCompatibleCameraIds.add(cameraId)
             } else {
-                Log.debug {
+                Camera2Logger.debug {
                     "Camera $cameraId is filtered out because its capabilities " +
                         "do not contain REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE."
                 }
@@ -52,20 +57,18 @@ object CameraCompatibilityFilter {
     }
 
     @JvmStatic
-    fun isBackwardCompatible(cameraId: String, cameraDevices: CameraDevices): Boolean {
+    public fun isBackwardCompatible(cameraId: String, cameraDevices: CameraDevices): Boolean {
         // Always returns true to not break robolectric tests because the cameras setup in
         // robolectric don't have REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE capability
         // by default.
         if (Build.FINGERPRINT == "robolectric") {
-            Log.debug {
+            Camera2Logger.debug {
                 "isBackwardCompatible method returns true because robolectric build detected."
             }
             return true
         }
         try {
-            val cameraMetadata = checkNotNull(
-                cameraDevices.awaitCameraMetadata(CameraId(cameraId))
-            )
+            val cameraMetadata = checkNotNull(cameraDevices.awaitCameraMetadata(CameraId(cameraId)))
             val availableCapabilities =
                 cameraMetadata[CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES]
             if (availableCapabilities != null) {
@@ -74,7 +77,7 @@ object CameraCompatibilityFilter {
                 )
             }
         } catch (e: CameraAccessException) {
-            Log.error(e) { "Error while accessing metadata for cameraID: $cameraId" }
+            Camera2Logger.error(e) { "Error while accessing metadata for cameraID: $cameraId" }
             throw InitializationException(e)
         }
 

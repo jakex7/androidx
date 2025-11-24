@@ -20,8 +20,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.camera.camera2.pipe.compat.Api23Compat
 import androidx.camera.camera2.pipe.config.CameraPipeContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,34 +30,31 @@ import javax.inject.Singleton
  * This class assumes that permissions are one way - They can be granted, but not un-granted without
  * restarting the application process.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 @Singleton
 internal class Permissions
 @Inject
 constructor(@CameraPipeContext private val cameraPipeContext: Context) {
-    @Volatile
-    private var _hasCameraPermission = false
+    @Volatile private var _hasCameraPermission = false
     val hasCameraPermission: Boolean
-        get() =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                checkCameraPermission()
-            } else {
-                // On older versions of Android, permissions are required in order to install a
-                // package
-                // and so the permission check is redundant.
-                true
-            }
+        get() = checkCameraPermission()
 
-    @RequiresApi(23)
     private fun checkCameraPermission(): Boolean {
+        if (Build.FINGERPRINT == "robolectric") {
+            // If we're running under Robolectric, assume we have camera permission since
+            // Robolectric doesn't seem to stub out the self permission calls properly.
+            // See b/422237649 for details.
+            return true
+        }
+
         // Granted camera permission is cached here to reduce the number of binder transactions
         // executed.  This is considered okay because when a user revokes a permission at runtime,
         // Android's PermissionManagerService kills the app via the onPermissionRevoked callback,
         // allowing the code to avoid re-querying after checkSelfPermission returns true.
         if (!_hasCameraPermission) {
             Debug.traceStart { "CXCP#checkCameraPermission" }
-            if (Api23Compat.checkSelfPermission(cameraPipeContext, Manifest.permission.CAMERA) ==
-                PERMISSION_GRANTED
+            if (
+                cameraPipeContext.checkSelfPermission(Manifest.permission.CAMERA) ==
+                    PERMISSION_GRANTED
             ) {
                 _hasCameraPermission = true
             }

@@ -41,12 +41,11 @@ import org.jetbrains.uast.UClassLiteralExpression
 import org.jetbrains.uast.UElement
 import org.jetbrains.uast.UExpression
 import org.jetbrains.uast.UastCallKind
+import org.jetbrains.uast.getContainingUFile
 import org.jetbrains.uast.resolveToUElement
 import org.jetbrains.uast.toUElement
 
-/**
- * Prevents usage of experimental annotations outside the groups in which they were defined.
- */
+/** Prevents usage of experimental annotations outside the groups in which they were defined. */
 class BanInappropriateExperimentalUsage : Detector(), Detector.UastScanner {
 
     override fun getApplicableUastTypes() = listOf(UAnnotation::class.java)
@@ -91,17 +90,18 @@ class BanInappropriateExperimentalUsage : Detector(), Detector.UastScanner {
 
                     markerClasses.forEach { uElement ->
                         if (DEBUG) {
-                            println("Inspecting markerClass annotation " +
-                                uElement.getQualifiedName())
+                            println(
+                                "Inspecting markerClass annotation " + uElement.getQualifiedName()
+                            )
                         }
                         inspectAnnotation(uElement, node)
                     }
                 }
 
                 /**
-                 * @OptIn has no effect if its markerClass isn't provided.
-                 * Similarly, if [getUElementsFromOptInMarkerClass] returns an empty list then
-                 * there isn't anything more to inspect.
+                 * @OptIn has no effect if its markerClass isn't provided. Similarly, if
+                 *   [getUElementsFromOptInMarkerClass] returns an empty list then there isn't
+                 *   anything more to inspect.
                  *
                  * In both of these cases we can stop processing here.
                  */
@@ -158,18 +158,19 @@ class BanInappropriateExperimentalUsage : Detector(), Detector.UastScanner {
                         node,
                         annotation,
                         ISSUE,
-                        atomicGroupList
+                        atomicGroupList,
                     )
                 }
             }
         }
 
         private fun loadAtomicLibraryGroupList(): List<String> {
-            val fileStream = this::class.java.classLoader
-                .getResourceAsStream(ATOMIC_LIBRARY_GROUPS_FILENAME)
-                ?: throw FileNotFoundException(
-                    "Couldn't find atomic library group file $ATOMIC_LIBRARY_GROUPS_FILENAME" +
-                        " within lint-checks.jar")
+            val fileStream =
+                this::class.java.classLoader.getResourceAsStream(ATOMIC_LIBRARY_GROUPS_FILENAME)
+                    ?: throw FileNotFoundException(
+                        "Couldn't find atomic library group file $ATOMIC_LIBRARY_GROUPS_FILENAME" +
+                            " within lint-checks.jar"
+                    )
 
             val atomicLibraryGroupsString = fileStream.bufferedReader().use { it.readText() }
             if (atomicLibraryGroupsString.isEmpty()) {
@@ -211,7 +212,8 @@ class BanInappropriateExperimentalUsage : Detector(), Detector.UastScanner {
                 .message(
                     "Could not find associated group for annotation " +
                         "${annotation.getQualifiedName()}, which is used in " +
-                        "${context.project.mavenCoordinate.groupId}."
+                        "${context.project.mavenCoordinate.groupId}. " +
+                        "File a bug in the AndroidX lint component."
                 )
                 .report()
             return
@@ -226,21 +228,21 @@ class BanInappropriateExperimentalUsage : Detector(), Detector.UastScanner {
 
         /**
          * Usage of experimental APIs is allowed in either of the following conditions:
-         *
          * - The usage is in an alpha library
-         * - Both the group ID and artifact ID in `usageCoordinates` and
-         *   `annotationCoordinates` match
+         * - Both the group ID and artifact ID in `usageCoordinates` and `annotationCoordinates`
+         *   match
          * - The group IDs match, and that group ID is atomic
          */
-        if (isUsedInAlpha ||
-            (isUsedInSameGroup && isUsedInSameArtifact) ||
-            (isUsedInSameGroup && isAtomic)) return
+        if (
+            isUsedInAlpha ||
+                (isUsedInSameGroup && isUsedInSameArtifact) ||
+                (isUsedInSameGroup && isAtomic)
+        )
+            return
 
         // Log inappropriate experimental usage
         if (DEBUG) {
-            println(
-                "${context.driver.mode}: report usage of $annotationGroupId in $usageGroupId"
-            )
+            println("${context.driver.mode}: report usage of $annotationGroupId in $usageGroupId")
         }
         Incident(context)
             .issue(issue)
@@ -266,9 +268,18 @@ class BanInappropriateExperimentalUsage : Detector(), Detector.UastScanner {
         val findJarPath = findJarPath(element)
         return if (findJarPath != null) {
             val file = File(findJarPath)
-            getLibrary(file) ?: getMavenCoordinatesFromPath(file.path)
+            getLibrary(file)
+                ?: getMavenCoordinatesFromPath(file.path)
+                ?: getMavenCoordinatesFromPrebuiltsPath(file.path)
         } else {
-            null
+            // Sometimes, dependencies are from class files not contained in jars. Handle this case
+            // as well.
+            val fileOrigin = element.getContainingUFile()?.sourcePsi?.virtualFile?.path
+            if (fileOrigin != null && fileOrigin.endsWith(".class")) {
+                getMavenCoordinatesFromPath(fileOrigin)
+            } else {
+                null
+            }
         }
     }
 
@@ -286,94 +297,129 @@ class BanInappropriateExperimentalUsage : Detector(), Detector.UastScanner {
         private const val KOTLIN_REQUIRES_OPT_IN_ANNOTATION = "kotlin.RequiresOptIn"
         private const val JAVA_EXPERIMENTAL_ANNOTATION =
             "androidx.annotation.experimental.Experimental"
-        private const val JAVA_REQUIRES_OPT_IN_ANNOTATION =
-            "androidx.annotation.RequiresOptIn"
+        private const val JAVA_REQUIRES_OPT_IN_ANNOTATION = "androidx.annotation.RequiresOptIn"
 
-        val APPLICABLE_ANNOTATIONS = listOf(
-            JAVA_EXPERIMENTAL_ANNOTATION,
-            KOTLIN_EXPERIMENTAL_ANNOTATION,
-            JAVA_REQUIRES_OPT_IN_ANNOTATION,
-            KOTLIN_REQUIRES_OPT_IN_ANNOTATION,
-        )
+        val APPLICABLE_ANNOTATIONS =
+            listOf(
+                JAVA_EXPERIMENTAL_ANNOTATION,
+                KOTLIN_EXPERIMENTAL_ANNOTATION,
+                JAVA_REQUIRES_OPT_IN_ANNOTATION,
+                KOTLIN_REQUIRES_OPT_IN_ANNOTATION,
+            )
 
-        private val APPLICATION_OPT_IN_ANNOTATIONS = listOf(
-            "androidx.annotation.OptIn",
-            "kotlin.OptIn",
-        )
+        private val APPLICATION_OPT_IN_ANNOTATIONS =
+            listOf("androidx.annotation.OptIn", "kotlin.OptIn")
 
         // This must match the definition in ExportAtomicLibraryGroupsToTextTask
         const val ATOMIC_LIBRARY_GROUPS_FILENAME = "atomic-library-groups.txt"
 
-        val ISSUE = Issue.create(
-            id = "IllegalExperimentalApiUsage",
-            briefDescription = "Using experimental API from separately versioned library",
-            explanation = "Annotations meta-annotated with `@RequiresOptIn` or `@Experimental` " +
-                "may only be referenced from within the same-version group in which they were " +
-                "defined.",
-            category = Category.CORRECTNESS,
-            priority = 5,
-            severity = Severity.ERROR,
-            implementation = Implementation(
-                BanInappropriateExperimentalUsage::class.java,
-                Scope.JAVA_FILE_SCOPE,
-            ),
-        )
-
-        val NULL_ANNOTATION_GROUP_ISSUE = Issue.create(
-            id = "NullAnnotationGroup",
-            briefDescription = "Maven group associated with an annotation could not be found",
-            explanation = "An annotation's group could not be found using `getProject` or " +
-                "`getLibrary`.",
-            category = Category.CORRECTNESS,
-            priority = 5,
-            severity = Severity.ERROR,
-            implementation = Implementation(
-                BanInappropriateExperimentalUsage::class.java,
-                Scope.JAVA_FILE_SCOPE,
-            ),
-        )
-
-        /**
-         * Checks to see if the given annotation is always allowed for use in @OptIn.
-         */
-        internal fun isAnnotationAlwaysAllowed(annotation: String): Boolean {
-            val allowedExperimentalAnnotations = listOf(
-                Regex("com\\.google\\.devtools\\.ksp\\.KspExperimental"),
-                Regex("kotlin\\..*"),
-                Regex("kotlinx\\..*"),
-                Regex("org.jetbrains.kotlin\\..*"),
+        val ISSUE =
+            Issue.create(
+                id = "IllegalExperimentalApiUsage",
+                briefDescription = "Using experimental API from separately versioned library",
+                explanation =
+                    "Annotations meta-annotated with `@RequiresOptIn` or `@Experimental` " +
+                        "may only be referenced from within the same-version group in which they were " +
+                        "defined.",
+                category = Category.CORRECTNESS,
+                priority = 5,
+                severity = Severity.ERROR,
+                implementation =
+                    Implementation(
+                        BanInappropriateExperimentalUsage::class.java,
+                        Scope.JAVA_FILE_SCOPE,
+                    ),
             )
-            return allowedExperimentalAnnotations.any {
-                annotation.matches(it)
-            }
+
+        val NULL_ANNOTATION_GROUP_ISSUE =
+            Issue.create(
+                id = "NullAnnotationGroup",
+                briefDescription = "Maven group associated with an annotation could not be found",
+                explanation =
+                    "An annotation's group could not be found using `getProject` or " +
+                        "`getLibrary`. File a bug in the AndroidX lint component.",
+                category = Category.CORRECTNESS,
+                priority = 5,
+                severity = Severity.ERROR,
+                implementation =
+                    Implementation(
+                        BanInappropriateExperimentalUsage::class.java,
+                        Scope.JAVA_FILE_SCOPE,
+                    ),
+            )
+
+        /** Checks to see if the given annotation is always allowed for use in @OptIn. */
+        internal fun isAnnotationAlwaysAllowed(annotation: String): Boolean {
+            val allowedExperimentalAnnotations =
+                listOf(
+                    Regex("com\\.google\\.devtools\\.ksp\\.KspExperimental"),
+                    Regex("kotlin\\..*"),
+                    Regex("kotlinx\\..*"),
+                    Regex("org.jetbrains.kotlin\\..*"),
+                )
+            return allowedExperimentalAnnotations.any { annotation.matches(it) }
         }
 
         /**
-         * Extracts the Maven coordinates from a given JAR path
+         * Extracts the Maven coordinates from a given JAR or class path
          *
-         * For example: given `<checkout root>/androidx/paging/paging-common/build/libs/paging-common-3.2.0-alpha01.jar`,
-         * this method will return a:
+         * For example: given `<checkout
+         * root>/androidx/compose/ui/ui-test/build/libs/ui-test-jvmstubs-1.8.0-beta01.jar`, this
+         * method will return a:
+         * - `groupId` of `androidx.compose.ui`
+         * - `artifactId` of `ui-test`
+         * - `version` of `jvmstubs-1.8.0-beta01`
          *
-         * - `groupId` of `androidx.paging`
-         * - `artifactId` of `paging-common`
-         * - `version` of `3.2.0-alpha01`
+         * For`<checkout root>/androidx/compose/runtime/runtime/build/classes/kotlin/desktop/<file
+         * path>`, this method will return a:
+         * - `groupId` of `androidx.compose.runtime`
+         * - `artifactId` of `compose`
+         * - `version` of `` (no version information)
          *
-         * @param jarFilePath the path to the JAR file
+         * @param filePath the path to the JAR or class file
          * @return a [LintModelMavenName] with the groupId, artifactId, and version parsed from the
-         *         path, or `null` if [jarFilePath] doesn't contain the string "androidx".
+         *   path, or `null` if [filePath] doesn't contain the strings "androidx" and "build".
          */
-        internal fun getMavenCoordinatesFromPath(jarFilePath: String): LintModelMavenName? {
-            val pathParts = jarFilePath.split("/")
+        internal fun getMavenCoordinatesFromPath(filePath: String): LintModelMavenName? {
+            val pathParts = filePath.split("/")
             val androidxIndex = pathParts.indexOf("androidx")
-            if (androidxIndex == -1) return null
+            val buildIndex = pathParts.indexOf("build")
+            if (androidxIndex == -1 || buildIndex == -1) return null
 
-            val groupId = pathParts[androidxIndex] + "." + pathParts[androidxIndex + 1]
-            val artifactId = pathParts[androidxIndex + 2]
+            val groupId = pathParts.subList(androidxIndex, buildIndex - 1).joinToString(".")
+            val artifactId = pathParts[buildIndex - 1]
 
             val filename = pathParts.last()
-            val version = filename.removePrefix("$artifactId-").removeSuffix(".jar")
+            // If this is a jar path, there should be version information in the name of the jar.
+            // For a class file, the version is unknown.
+            val version =
+                if (filename.endsWith(".jar")) {
+                    filename.removePrefix("$artifactId-").removeSuffix(".jar")
+                } else {
+                    // Unknown version
+                    ""
+                }
 
             return DefaultLintModelMavenName(groupId, artifactId, version)
+        }
+
+        /**
+         * Work around b/443957693: lint should have been able to find the coordinates for a
+         * prebuilt jar, but can't when the project isn't android.
+         *
+         * Find the maven coordinates of a jar from prebuilts/androidx/internal.
+         */
+        internal fun getMavenCoordinatesFromPrebuiltsPath(filePath: String): LintModelMavenName? {
+            return if (filePath.contains("prebuilts/androidx/internal")) {
+                val coordinateParts =
+                    filePath.substringAfter("prebuilts/androidx/internal/").split("/")
+                val groupId = coordinateParts.subList(0, coordinateParts.size - 3).joinToString(".")
+                val artifactId = coordinateParts[coordinateParts.size - 3]
+                val version = coordinateParts[coordinateParts.size - 2]
+                DefaultLintModelMavenName(groupId, artifactId, version)
+            } else {
+                null
+            }
         }
     }
 }

@@ -16,11 +16,12 @@
 
 package androidx.privacysandbox.tools
 
-/** Entry point for an SDK service running in the Privacy Sandbox.
+/**
+ * Entry point for an SDK service running in the Privacy Sandbox.
  *
  * There must be exactly one interface annotated with @PrivacySandboxService in your SDK module.
- * This will be the first point of communication once the app has successfully loaded your SDK
- * in the Privacy Sandbox.
+ * This will be the first point of communication once the app has successfully loaded your SDK in
+ * the Privacy Sandbox.
  *
  * On the SDK side, the tools will generate a class called `AbstractSandboxedSdkProviderCompat`,
  * containing an abstract factory method to create this service. This must be implemented by SDK
@@ -52,6 +53,7 @@ package androidx.privacysandbox.tools
  * restrictions on allowed methods and types. See [PrivacySandboxInterface] documentation for
  * details.
  */
+@Deprecated("This library is no longer supported.")
 @Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.CLASS)
 public annotation class PrivacySandboxService

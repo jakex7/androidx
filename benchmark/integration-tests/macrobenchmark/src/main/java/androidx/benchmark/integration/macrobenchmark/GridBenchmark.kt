@@ -23,8 +23,8 @@ import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.filters.LargeTest
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.simpleViewResourceName
 import androidx.testutils.createCompilationParams
 import org.junit.Before
 import org.junit.Rule
@@ -34,11 +34,8 @@ import org.junit.runners.Parameterized
 
 @LargeTest
 @RunWith(Parameterized::class)
-class GridBenchmark(
-    private val compilationMode: CompilationMode
-) {
-    @get:Rule
-    val benchmarkRule = MacrobenchmarkRule()
+class GridBenchmark(private val compilationMode: CompilationMode) {
+    @get:Rule val benchmarkRule = MacrobenchmarkRule()
 
     private lateinit var device: UiDevice
 
@@ -49,7 +46,7 @@ class GridBenchmark(
     }
 
     @Test
-    fun scroll() {
+    fun scroll() =
         benchmarkRule.measureRepeated(
             packageName = PACKAGE_NAME,
             metrics = listOf(FrameTimingMetric()),
@@ -59,9 +56,11 @@ class GridBenchmark(
                 val intent = Intent()
                 intent.action = ACTION
                 startActivityAndWait(intent)
-            }
+            },
         ) {
-            val recycler = device.findObject(By.res(PACKAGE_NAME, RESOURCE_ID))
+            val recycler = onElement {
+                packageName == PACKAGE_NAME && simpleViewResourceName() == RESOURCE_ID
+            }
             // Setting a gesture margin is important otherwise gesture nav is triggered.
             recycler.setGestureMargin(device.displayWidth / 5)
             repeat(10) {
@@ -70,7 +69,6 @@ class GridBenchmark(
                 device.waitForIdle()
             }
         }
-    }
 
     companion object {
         private const val PACKAGE_NAME = "androidx.benchmark.integration.macrobenchmark.target"

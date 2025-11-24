@@ -30,23 +30,24 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
 public class RepeatableClickableTest {
-    @get:Rule
-    public val rule = createComposeRule()
+    @get:Rule public val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     fun touch_hold_shorter_than_threshold_performs_click() {
         var repeatableClickCounter = 0
         var clicked = false
 
-        boxWithRepeatableClickable(rule,
+        boxWithRepeatableClickable(
+            rule,
             holdDelay = INITIAL_DELAY / 2,
             onRepeatableClick = { repeatableClickCounter++ },
-            onClick = { clicked = true }
+            onClick = { clicked = true },
         )
         assertEquals(0, repeatableClickCounter)
         assertEquals(true, clicked)
@@ -57,10 +58,11 @@ public class RepeatableClickableTest {
         var repeatableClickCounter = 0
         var clicked = false
 
-        boxWithRepeatableClickable(rule,
+        boxWithRepeatableClickable(
+            rule,
             holdDelay = INITIAL_DELAY,
             onRepeatableClick = { repeatableClickCounter++ },
-            onClick = { clicked = true }
+            onClick = { clicked = true },
         )
         assertEquals(1, repeatableClickCounter)
         assertEquals(false, clicked)
@@ -71,10 +73,11 @@ public class RepeatableClickableTest {
         var repeatableClickCounter = 0
         var clicked = false
 
-        boxWithRepeatableClickable(rule,
+        boxWithRepeatableClickable(
+            rule,
             holdDelay = INITIAL_DELAY + INCREMENTAL_DELAY * 2,
             onRepeatableClick = { repeatableClickCounter++ },
-            onClick = { clicked = true }
+            onClick = { clicked = true },
         )
 
         assertEquals(3, repeatableClickCounter)
@@ -86,11 +89,12 @@ public class RepeatableClickableTest {
         var repeatableClickCounter = 0
         var clicked = false
 
-        boxWithRepeatableClickable(rule,
+        boxWithRepeatableClickable(
+            rule,
             holdDelay = INITIAL_DELAY,
             enabled = false,
             onRepeatableClick = { repeatableClickCounter++ },
-            onClick = { clicked = true }
+            onClick = { clicked = true },
         )
 
         assertEquals(0, repeatableClickCounter)
@@ -102,12 +106,13 @@ public class RepeatableClickableTest {
         var repeatableClickCounter = 0
         var clicked = false
 
-        boxWithRepeatableClickable(rule,
+        boxWithRepeatableClickable(
+            rule,
             holdDelay = INITIAL_DELAY / 2,
             enabled = true,
             releaseOutsideOfBox = true,
             onRepeatableClick = { repeatableClickCounter++ },
-            onClick = { clicked = true }
+            onClick = { clicked = true },
         )
 
         assertEquals(0, repeatableClickCounter)
@@ -122,27 +127,24 @@ public class RepeatableClickableTest {
         incrementalDelay: Long = INCREMENTAL_DELAY,
         releaseOutsideOfBox: Boolean = false,
         onClick: () -> Unit,
-        onRepeatableClick: () -> Unit
+        onRepeatableClick: () -> Unit,
     ) {
         rule.setContent {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 Box(
-                    modifier = Modifier
-                        .testTag(TEST_TAG)
-                        .size(50.dp)
-                        .align(Alignment.Center)
-                        .repeatableClickable(
-                            enabled = enabled,
-                            initialDelay = initialDelay,
-                            incrementalDelay = incrementalDelay,
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() },
-                            onClick = onClick,
-                            onRepeatableClick = onRepeatableClick
-                        )
+                    modifier =
+                        Modifier.testTag(TEST_TAG)
+                            .size(50.dp)
+                            .align(Alignment.Center)
+                            .repeatableClickable(
+                                enabled = enabled,
+                                initialDelay = initialDelay,
+                                incrementalDelay = incrementalDelay,
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = onClick,
+                                onRepeatableClick = onRepeatableClick,
+                            )
                 ) {}
             }
         }

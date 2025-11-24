@@ -22,7 +22,6 @@ import android.media.EncoderProfiles.VideoProfile.HDR_HDR10
 import android.media.EncoderProfiles.VideoProfile.HDR_HDR10PLUS
 import android.media.EncoderProfiles.VideoProfile.HDR_HLG
 import android.media.EncoderProfiles.VideoProfile.HDR_NONE
-import android.os.Build
 import androidx.camera.core.DynamicRange.DOLBY_VISION_10_BIT
 import androidx.camera.core.DynamicRange.HDR10_10_BIT
 import androidx.camera.core.DynamicRange.HDR10_PLUS_10_BIT
@@ -49,12 +48,13 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class DynamicRangeMatchedEncoderProfilesProviderTest {
 
-    private val defaultProvider = createFakeEncoderProfilesProvider(
-        arrayOf(Pair(QUALITY_1080P, PROFILES_1080P_FULL_DYNAMIC_RANGE))
-    )
+    private val defaultProvider =
+        createFakeEncoderProfilesProvider(
+            arrayOf(Pair(QUALITY_1080P, PROFILES_1080P_FULL_DYNAMIC_RANGE))
+        )
 
     @Test
     fun hasNoProfile_canNotGetProfiles() {
@@ -161,16 +161,17 @@ class DynamicRangeMatchedEncoderProfilesProviderTest {
     private fun createFakeEncoderProfilesProvider(
         qualityToProfilesPairs: Array<Pair<Int, EncoderProfilesProxy>> = emptyArray()
     ): EncoderProfilesProvider {
-        return FakeEncoderProfilesProvider.Builder().also { builder ->
-            for (pair in qualityToProfilesPairs) {
-                builder.add(pair.first, pair.second)
+        return FakeEncoderProfilesProvider.Builder()
+            .also { builder ->
+                for (pair in qualityToProfilesPairs) {
+                    builder.add(pair.first, pair.second)
+                }
             }
-        }.build()
+            .build()
     }
 
     companion object {
-        private val VIDEO_PROFILES_1080P_SDR =
-            createFakeVideoProfileProxy(RESOLUTION_1080P.width, RESOLUTION_1080P.height)
+        private val VIDEO_PROFILES_1080P_SDR = createFakeVideoProfileProxy(RESOLUTION_1080P)
         private val VIDEO_PROFILES_1080P_HLG =
             VIDEO_PROFILES_1080P_SDR.modifyDynamicRangeInfo(HDR_HLG, BIT_DEPTH_10)
         private val VIDEO_PROFILES_1080P_HDR10 =
@@ -179,22 +180,23 @@ class DynamicRangeMatchedEncoderProfilesProviderTest {
             VIDEO_PROFILES_1080P_SDR.modifyDynamicRangeInfo(HDR_HDR10PLUS, BIT_DEPTH_10)
         private val VIDEO_PROFILES_1080P_DOLBY_VISION =
             VIDEO_PROFILES_1080P_SDR.modifyDynamicRangeInfo(HDR_DOLBY_VISION, BIT_DEPTH_10)
-        private val PROFILES_1080P_FULL_DYNAMIC_RANGE = ImmutableEncoderProfilesProxy.create(
-            EncoderProfilesUtil.DEFAULT_DURATION,
-            EncoderProfilesUtil.DEFAULT_OUTPUT_FORMAT,
-            listOf(createFakeAudioProfileProxy()),
-            listOf(
-                VIDEO_PROFILES_1080P_SDR,
-                VIDEO_PROFILES_1080P_HLG,
-                VIDEO_PROFILES_1080P_HDR10,
-                VIDEO_PROFILES_1080P_HDR10_PLUS,
-                VIDEO_PROFILES_1080P_DOLBY_VISION
+        private val PROFILES_1080P_FULL_DYNAMIC_RANGE =
+            ImmutableEncoderProfilesProxy.create(
+                EncoderProfilesUtil.DEFAULT_DURATION,
+                EncoderProfilesUtil.DEFAULT_OUTPUT_FORMAT,
+                listOf(createFakeAudioProfileProxy()),
+                listOf(
+                    VIDEO_PROFILES_1080P_SDR,
+                    VIDEO_PROFILES_1080P_HLG,
+                    VIDEO_PROFILES_1080P_HDR10,
+                    VIDEO_PROFILES_1080P_HDR10_PLUS,
+                    VIDEO_PROFILES_1080P_DOLBY_VISION,
+                ),
             )
-        )
 
         private fun VideoProfileProxy.modifyDynamicRangeInfo(
             hdrFormat: Int,
-            bitDepth: Int
+            bitDepth: Int,
         ): VideoProfileProxy {
             return VideoProfileProxy.create(
                 this.codec,
@@ -206,7 +208,7 @@ class DynamicRangeMatchedEncoderProfilesProviderTest {
                 this.profile,
                 bitDepth,
                 this.chromaSubsampling,
-                hdrFormat
+                hdrFormat,
             )
         }
     }

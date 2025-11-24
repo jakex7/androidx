@@ -18,16 +18,18 @@ package androidx.camera.video.internal.encoder
 import android.media.MediaCodecInfo
 import android.os.Build
 import androidx.camera.core.impl.Observable.Observer
+import androidx.camera.core.impl.SessionConfig.SESSION_TYPE_REGULAR
 import androidx.camera.core.impl.Timebase
 import androidx.camera.core.impl.utils.executor.CameraXExecutors
+import androidx.camera.testing.impl.AndroidUtil.isEmulator
 import androidx.camera.video.internal.BufferProvider
 import androidx.camera.video.internal.BufferProvider.State
 import androidx.concurrent.futures.await
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import com.google.common.truth.Truth.assertThat
 import java.nio.ByteBuffer
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -57,7 +59,6 @@ import org.mockito.invocation.InvocationOnMock
 
 @LargeTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 21)
 class AudioEncoderTest {
 
     companion object {
@@ -75,24 +76,35 @@ class AudioEncoderTest {
 
     @Before
     fun setup() {
+        // Skip for b/264902324
+        assumeFalse(
+            "Emulator API 30 crashes running this test.",
+            Build.VERSION.SDK_INT == 30 && isEmulator(),
+        )
+
         encoderCallback = Mockito.mock(EncoderCallback::class.java)
         Mockito.doAnswer { args: InvocationOnMock ->
-            val encodedData: EncodedData = args.getArgument(0)
-            encodedData.close()
-            null
-        }.`when`(encoderCallback).onEncodedData(any())
+                val encodedData: EncodedData = args.getArgument(0)
+                encodedData.close()
+                null
+            }
+            .`when`(encoderCallback)
+            .onEncodedData(any())
 
-        encoder = EncoderImpl(
-            CameraXExecutors.ioExecutor(),
-            AudioEncoderConfig.builder()
-                .setMimeType(MIME_TYPE)
-                .setProfile(ENCODER_PROFILE)
-                .setInputTimebase(INPUT_TIMEBASE)
-                .setBitrate(BIT_RATE)
-                .setSampleRate(SAMPLE_RATE)
-                .setChannelCount(CHANNEL_COUNT)
-                .build()
-        )
+        encoder =
+            EncoderImpl(
+                CameraXExecutors.ioExecutor(),
+                AudioEncoderConfig.builder()
+                    .setMimeType(MIME_TYPE)
+                    .setProfile(ENCODER_PROFILE)
+                    .setInputTimebase(INPUT_TIMEBASE)
+                    .setBitrate(BIT_RATE)
+                    .setCaptureSampleRate(SAMPLE_RATE)
+                    .setEncodeSampleRate(SAMPLE_RATE)
+                    .setChannelCount(CHANNEL_COUNT)
+                    .build(),
+                SESSION_TYPE_REGULAR,
+            )
         encoder.setEncoderCallback(encoderCallback, CameraXExecutors.directExecutor())
 
         @Suppress("UNCHECKED_CAST")
@@ -133,13 +145,13 @@ class AudioEncoderTest {
         // Skip for b/269129619
         assumeFalse(
             "Skip test for Cuttlefish API 30 flaky native crash",
-            Build.MODEL.contains("Cuttlefish") && Build.VERSION.SDK_INT == 30
+            Build.MODEL.contains("Cuttlefish") && Build.VERSION.SDK_INT == 30,
         )
 
         // Arrange.
         fakeAudioLoop.start()
 
-        for (i in 0..3) {
+        repeat(3) {
             // Arrange.
             clearInvocations(encoderCallback)
 
@@ -266,12 +278,16 @@ class AudioEncoderTest {
 
         val presentationTimeUs = AtomicLong()
         val encoderCallback = Mockito.mock(EncoderCallback::class.java)
+        var presentationTimeLatch = CountDownLatch(1)
         Mockito.doAnswer { args: InvocationOnMock ->
-            val encodedData: EncodedData = args.getArgument(0)
-            presentationTimeUs.set(encodedData.presentationTimeUs)
-            encodedData.close()
-            null
-        }.`when`(encoderCallback).onEncodedData(any())
+                val encodedData: EncodedData = args.getArgument(0)
+                presentationTimeUs.set(encodedData.presentationTimeUs)
+                presentationTimeLatch.countDown()
+                encodedData.close()
+                null
+            }
+            .`when`(encoderCallback)
+            .onEncodedData(any())
         encoder.setEncoderCallback(encoderCallback, CameraXExecutors.directExecutor())
 
         // Act.
@@ -279,23 +295,25 @@ class AudioEncoderTest {
         encoder.start()
 
         // Get presentation time of encoded data before pause.
-        verify(encoderCallback, timeout(timeoutWaitDataMs).atLeastOnce()).onEncodedData(any())
+        assertThat(presentationTimeLatch.await(timeoutWaitDataMs, TimeUnit.MILLISECONDS)).isTrue()
         val presentationTimeBeforePause = presentationTimeUs.get()
 
         encoder.pause()
         Thread.sleep(pauseDurationMs)
+        presentationTimeLatch = CountDownLatch(1)
         encoder.start()
 
         // Get presentation time of encoded data after resume.
-        verify(encoderCallback, timeout(timeoutWaitDataMs).atLeastOnce()).onEncodedData(any())
+        assertThat(presentationTimeLatch.await(timeoutWaitDataMs, TimeUnit.MILLISECONDS)).isTrue()
         val presentationTimeAfterResume = presentationTimeUs.get()
 
         // Assert.
-        assertThat(presentationTimeAfterResume > presentationTimeBeforePause)
-        val timeDiffMs = TimeUnit.MICROSECONDS.toMillis(
-            presentationTimeAfterResume - presentationTimeBeforePause
-        )
-        assertThat(timeDiffMs < pauseDurationMs)
+        assertThat(presentationTimeAfterResume).isGreaterThan(presentationTimeBeforePause)
+        val timeDiffMs =
+            TimeUnit.MICROSECONDS.toMillis(
+                presentationTimeAfterResume - presentationTimeBeforePause
+            )
+        assertThat(timeDiffMs).isAtMost(pauseDurationMs)
     }
 
     @Test
@@ -316,10 +334,8 @@ class AudioEncoderTest {
 
         // Assert.
         val captor = ArgumentCaptor.forClass(EncodedData::class.java)
-        verify(
-            encoderCallback,
-            Mockito.atLeast(/*start*/5 + /*resume*/5)
-        ).onEncodedData(captor.capture())
+        verify(encoderCallback, Mockito.atLeast(/*start*/ 5 + /*resume*/ 5))
+            .onEncodedData(captor.capture())
         verifyDataInChronologicalOrder(captor.allValues)
 
         // Cleanup.
@@ -341,7 +357,8 @@ class AudioEncoderTest {
         verify(encoderCallback, timeout(5000L)).onEncodeStop()
 
         // Assert.
-        // If the last data timestamp is null, it means the encoding is probably stopped because of timeout.
+        // If the last data timestamp is null, it means the encoding is probably stopped because of
+        // timeout.
         assertThat(encoder.mLastDataStopTimestamp).isNotNull()
         assertThat(encoder.mLastDataStopTimestamp).isAtLeast(stopTimeUs)
     }
@@ -351,11 +368,10 @@ class AudioEncoderTest {
         // Arrange.
         encoder.start()
 
-        for (i in 0..8) {
+        repeat(8) {
             // Act.
-            val inputBuffer = (encoder.input as Encoder.ByteBufferInput)
-                .acquireBuffer()
-                .get(3, TimeUnit.SECONDS)
+            val inputBuffer =
+                (encoder.input as Encoder.ByteBufferInput).acquireBuffer().get(3, TimeUnit.SECONDS)
 
             // Assert.
             assertThat(inputBuffer).isNotNull()
@@ -381,7 +397,7 @@ class AudioEncoderTest {
                     stateRef.set(null)
                     lock.release()
                 }
-            }
+            },
         )
 
         // Assert.
@@ -435,51 +451,53 @@ class AudioEncoderTest {
             if (started.getAndSet(true)) {
                 return
             }
-            job = GlobalScope.launch(
-                CameraXExecutors.ioExecutor().asCoroutineDispatcher()
-            ) {
-                while (true) {
-                    val acquireFuture = bufferProvider.acquireBuffer()
-                    try {
-                        val inputBuffer = acquireFuture.await()
-                        inputBuffer.apply {
-                            byteBuffer.apply {
-                                put(
-                                    inputByteBuffer.apply {
-                                        clear()
-                                        limit(limit().coerceAtMost(byteBuffer.capacity()))
-                                    }
+            job =
+                GlobalScope.launch(CameraXExecutors.ioExecutor().asCoroutineDispatcher()) {
+                    while (true) {
+                        val acquireFuture = bufferProvider.acquireBuffer()
+                        try {
+                            val inputBuffer = acquireFuture.await()
+                            inputBuffer.apply {
+                                byteBuffer.apply {
+                                    put(
+                                        inputByteBuffer.apply {
+                                            clear()
+                                            limit(limit().coerceAtMost(byteBuffer.capacity()))
+                                        }
+                                    )
+                                    flip()
+                                }
+                                setPresentationTimeUs(
+                                    TimeUnit.NANOSECONDS.toMicros(System.nanoTime())
                                 )
-                                flip()
+                                submit()
                             }
-                            setPresentationTimeUs(TimeUnit.NANOSECONDS.toMicros(System.nanoTime()))
-                            submit()
-                        }
-                    } catch (e: IllegalStateException) {
-                        if (e is CancellationException) {
-                            // When the fake loop is stopped, cancel acquired InputBuffer if any.
-                            if (!acquireFuture.cancel(true)) {
-                                try {
-                                    acquireFuture.await().cancel()
-                                } catch (ignored: Exception) {
+                        } catch (e: IllegalStateException) {
+                            if (e is CancellationException) {
+                                // When the fake loop is stopped, cancel acquired InputBuffer if
+                                // any.
+                                if (!acquireFuture.cancel(true)) {
+                                    try {
+                                        acquireFuture.await().cancel()
+                                    } catch (_: Exception) {}
                                 }
                             }
+                            // For simplicity, AudioLoop doesn't monitor the encoder's state.
+                            // When an IllegalStateException is thrown by encoder which is not
+                            // started,
+                            // AudioLoop should retry with a delay to avoid busy loop.
+                            // CancellationException is a subclass of IllegalStateException and is
+                            // ambiguous since the cancellation could be caused by ListenableFuture
+                            // was cancelled or coroutine Job was cancelled. For the
+                            // ListenableFuture case, AudioLoop will need to retry with a delay as
+                            // IllegalStateException. For the coroutine Job case, the loop should
+                            // be stopped. The goal can be simply achieved by calling delay() method
+                            // because the method will also get CancellationException if it is
+                            // coroutine Job cancellation, and eventually leave the audio loop.
+                            delay(300L)
                         }
-                        // For simplicity, AudioLoop doesn't monitor the encoder's state.
-                        // When an IllegalStateException is thrown by encoder which is not started,
-                        // AudioLoop should retry with a delay to avoid busy loop.
-                        // CancellationException is a subclass of IllegalStateException and is
-                        // ambiguous since the cancellation could be caused by ListenableFuture
-                        // was cancelled or coroutine Job was cancelled. For the
-                        // ListenableFuture case, AudioLoop will need to retry with a delay as
-                        // IllegalStateException. For the coroutine Job case, the loop should
-                        // be stopped. The goal can be simply achieved by calling delay() method
-                        // because the method will also get CancellationException if it is
-                        // coroutine Job cancellation, and eventually leave the audio loop.
-                        delay(300L)
                     }
                 }
-            }
         }
 
         fun stop() {

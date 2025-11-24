@@ -32,6 +32,7 @@ import androidx.test.core.app.ApplicationProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 import org.robolectric.annotation.internal.DoNotInstrument;
 
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import java.util.List;
 
 /** Tests for {@link Row}. */
 @RunWith(RobolectricTestRunner.class)
+@Config(sdk = {Config.TARGET_SDK})
 @DoNotInstrument
 public class RowTest {
     @Test
@@ -47,6 +49,7 @@ public class RowTest {
         assertThat(row.getTitle().toString()).isEqualTo("Title");
         assertThat(row.getTexts()).isEmpty();
         assertThat(row.getImage()).isNull();
+        assertThat(row.getEndImage()).isNull();
         assertThat(row.getOnClickDelegate()).isNull();
         assertThat(row.isBrowsable()).isFalse();
         assertThat(row.getMetadata()).isEqualTo(Metadata.EMPTY_METADATA);
@@ -129,6 +132,47 @@ public class RowTest {
         CarIcon image1 = BACK;
         Row row = new Row.Builder().setTitle("Title").setImage(image1).build();
         assertThat(image1).isEqualTo(row.getImage());
+    }
+
+    @Test
+    public void setEndImage() {
+        CarIcon endImage = ALERT;
+        Row row = new Row.Builder().setTitle("Title").setEndImage(endImage).build();
+        assertThat(row.getEndImage()).isEqualTo(endImage);
+        assertThat(row.getRowEndImageType()).isEqualTo(Row.IMAGE_TYPE_SMALL);
+    }
+
+    @Test
+    public void setEndImageWithSize() {
+        CarIcon endImage = ALERT;
+        Row row = new Row.Builder()
+                .setTitle("Title")
+                .setEndImage(endImage, Row.IMAGE_TYPE_ICON)
+                .build();
+        assertThat(row.getEndImage()).isEqualTo(endImage);
+        assertThat(row.getRowEndImageType()).isEqualTo(Row.IMAGE_TYPE_ICON);
+    }
+
+    @Test
+    public void setEndImage_withToggle_throws() {
+        Toggle toggle = new Toggle.Builder(isChecked -> {}).build();
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> new Row.Builder().setTitle("Title")
+                        .setToggle(toggle)
+                        .setEndImage(ALERT)
+                        .build());
+    }
+
+    @Test
+    public void setEndImage_browsableRow_throws() {
+        assertThrows(
+                IllegalStateException.class,
+                () -> new Row.Builder().setTitle("Title")
+                        .setBrowsable(true)
+                        .setEndImage(ALERT)
+                        .build());
     }
 
     @Test
@@ -216,6 +260,14 @@ public class RowTest {
     }
 
     @Test
+    public void clickDelegate() {
+        OnClickDelegate onClickDelegate = mock(OnClickDelegate.class);
+        Row row = new Row.Builder().setTitle("Title").setOnClickDelegate(onClickDelegate).build();
+
+        assertThat(row.getOnClickDelegate()).isEqualTo(onClickDelegate);
+    }
+
+    @Test
     public void addAction() {
         CarIcon icon = TestUtils.getTestCarIcon(ApplicationProvider.getApplicationContext(),
                 "ic_test_1");
@@ -249,7 +301,7 @@ public class RowTest {
     }
 
     @Test
-    public void addAction_manyActions_throws() {
+    public void addAction_threeActions_throws() {
         CarIcon carIcon = TestUtils.getTestCarIcon(ApplicationProvider.getApplicationContext(),
                 "ic_test_1");
         Action customAction = TestUtils.createAction("Title", carIcon);
@@ -264,14 +316,42 @@ public class RowTest {
     }
 
     @Test
-    public void addAction_invalidActionNullIcon_throws() {
-        Action customAction = TestUtils.createAction("Title", null);
+    public void addAction_twoActionsWithOnePrimary_doesNotThrow() {
+        CarIcon carIcon = TestUtils.getTestCarIcon(ApplicationProvider.getApplicationContext(),
+                "ic_test_1");
+        Action primaryAction = new Action.Builder().setTitle("Title").setFlags(
+                Action.FLAG_PRIMARY).build();
+        Action customAction = TestUtils.createAction("Title", carIcon);
+        Row row = new Row.Builder().setTitle("Title")
+                .addAction(customAction)
+                .addAction(primaryAction)
+                .build();
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new Row.Builder().setTitle("Title")
-                        .addAction(customAction)
-                        .build());
+        assertThat(row.getActions().size()).isEqualTo(2);
+    }
+
+    @Test
+    public void addAction_twoActionsWithOneTimed_doesNotThrow() {
+        CarIcon carIcon = TestUtils.getTestCarIcon(ApplicationProvider.getApplicationContext(),
+                "ic_test_1");
+        Action defaultAction = new Action.Builder().setTitle("Title").setFlags(
+                Action.FLAG_DEFAULT).build();
+        Action customAction = TestUtils.createAction("Title", carIcon);
+        Row row = new Row.Builder().setTitle("Title")
+                .addAction(customAction)
+                .addAction(defaultAction)
+                .build();
+
+        assertThat(row.getActions().size()).isEqualTo(2);
+    }
+
+    @Test
+    public void addAction_textOnlyActionNullIcon_doesNotThrow() {
+        Action customAction = TestUtils.createAction("Title", null);
+        Row row = new Row.Builder().setTitle("Title")
+                .addAction(customAction)
+                .build();
+        assertThat(row.getActions().get(0)).isEqualTo(customAction);
     }
 
     public void addAction_browsableRow_throws() {
@@ -358,6 +438,7 @@ public class RowTest {
                 new Row.Builder()
                         .setTitle(title)
                         .setImage(BACK)
+                        .setEndImage(ALERT)
                         .setOnClickListener(() -> {
                         })
                         .setBrowsable(false)
@@ -370,6 +451,7 @@ public class RowTest {
                 new Row.Builder()
                         .setTitle(title)
                         .setImage(BACK)
+                        .setEndImage(ALERT)
                         .setOnClickListener(() -> {
                         })
                         .setBrowsable(false)
@@ -394,6 +476,15 @@ public class RowTest {
         Row row = new Row.Builder().setTitle("Title").setImage(BACK).build();
 
         assertThat(new Row.Builder().setTitle("Title").setImage(ALERT).build()).isNotEqualTo(row);
+    }
+
+    @Test
+    public void notEquals_differentEndImage() {
+        Row row = new Row.Builder().setTitle("Title").setEndImage(BACK).build();
+
+        assertThat(new Row.Builder().setTitle("Title").setEndImage(ALERT).build())
+                .isNotEqualTo(row);
+        assertThat(new Row.Builder().setTitle("Title").build()).isNotEqualTo(row);
     }
 
     @Test

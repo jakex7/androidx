@@ -28,13 +28,11 @@ import androidx.camera.integration.antelope.TestConfig
 import androidx.camera.integration.antelope.TestType
 import androidx.camera.integration.antelope.testEnded
 
-/**
- * Image capture callback for Camera 2 API. Tracks state of an image capture request.
- */
+/** Image capture callback for Camera 2 API. Tracks state of an image capture request. */
 class Camera2CaptureCallback(
     internal val activity: MainActivity,
     internal val params: CameraParams,
-    internal val testConfig: TestConfig
+    internal val testConfig: TestConfig,
 ) : CameraCaptureSession.CaptureCallback() {
 
     override fun onCaptureSequenceAborted(session: CameraCaptureSession, sequenceId: Int) {
@@ -48,7 +46,7 @@ class Camera2CaptureCallback(
     override fun onCaptureFailed(
         session: CameraCaptureSession,
         request: CaptureRequest,
-        failure: CaptureFailure
+        failure: CaptureFailure,
     ) {
 
         if (!params.isOpen) {
@@ -57,7 +55,9 @@ class Camera2CaptureCallback(
 
         MainActivity.logd(
             "captureStillPicture captureCallback: Capture Failed. Failure: " +
-                failure.reason + " Current test: " + testConfig.currentRunningTest.toString()
+                failure.reason +
+                " Current test: " +
+                testConfig.currentRunningTest.toString()
         )
 
         // The session failed. Let's just try again (yay infinite loops)
@@ -70,11 +70,13 @@ class Camera2CaptureCallback(
         session: CameraCaptureSession,
         request: CaptureRequest,
         timestamp: Long,
-        frameNumber: Long
+        frameNumber: Long,
     ) {
         MainActivity.logd(
             "captureStillPicture captureCallback: Capture Started. Current test: " +
-                testConfig.currentRunningTest.toString() + ", frame number: " + frameNumber
+                testConfig.currentRunningTest.toString() +
+                ", frame number: " +
+                frameNumber
         )
         super.onCaptureStarted(session, request, timestamp, frameNumber)
     }
@@ -82,11 +84,12 @@ class Camera2CaptureCallback(
     override fun onCaptureProgressed(
         session: CameraCaptureSession,
         request: CaptureRequest,
-        partialResult: CaptureResult
+        partialResult: CaptureResult,
     ) {
         MainActivity.logd(
             "captureStillPicture captureCallback: Capture progressed. " +
-                "Current test: " + testConfig.currentRunningTest.toString()
+                "Current test: " +
+                testConfig.currentRunningTest.toString()
         )
         super.onCaptureProgressed(session, request, partialResult)
     }
@@ -95,7 +98,7 @@ class Camera2CaptureCallback(
         session: CameraCaptureSession,
         request: CaptureRequest,
         target: Surface,
-        frameNumber: Long
+        frameNumber: Long,
     ) {
         MainActivity.logd(
             "captureStillPicture captureCallback: Buffer lost. Current test: " +
@@ -107,7 +110,7 @@ class Camera2CaptureCallback(
     override fun onCaptureCompleted(
         session: CameraCaptureSession,
         request: CaptureRequest,
-        result: TotalCaptureResult
+        result: TotalCaptureResult,
     ) {
 
         if (!params.isOpen) {

@@ -16,11 +16,14 @@
 
 package androidx.benchmark.junit4
 
-import android.os.Build
 import androidx.benchmark.InstrumentationResults
 import androidx.benchmark.Profiler
 import androidx.benchmark.perfetto.ExperimentalPerfettoCaptureApi
-import androidx.benchmark.perfetto.PerfettoTrace
+import androidx.benchmark.perfetto.PerfettoCapture
+import androidx.benchmark.perfetto.PerfettoCapture.PerfettoSdkConfig.InitialProcessState
+import androidx.benchmark.perfetto.PerfettoCaptureWrapper
+import androidx.benchmark.perfetto.PerfettoConfig
+import androidx.benchmark.traceprocessor.PerfettoTrace
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.rules.TestRule
 import org.junit.runner.Description
@@ -40,6 +43,7 @@ import org.junit.runners.model.Statement
  *     fun test() {}
  * }
  * ```
+ *
  * Captured traces can be observed through any of:
  * * Android Studio trace linking under `Benchmark` in test output tab
  * * The optional `traceCallback` parameter
@@ -52,6 +56,7 @@ import org.junit.runners.model.Statement
  *
  * You can additionally check logcat for messages tagged "PerfettoCapture:" for the path of each
  * perfetto trace.
+ *
  * ```
  * > adb pull /storage/emulated/0/Android/data/mypackage.test/files/PerfettoCaptureTest.trace
  * ```
@@ -60,13 +65,12 @@ import org.junit.runners.model.Statement
  * `BenchmarkRule`, `MacrobenchmarkRule`, or `PerfettoTrace.record`.
  */
 @ExperimentalPerfettoCaptureApi
-class PerfettoTraceRule(
-    /**
-     * Pass false to disable android.os.Trace API tracing in this process
-     *
-     * Defaults to true.
-     */
-    val enableAppTagTracing: Boolean = true,
+class PerfettoTraceRule
+@JvmOverloads
+constructor(
+    /** Config used to record Perfetto trace. */
+    val config: PerfettoConfig,
+
     /**
      * Pass true to enable userspace tracing (androidx.tracing.tracing-perfetto APIs)
      *
@@ -75,44 +79,104 @@ class PerfettoTraceRule(
     val enableUserspaceTracing: Boolean = false,
 
     /**
-     * Callback for each captured trace.
+     * Configure the label, used both as the filename prefix for the trace, and label shown in
+     * Android Studio.
+     *
+     * The final output file will be named:
+     * `<labelCallbackResult>_<yyyy-MM-dd-HH-mm-ss>.perfetto-trace`
+     *
+     * Defaults to `<description.className>_<description.methodName>
      */
-    val traceCallback: ((PerfettoTrace) -> Unit)? = null
+    val labelProvider: (Description) -> String = { description ->
+        "${description.className}_${description.methodName}"
+    },
+
+    /** Callback for each captured trace. */
+    val traceCallback: ((PerfettoTrace) -> Unit)? = null,
 ) : TestRule {
+    @JvmOverloads
+    constructor(
+        /**
+         * Pass false to disable android.os.Trace API tracing in this process
+         *
+         * Defaults to true.
+         */
+        enableAppTagTracing: Boolean = true,
+
+        /**
+         * Pass true to enable userspace tracing (androidx.tracing.tracing-perfetto APIs)
+         *
+         * Defaults to false.
+         */
+        enableUserspaceTracing: Boolean = false,
+
+        /**
+         * Provides the label for each test, used both as the filename prefix for the trace, and
+         * trace label shown in Android Studio.
+         *
+         * The final output file will be named:
+         * `<labelCallbackResult>_<yyyy-MM-dd-HH-mm-ss>.perfetto-trace`
+         *
+         * Defaults to `<description.className>_<description.methodName>`
+         */
+        labelProvider: (Description) -> String = { description ->
+            "${description.className}_${description.methodName}"
+        },
+
+        /** Callback for each captured trace. */
+        traceCallback: ((PerfettoTrace) -> Unit)? = null,
+    ) : this(
+        config =
+            PerfettoConfig.Benchmark(
+                appTagPackages = if (enableAppTagTracing) listOf(thisPackage) else emptyList(),
+                useStackSamplingConfig = false,
+            ),
+        enableUserspaceTracing = enableUserspaceTracing,
+        labelProvider = labelProvider,
+        traceCallback = traceCallback,
+    )
+
     override fun apply(
         @Suppress("InvalidNullabilityOverride") // JUnit missing annotations
         base: Statement,
         @Suppress("InvalidNullabilityOverride") // JUnit missing annotations
-        description: Description
-    ): Statement = object : Statement() {
-        override fun evaluate() {
-            val thisPackage = InstrumentationRegistry.getInstrumentation().context.packageName
-            if (Build.VERSION.SDK_INT >= 23) {
-                val label = "${description.className}_${description.methodName}"
-                PerfettoTrace.record(
-                    fileLabel = label,
-                    appTagPackages = if (enableAppTagTracing) listOf(thisPackage) else emptyList(),
-                    userspaceTracingPackage = if (enableUserspaceTracing) thisPackage else null,
-                    traceCallback = {
-                        InstrumentationResults.instrumentationReport {
-                            reportSummaryToIde(
-                                testName = label,
-                                profilerResults = listOf(
-                                    Profiler.ResultFile.ofPerfettoTrace(
-                                        "Trace",
-                                        it.path
-                                    )
+        description: Description,
+    ): Statement =
+        object : Statement() {
+            override fun evaluate() {
+                val label = labelProvider(description)
+                PerfettoCaptureWrapper()
+                    .record(
+                        fileLabel = label,
+                        config = config,
+                        perfettoSdkConfig =
+                            if (enableUserspaceTracing) {
+                                PerfettoCapture.PerfettoSdkConfig(
+                                    thisPackage,
+                                    InitialProcessState.Alive,
                                 )
-                            )
-                        }
-                        traceCallback?.invoke(it)
-                    }
-                ) {
-                    base.evaluate()
-                }
-            } else {
-                base.evaluate()
+                            } else null,
+                        traceCallback = { path ->
+                            val trace = PerfettoTrace(path)
+                            InstrumentationResults.instrumentationReport {
+                                reportSummaryToIde(
+                                    testName = label,
+                                    profilerResults =
+                                        listOf(Profiler.ResultFile.ofPerfettoTrace("Trace", path)),
+                                )
+                            }
+                            traceCallback?.invoke(trace)
+                        },
+                        enableTracing = true,
+                        // Temporary, see b/409397427
+                        // after that is resolved, switch back to PerfettoTrace.record()
+                        inMemoryTracingLabel = "InMemoryTracing",
+                        block = { base.evaluate() },
+                    )
             }
         }
+
+    private companion object {
+        private val thisPackage = InstrumentationRegistry.getInstrumentation().context.packageName
     }
 }

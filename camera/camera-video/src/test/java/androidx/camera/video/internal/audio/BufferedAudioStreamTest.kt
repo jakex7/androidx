@@ -18,7 +18,6 @@ package androidx.camera.video.internal.audio
 
 import android.media.AudioFormat
 import android.media.MediaRecorder
-import android.os.Build
 import androidx.camera.core.impl.utils.executor.CameraXExecutors
 import androidx.camera.testing.impl.mocks.helpers.CallTimes
 import androidx.camera.testing.impl.mocks.helpers.CallTimesAtLeast
@@ -35,7 +34,7 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class BufferedAudioStreamTest {
 
     companion object {
@@ -56,12 +55,14 @@ class BufferedAudioStreamTest {
 
     @Before
     fun setUp() {
-        val audioSettings = AudioSettings.builder()
-            .setAudioSource(AUDIO_SOURCE)
-            .setSampleRate(SAMPLE_RATE)
-            .setChannelCount(CHANNEL_COUNT)
-            .setAudioFormat(AUDIO_FORMAT)
-            .build()
+        val audioSettings =
+            AudioSettings.builder()
+                .setAudioSource(AUDIO_SOURCE)
+                .setCaptureSampleRate(SAMPLE_RATE)
+                .setEncodeSampleRate(SAMPLE_RATE)
+                .setChannelCount(CHANNEL_COUNT)
+                .setAudioFormat(AUDIO_FORMAT)
+                .build()
         baseAudioStream = FakeAudioStream(createAudioDataProvider())
         bufferedAudioStream = BufferedAudioStream(baseAudioStream, audioSettings)
         audioStreamCallback = FakeAudioStreamCallback()
@@ -78,26 +79,20 @@ class BufferedAudioStreamTest {
 
     @Test
     fun readBeforeStart_throwException() {
-        assertThrows(IllegalStateException::class.java) {
-            bufferedAudioStream.read(byteBuffer)
-        }
+        assertThrows(IllegalStateException::class.java) { bufferedAudioStream.read(byteBuffer) }
     }
 
     @Test
     fun readAfterStop_throwException() {
         bufferedAudioStream.start()
         bufferedAudioStream.stop()
-        assertThrows(IllegalStateException::class.java) {
-            bufferedAudioStream.read(byteBuffer)
-        }
+        assertThrows(IllegalStateException::class.java) { bufferedAudioStream.read(byteBuffer) }
     }
 
     @Test
     fun startAfterReleased_throwException() {
         bufferedAudioStream.release()
-        assertThrows(IllegalStateException::class.java) {
-            bufferedAudioStream.start()
-        }
+        assertThrows(IllegalStateException::class.java) { bufferedAudioStream.start() }
     }
 
     @Test
@@ -190,7 +185,8 @@ class BufferedAudioStreamTest {
 
     private fun AudioStream.verifyMultipleReads(verifyTimes: Int, byteBuffer: ByteBuffer) {
         repeat(verifyTimes) { index ->
-            // Since the audio data producer and consumer are not on the same thread, waiting for the
+            // Since the audio data producer and consumer are not on the same thread, waiting for
+            // the
             // baseAudioStream to be read to ensure that the BufferAudioStream has at least one
             // AudioData that can be read.
             baseAudioStream.verifyReadCall(CallTimesAtLeast(index + 2), COMMON_TIMEOUT_MS)

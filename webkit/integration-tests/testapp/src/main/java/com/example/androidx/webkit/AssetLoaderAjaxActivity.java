@@ -26,15 +26,15 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.test.espresso.idling.net.UriIdlingResource;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewAssetLoader.AssetsPathHandler;
 import androidx.webkit.WebViewAssetLoader.ResourcesPathHandler;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An {@link Activity} to show a more useful use case: performing ajax calls to load files from
@@ -61,10 +61,9 @@ public class AssetLoaderAjaxActivity extends AppCompatActivity {
         }
 
         @Override
-        @RequiresApi(21)
         public WebResourceResponse shouldInterceptRequest(WebView view,
                                                           WebResourceRequest request) {
-            Uri url = Api21Impl.getUrl(request);
+            Uri url = request.getUrl();
             mUriIdlingResource.beginLoad(url.toString());
             WebResourceResponse response = mAssetLoader.shouldInterceptRequest(url);
             mUriIdlingResource.endLoad(url.toString());
@@ -86,8 +85,7 @@ public class AssetLoaderAjaxActivity extends AppCompatActivity {
 
     // IdlingResource that indicates that WebView has finished loading all WebResourceRequests
     // by waiting until there are no requests made for 5000ms.
-    @NonNull
-    private final UriIdlingResource mUriIdlingResource =
+    private final @NonNull UriIdlingResource mUriIdlingResource =
             new UriIdlingResource("AssetLoaderWebViewUriIdlingResource", MAX_IDLE_TIME_MS);
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -97,6 +95,7 @@ public class AssetLoaderAjaxActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_asset_loader);
         setTitle(R.string.asset_loader_ajax_activity_title);
+        WebkitHelpers.enableEdgeToEdge(this);
         WebkitHelpers.appendWebViewVersionToTitle(this);
 
         // The "https://example.com" domain with the virtual path "/androidx_webkit/example/
@@ -155,8 +154,7 @@ public class AssetLoaderAjaxActivity extends AppCompatActivity {
      * all requested URIs.
      */
     @VisibleForTesting
-    @NonNull
-    public UriIdlingResource getUriIdlingResource() {
+    public @NonNull UriIdlingResource getUriIdlingResource() {
         return mUriIdlingResource;
     }
 }

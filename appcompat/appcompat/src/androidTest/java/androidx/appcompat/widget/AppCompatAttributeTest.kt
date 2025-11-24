@@ -43,131 +43,121 @@ import org.junit.runner.RunWith
 class AppCompatAttributeTest {
     @Suppress("DEPRECATION")
     @get:Rule
-    val activityRule = androidx.test.rule.ActivityTestRule(
-        AppCompatActivity::class.java,
-        true,
-        false
-    )
+    val activityRule =
+        androidx.test.rule.ActivityTestRule(AppCompatActivity::class.java, true, false)
 
     @Before
     fun setup() {
-        getInstrumentation().uiAutomation.executeShellCommand(
-            "settings put global $DEBUG_VIEW_ATTRIBUTES $TEST_PACKAGE"
-        )
+        getInstrumentation()
+            .uiAutomation
+            .executeShellCommand("settings put global $DEBUG_VIEW_ATTRIBUTES $TEST_PACKAGE")
         assumeDebugViewAttributes(TEST_PACKAGE)
         activityRule.launchActivity(null)
     }
 
     @After
     fun tearDown() {
-        getInstrumentation().uiAutomation.executeShellCommand(
-            "settings delete global $DEBUG_VIEW_ATTRIBUTES"
-        )
+        getInstrumentation()
+            .uiAutomation
+            .executeShellCommand("settings delete global $DEBUG_VIEW_ATTRIBUTES")
         assumeDebugViewAttributes(null)
     }
 
     @Test
     fun testAppCompatImageViewAttributes() {
-        val root = activityRule.activity.layoutInflater.inflate(
-            R.layout.view_attribute_layout,
-            null
-        ) as ViewGroup
+        val root =
+            activityRule.activity.layoutInflater.inflate(R.layout.view_attribute_layout, null)
+                as ViewGroup
         val imageView = root.findViewById<ImageView>(R.id.image_view)
         assertTrue(imageView.attributeSourceResourceMap.isNotEmpty())
         assertEquals(
             R.layout.view_attribute_layout,
-            imageView.attributeSourceResourceMap[R.attr.srcCompat]
+            imageView.attributeSourceResourceMap[androidx.appcompat.R.attr.srcCompat],
         )
         assertEquals(
             R.layout.view_attribute_layout,
-            imageView.attributeSourceResourceMap[R.attr.backgroundTint]
+            imageView.attributeSourceResourceMap[androidx.appcompat.R.attr.backgroundTint],
         )
         assertEquals(
             R.layout.view_attribute_layout,
-            imageView.attributeSourceResourceMap[R.attr.backgroundTintMode]
+            imageView.attributeSourceResourceMap[androidx.appcompat.R.attr.backgroundTintMode],
         )
     }
 
     @Test
     fun testAppCompatCheckBoxAttributes() {
-        val root = activityRule.activity.layoutInflater.inflate(
-            R.layout.view_attribute_layout,
-            null
-        ) as ViewGroup
+        val root =
+            activityRule.activity.layoutInflater.inflate(R.layout.view_attribute_layout, null)
+                as ViewGroup
         val checkBox = root.findViewById<CheckBox>(R.id.check_box)
         assertTrue(checkBox.attributeSourceResourceMap.isNotEmpty())
         assertEquals(
             R.layout.view_attribute_layout,
-            checkBox.attributeSourceResourceMap[R.attr.buttonTint]
+            checkBox.attributeSourceResourceMap[androidx.appcompat.R.attr.buttonTint],
         )
     }
 
     @Test
     fun testAppCompatSeekBarAttributes() {
-        val root = activityRule.activity.layoutInflater.inflate(
-            R.layout.view_attribute_layout,
-            null
-        ) as ViewGroup
+        val root =
+            activityRule.activity.layoutInflater.inflate(R.layout.view_attribute_layout, null)
+                as ViewGroup
         val seekBar = root.findViewById<SeekBar>(R.id.seek_bar)
         assertTrue(seekBar.attributeSourceResourceMap.isNotEmpty())
         assertEquals(
             R.layout.view_attribute_layout,
-            seekBar.attributeSourceResourceMap[R.attr.tickMarkTint]
+            seekBar.attributeSourceResourceMap[androidx.appcompat.R.attr.tickMarkTint],
         )
     }
 
     @Test
     fun testAppCompatTextViewAttributes() {
-        val root = activityRule.activity.layoutInflater.inflate(
-            R.layout.view_attribute_layout,
-            null
-        ) as ViewGroup
+        val root =
+            activityRule.activity.layoutInflater.inflate(R.layout.view_attribute_layout, null)
+                as ViewGroup
         val textView = root.findViewById<TextView>(R.id.text_view)
         assertTrue(textView.attributeSourceResourceMap.isNotEmpty())
         assertEquals(
             R.layout.view_attribute_layout,
-            textView.attributeSourceResourceMap[R.attr.autoSizeTextType]
+            textView.attributeSourceResourceMap[androidx.appcompat.R.attr.autoSizeTextType],
         )
     }
 
     @Test
     fun testSwitchCompatAttributes() {
-        val root = activityRule.activity.layoutInflater.inflate(
-            R.layout.view_attribute_layout,
-            null
-        ) as ViewGroup
+        val root =
+            activityRule.activity.layoutInflater.inflate(R.layout.view_attribute_layout, null)
+                as ViewGroup
         val switchCompat = root.findViewById<SwitchCompat>(R.id.switch_compat)
         assertTrue(switchCompat.attributeSourceResourceMap.isNotEmpty())
         assertEquals(
             R.layout.view_attribute_layout,
-            switchCompat.attributeSourceResourceMap[R.attr.thumbTint]
+            switchCompat.attributeSourceResourceMap[androidx.appcompat.R.attr.thumbTint],
         )
     }
 
     @Test
     fun testToolbarAttributes() {
-        val root = activityRule.activity.layoutInflater.inflate(
-            R.layout.view_attribute_layout,
-            null
-        ) as ViewGroup
+        val root =
+            activityRule.activity.layoutInflater.inflate(R.layout.view_attribute_layout, null)
+                as ViewGroup
         val toolbar = root.findViewById<Toolbar>(R.id.toolbar)
         assertTrue(toolbar.attributeSourceResourceMap.isNotEmpty())
         assertEquals(
             R.layout.view_attribute_layout,
-            toolbar.attributeSourceResourceMap[R.attr.titleMargin]
+            toolbar.attributeSourceResourceMap[androidx.appcompat.R.attr.titleMargin],
         )
     }
 
     @Test
     fun testLinearLayoutCompatAttributes() {
-        val root = activityRule.activity.layoutInflater.inflate(
-            R.layout.view_attribute_layout,
-            null
-        ) as LinearLayoutCompat
+        val root =
+            activityRule.activity.layoutInflater.inflate(R.layout.view_attribute_layout, null)
+                as LinearLayoutCompat
         assertTrue(root.attributeSourceResourceMap.isNotEmpty())
         assertEquals(
             R.layout.view_attribute_layout,
-            root.attributeSourceResourceMap[R.attr.showDividers]
+            root.attributeSourceResourceMap[androidx.appcompat.R.attr.showDividers],
         )
     }
 
@@ -196,7 +186,7 @@ class AppCompatAttributeTest {
                 "Assumed $DEBUG_VIEW_ATTRIBUTES would be $expected within $timeout seconds",
                 busyWait(SETTINGS_TIMEOUT) {
                     Settings.Global.getString(contentResolver, DEBUG_VIEW_ATTRIBUTES) == expected
-                }
+                },
             )
         }
     }

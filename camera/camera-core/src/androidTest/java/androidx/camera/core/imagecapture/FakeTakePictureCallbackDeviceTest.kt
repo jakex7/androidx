@@ -16,20 +16,15 @@
 
 package androidx.camera.core.imagecapture
 
-import androidx.annotation.RequiresApi
+import android.graphics.ImageFormat
 import androidx.camera.core.ImageCapture.OutputFileResults
 import androidx.camera.testing.impl.fakes.FakeImageInfo
 import androidx.camera.testing.impl.fakes.FakeImageProxy
-import androidx.test.filters.SdkSuppress
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
-/**
- * Unit tests for [FakeTakePictureCallbackDeviceTest]
- */
-@RequiresApi(21)
-@SdkSuppress(minSdkVersion = 21)
+/** Unit tests for [FakeTakePictureCallbackDeviceTest] */
 class FakeTakePictureCallbackDeviceTest {
 
     private val fakeTakePictureCallback = FakeTakePictureCallback()
@@ -37,7 +32,7 @@ class FakeTakePictureCallbackDeviceTest {
     @Test
     fun onDiskResultArrivesBeforeGet_canGetResult() = runBlocking {
         // Arrange.
-        val onDiskResult = OutputFileResults(null)
+        val onDiskResult = OutputFileResults(null, ImageFormat.JPEG)
         // Assert.
         fakeTakePictureCallback.onFinalResult(onDiskResult)
         // Act.
@@ -47,8 +42,7 @@ class FakeTakePictureCallbackDeviceTest {
     @Test
     fun inMemoryResultArrivesBeforeGet_canGetResult() = runBlocking {
         // Arrange.
-        val inMemoryResult =
-            FakeImageProxy(FakeImageInfo())
+        val inMemoryResult = FakeImageProxy(FakeImageInfo())
         // Assert.
         fakeTakePictureCallback.onFinalResult(inMemoryResult)
         // Act.

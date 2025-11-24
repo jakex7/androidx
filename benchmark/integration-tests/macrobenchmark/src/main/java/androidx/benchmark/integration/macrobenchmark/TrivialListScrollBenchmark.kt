@@ -34,11 +34,8 @@ import org.junit.runners.Parameterized
 
 @LargeTest
 @RunWith(Parameterized::class)
-class TrivialListScrollBenchmark(
-    private val compilationMode: CompilationMode
-) {
-    @get:Rule
-    val benchmarkRule = MacrobenchmarkRule()
+class TrivialListScrollBenchmark(private val compilationMode: CompilationMode) {
+    @get:Rule val benchmarkRule = MacrobenchmarkRule()
 
     private lateinit var device: UiDevice
 
@@ -59,7 +56,7 @@ class TrivialListScrollBenchmark(
                 val intent = Intent()
                 intent.action = ACTION
                 startActivityAndWait(intent)
-            }
+            },
         ) {
             val recycler = device.findObject(By.res(PACKAGE_NAME, RESOURCE_ID))
             // Setting a gesture margin is important otherwise gesture nav is triggered.

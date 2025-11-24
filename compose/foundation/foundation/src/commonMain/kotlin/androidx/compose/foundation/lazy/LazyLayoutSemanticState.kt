@@ -17,48 +17,56 @@
 package androidx.compose.foundation.lazy
 
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.lazy.layout.LazyLayoutSemanticState
 import androidx.compose.foundation.lazy.layout.estimatedLazyMaxScrollOffset
 import androidx.compose.foundation.lazy.layout.estimatedLazyScrollOffset
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.semantics.CollectionInfo
 
 internal fun LazyLayoutSemanticState(
     state: LazyListState,
-    isVertical: Boolean
-): LazyLayoutSemanticState = object : LazyLayoutSemanticState {
+    isVertical: Boolean,
+): LazyLayoutSemanticState =
+    object : LazyLayoutSemanticState {
 
-    override val scrollOffset: Float
-        get() = estimatedLazyScrollOffset(
-            state.firstVisibleItemIndex,
-            state.firstVisibleItemScrollOffset
-        )
-    override val maxScrollOffset: Float
-        get() = estimatedLazyMaxScrollOffset(
-            state.firstVisibleItemIndex,
-            state.firstVisibleItemScrollOffset,
-            state.canScrollForward
-        )
+        // The total number of items in the list, derived from layout info.
+        private val totalItemsCount by derivedStateOf { state.layoutInfo.totalItemsCount }
 
-    override suspend fun animateScrollBy(delta: Float): Float = state.animateScrollBy(delta)
+        override val scrollOffset: Float
+            get() =
+                estimatedLazyScrollOffset(
+                    state.firstVisibleItemIndex,
+                    state.firstVisibleItemScrollOffset,
+                )
 
-    override suspend fun scrollToItem(index: Int) {
-        state.scrollToItem(index)
+        override val maxScrollOffset: Float
+            get() =
+                estimatedLazyMaxScrollOffset(
+                    state.firstVisibleItemIndex,
+                    state.firstVisibleItemScrollOffset,
+                    state.canScrollForward,
+                )
+
+        override suspend fun scrollToItem(index: Int) {
+            state.scrollToItem(index)
+        }
+
+        override fun collectionInfo(): CollectionInfo =
+            if (isVertical) {
+                CollectionInfo(rowCount = totalItemsCount, columnCount = 1)
+            } else {
+                CollectionInfo(rowCount = 1, columnCount = totalItemsCount)
+            }
+
+        override val viewport: Int
+            get() =
+                if (state.layoutInfo.orientation == Orientation.Vertical) {
+                    state.layoutInfo.viewportSize.height
+                } else {
+                    state.layoutInfo.viewportSize.width
+                }
+
+        override val contentPadding: Int
+            get() = state.layoutInfo.beforeContentPadding + state.layoutInfo.afterContentPadding
     }
-
-    override fun collectionInfo(): CollectionInfo =
-        if (isVertical) {
-            CollectionInfo(rowCount = -1, columnCount = 1)
-        } else {
-            CollectionInfo(rowCount = 1, columnCount = -1)
-        }
-
-    override val viewport: Int
-        get() = if (state.layoutInfo.orientation == Orientation.Vertical) {
-            state.layoutInfo.viewportSize.height
-        } else {
-            state.layoutInfo.viewportSize.width
-        }
-    override val contentPadding: Int
-        get() = state.layoutInfo.beforeContentPadding + state.layoutInfo.afterContentPadding
-}

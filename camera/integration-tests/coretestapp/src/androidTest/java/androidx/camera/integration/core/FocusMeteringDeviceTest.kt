@@ -17,9 +17,12 @@
 package androidx.camera.integration.core
 
 import android.content.Context
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraCharacteristics.CONTROL_MAX_REGIONS_AE
 import android.hardware.camera2.CameraCharacteristics.CONTROL_MAX_REGIONS_AF
 import android.hardware.camera2.CameraCharacteristics.CONTROL_MAX_REGIONS_AWB
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.params.MeteringRectangle
 import androidx.camera.camera2.Camera2Config
 import androidx.camera.camera2.pipe.integration.CameraPipeConfig
 import androidx.camera.core.Camera
@@ -36,7 +39,9 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.testing.impl.CameraPipeConfigTestRule
 import androidx.camera.testing.impl.CameraUtil
 import androidx.camera.testing.impl.LabTestRule.Companion.isLensFacingEnabledInLabTest
+import androidx.camera.testing.impl.WakelockEmptyActivityRule
 import androidx.camera.testing.impl.fakes.FakeLifecycleOwner
+import androidx.camera.testing.impl.util.Camera2InteropUtil
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.LargeTest
 import com.google.common.truth.Truth.assertThat
@@ -60,59 +65,57 @@ import org.junit.runners.Parameterized
 @LargeTest
 @RunWith(Parameterized::class)
 class FocusMeteringDeviceTest(
-    private val selectorName: String,
+    private val testName: String,
     private val cameraSelector: CameraSelector,
     private val implName: String,
-    private val cameraXConfig: CameraXConfig
+    private val cameraXConfig: CameraXConfig,
 ) {
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = implName == CameraPipeConfig::class.simpleName,
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = implName == CameraPipeConfig::class.simpleName)
 
     @get:Rule
-    val cameraRule = CameraUtil.grantCameraPermissionAndPreTest(
-        CameraUtil.PreTestCameraIdList(cameraXConfig)
-    )
+    val cameraRule =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            CameraUtil.PreTestCameraIdList(cameraXConfig)
+        )
+
+    @get:Rule val wakelockEmptyActivityRule = WakelockEmptyActivityRule()
 
     companion object {
         @JvmStatic
-        @Parameterized.Parameters(name = "selector={0},config={2}")
-        fun data() = listOf(
-            arrayOf(
-                "front",
-                CameraSelector.DEFAULT_FRONT_CAMERA,
-                Camera2Config::class.simpleName,
-                Camera2Config.defaultConfig()
-            ),
-            arrayOf(
-                "front",
-                CameraSelector.DEFAULT_FRONT_CAMERA,
-                CameraPipeConfig::class.simpleName,
-                CameraPipeConfig.defaultConfig()
-            ),
-            arrayOf(
-                "back",
-                CameraSelector.DEFAULT_BACK_CAMERA,
-                Camera2Config::class.simpleName,
-                Camera2Config.defaultConfig()
-            ),
-            arrayOf(
-                "back",
-                CameraSelector.DEFAULT_BACK_CAMERA,
-                CameraPipeConfig::class.simpleName,
-                CameraPipeConfig.defaultConfig()
-            )
-        )
+        @Parameterized.Parameters(name = "{0}")
+        fun data() =
+            mutableListOf<Array<Any?>>().apply {
+                CameraUtil.getAvailableCameraSelectors().forEach { selector ->
+                    val lens = selector.lensFacing
+                    add(
+                        arrayOf(
+                            "config=${Camera2Config::class.simpleName} lensFacing={$lens}",
+                            selector,
+                            Camera2Config::class.simpleName,
+                            Camera2Config.defaultConfig(),
+                        )
+                    )
+                    add(
+                        arrayOf(
+                            "config=${CameraPipeConfig::class.simpleName} lensFacing={$lens}",
+                            selector,
+                            CameraPipeConfig::class.simpleName,
+                            CameraPipeConfig.defaultConfig(),
+                        )
+                    )
+                }
+            }
     }
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private lateinit var camera: Camera
-    private lateinit var cameraProvider: ProcessCameraProvider
-
     private val meteringPointFactory = SurfaceOrientedMeteringPointFactory(1f, 1f)
     private val validMeteringPoint = meteringPointFactory.createPoint(0.5f, 0.5f)
     private val invalidMeteringPoint = meteringPointFactory.createPoint(0f, 1.1f)
+    private lateinit var camera: Camera
+    private lateinit var cameraProvider: ProcessCameraProvider
+    private lateinit var captureCallback: Camera2InteropUtil.CaptureCallback
 
     @Before
     fun setUp(): Unit = runBlocking {
@@ -120,24 +123,32 @@ class FocusMeteringDeviceTest(
 
         ProcessCameraProvider.configureInstance(cameraXConfig)
         cameraProvider = ProcessCameraProvider.getInstance(context)[10, TimeUnit.SECONDS]
+        captureCallback = Camera2InteropUtil.CaptureCallback()
 
         withContext(Dispatchers.Main) {
             val fakeLifecycleOwner = FakeLifecycleOwner()
             fakeLifecycleOwner.startAndResume()
-            camera = cameraProvider.bindToLifecycle(
-                fakeLifecycleOwner,
-                cameraSelector,
-                ImageCapture.Builder().build()
-            )
+            camera =
+                cameraProvider.bindToLifecycle(
+                    fakeLifecycleOwner,
+                    cameraSelector,
+                    ImageCapture.Builder()
+                        .also { builder ->
+                            Camera2InteropUtil.setCamera2InteropOptions(
+                                implName = implName,
+                                builder = builder,
+                                captureCallback = captureCallback,
+                            )
+                        }
+                        .build(),
+                )
         }
     }
 
     @After
     fun tearDown(): Unit = runBlocking {
         if (::cameraProvider.isInitialized) {
-            withContext(Dispatchers.Main) {
-                cameraProvider.shutdownAsync()[10, TimeUnit.SECONDS]
-            }
+            withContext(Dispatchers.Main) { cameraProvider.shutdownAsync()[10, TimeUnit.SECONDS] }
         }
     }
 
@@ -145,7 +156,8 @@ class FocusMeteringDeviceTest(
     fun futureCompletes_whenFocusMeteringStarted() = runBlocking {
         assumeThat(
             "No AF/AE/AWB region available on this device!",
-            hasMeteringRegion(cameraSelector), equalTo(true)
+            hasMeteringRegion(cameraSelector),
+            equalTo(true),
         )
 
         val focusMeteringAction = FocusMeteringAction.Builder(validMeteringPoint).build()
@@ -168,7 +180,8 @@ class FocusMeteringDeviceTest(
     fun isFocusMeteringSupported_whenMeteringPointValid() = runBlocking {
         assumeThat(
             "No AF/AE/AWB region available on this device!",
-            hasMeteringRegion(cameraSelector), equalTo(true)
+            hasMeteringRegion(cameraSelector),
+            equalTo(true),
         )
 
         val focusMeteringAction = FocusMeteringAction.Builder(validMeteringPoint).build()
@@ -187,14 +200,16 @@ class FocusMeteringDeviceTest(
     fun focusMeteringSucceeds_whenSupported() = runBlocking {
         assumeThat(
             "No AF/AE/AWB region available on this device!",
-            hasMeteringRegion(cameraSelector), equalTo(true)
+            hasMeteringRegion(cameraSelector),
+            equalTo(true),
         )
 
         val focusMeteringAction = FocusMeteringAction.Builder(validMeteringPoint).build()
 
         assumeThat(
             "FocusMeteringAction not supported!",
-            camera.cameraInfo.isFocusMeteringSupported(focusMeteringAction), equalTo(true)
+            camera.cameraInfo.isFocusMeteringSupported(focusMeteringAction),
+            equalTo(true),
         )
 
         val resultFuture = camera.cameraControl.startFocusAndMetering(focusMeteringAction)
@@ -208,7 +223,8 @@ class FocusMeteringDeviceTest(
 
         assumeThat(
             "FocusMeteringAction supported!",
-            camera.cameraInfo.isFocusMeteringSupported(focusMeteringAction), equalTo(false)
+            camera.cameraInfo.isFocusMeteringSupported(focusMeteringAction),
+            equalTo(false),
         )
 
         val resultFuture = camera.cameraControl.startFocusAndMetering(focusMeteringAction)
@@ -218,9 +234,7 @@ class FocusMeteringDeviceTest(
 
     @Test
     fun focusMeteringFailsWithOperationCanceledException_whenNoUseCaseIsBound() = runBlocking {
-        withContext(Dispatchers.Main) {
-            cameraProvider.unbindAll()
-        }
+        withContext(Dispatchers.Main) { cameraProvider.unbindAll() }
 
         val focusMeteringAction = FocusMeteringAction.Builder(validMeteringPoint).build()
         val resultFuture = camera.cameraControl.startFocusAndMetering(focusMeteringAction)
@@ -232,7 +246,8 @@ class FocusMeteringDeviceTest(
     fun futureCompletes_whenFocusMeteringWithAe() {
         assumeThat(
             "No AE region available on this device!",
-            hasMeteringRegion(cameraSelector, FLAG_AE), equalTo(true)
+            hasMeteringRegion(cameraSelector, FLAG_AE),
+            equalTo(true),
         )
 
         val action = FocusMeteringAction.Builder(validMeteringPoint, FLAG_AE).build()
@@ -245,7 +260,8 @@ class FocusMeteringDeviceTest(
     fun futureCompletes_whenFocusMeteringWithAwb() {
         assumeThat(
             "No AWB region available on this device!",
-            hasMeteringRegion(cameraSelector, FLAG_AWB), equalTo(true)
+            hasMeteringRegion(cameraSelector, FLAG_AWB),
+            equalTo(true),
         )
 
         val action = FocusMeteringAction.Builder(validMeteringPoint, FLAG_AWB).build()
@@ -258,7 +274,8 @@ class FocusMeteringDeviceTest(
     fun futureCompletes_whenFocusMeteringWithAeAwb() {
         assumeThat(
             "No AE/AWB region available on this device!",
-            hasMeteringRegion(cameraSelector, FLAG_AE or FLAG_AWB), equalTo(true)
+            hasMeteringRegion(cameraSelector, FLAG_AE or FLAG_AWB),
+            equalTo(true),
         )
 
         val action = FocusMeteringAction.Builder(validMeteringPoint, FLAG_AE or FLAG_AWB).build()
@@ -271,21 +288,24 @@ class FocusMeteringDeviceTest(
     fun futureCompletes_whenFocusMeteringWithMorePointsThanSupported() {
         assumeThat(
             "No AF/AE/AWB region available on this device!",
-            hasMeteringRegion(cameraSelector), equalTo(true)
+            hasMeteringRegion(cameraSelector),
+            equalTo(true),
         )
 
         val factory = SurfaceOrientedMeteringPointFactory(1f, 1f)
         // Most devices don't support 4 AF/AE/AWB regions. but it should still complete.
-        val action = FocusMeteringAction.Builder(factory.createPoint(0f, 0f))
-            .addPoint(factory.createPoint(1f, 0f))
-            .addPoint(factory.createPoint(0.2f, 0.2f))
-            .addPoint(factory.createPoint(0.3f, 0.4f))
-            .build()
+        val action =
+            FocusMeteringAction.Builder(factory.createPoint(0f, 0f))
+                .addPoint(factory.createPoint(1f, 0f))
+                .addPoint(factory.createPoint(0.2f, 0.2f))
+                .addPoint(factory.createPoint(0.3f, 0.4f))
+                .build()
         val future = camera.cameraControl.startFocusAndMetering(action)
 
         assertFutureCompletes(future)
     }
 
+    // TODO: set the lab lens facing flag to allow the test to be run correctly.
     /**
      * The following tests check if a device can complete 3A convergence, by setting an auto
      * cancellation with [FocusMeteringAction.Builder.setAutoCancelDuration] which ensures throwing
@@ -294,23 +314,82 @@ class FocusMeteringDeviceTest(
      * Since some devices may require a long time to complete convergence, we are setting a long
      * [FocusMeteringAction.mAutoCancelDurationInMillis] in these tests.
      */
+    @Test
+    fun resultUpdated_whenFocusMeteringStarted() = runBlocking {
+        Assume.assumeTrue(
+            "Not CameraX lab environment," +
+                " or lensFacing:${cameraSelector.lensFacing!!} camera is not enabled",
+            isLensFacingEnabledInLabTest(lensFacing = cameraSelector.lensFacing!!),
+        )
+
+        Assume.assumeTrue("No region available on this device!", hasMeteringRegion(cameraSelector))
+        val factory = SurfaceOrientedMeteringPointFactory(1.0f, 1.0f)
+        val action = FocusMeteringAction.Builder(factory.createPoint(0f, 0f)).build()
+
+        camera.cameraControl.startFocusAndMetering(action)
+
+        val cameraCharacteristics =
+            CameraUtil.getCameraCharacteristics(cameraSelector.lensFacing!!)!!
+        val expectedAfCount =
+            cameraCharacteristics.getMaxRegionCount(CONTROL_MAX_REGIONS_AF).coerceAtMost(1)
+        val expectedAeCount =
+            cameraCharacteristics.getMaxRegionCount(CONTROL_MAX_REGIONS_AE).coerceAtMost(1)
+        val expectedAwbCount =
+            cameraCharacteristics.getMaxRegionCount(CONTROL_MAX_REGIONS_AWB).coerceAtMost(1)
+        captureCallback.verifyFor(numOfCaptures = 60) { captureRequests, _ ->
+            val captureRequest = captureRequests.last()
+            val afRegions = captureRequest[CaptureRequest.CONTROL_AF_REGIONS] ?: emptyArray()
+            val aeRegions = captureRequest[CaptureRequest.CONTROL_AE_REGIONS] ?: emptyArray()
+            val awbRegions = captureRequest[CaptureRequest.CONTROL_AWB_REGIONS] ?: emptyArray()
+            afRegions.weightedRegionCount == expectedAfCount &&
+                aeRegions.weightedRegionCount == expectedAeCount &&
+                awbRegions.weightedRegionCount == expectedAwbCount
+        }
+    }
+
+    @Test
+    fun resultUpdated_whenFocusMeteringCancelled() = runBlocking {
+        Assume.assumeTrue(
+            "Not CameraX lab environment," +
+                " or lensFacing:${cameraSelector.lensFacing!!} camera is not enabled",
+            isLensFacingEnabledInLabTest(lensFacing = cameraSelector.lensFacing!!),
+        )
+
+        Assume.assumeTrue("No region available on this device!", hasMeteringRegion(cameraSelector))
+        val factory = SurfaceOrientedMeteringPointFactory(1.0f, 1.0f)
+        val action = FocusMeteringAction.Builder(factory.createPoint(0f, 0f)).build()
+
+        camera.cameraControl.startFocusAndMetering(action)
+        camera.cameraControl.cancelFocusAndMetering()
+        captureCallback.verifyFor(numOfCaptures = 60) { captureRequests, _ ->
+            val captureRequest = captureRequests.last()
+            val afRegions = captureRequest[CaptureRequest.CONTROL_AF_REGIONS] ?: emptyArray()
+            val aeRegions = captureRequest[CaptureRequest.CONTROL_AE_REGIONS] ?: emptyArray()
+            val awbRegions = captureRequest[CaptureRequest.CONTROL_AWB_REGIONS] ?: emptyArray()
+
+            afRegions.weightedRegionCount == 0 &&
+                aeRegions.weightedRegionCount == 0 &&
+                awbRegions.weightedRegionCount == 0
+        }
+    }
 
     @Test
     fun futureCompletes_whenFocusMeteringStartedWithLongCancelDuration() = runBlocking {
         Assume.assumeTrue(
             "Not CameraX lab environment," +
                 " or lensFacing:${cameraSelector.lensFacing!!} camera is not enabled",
-            isLensFacingEnabledInLabTest(lensFacing = cameraSelector.lensFacing!!)
+            isLensFacingEnabledInLabTest(lensFacing = cameraSelector.lensFacing!!),
         )
 
         Assume.assumeTrue(
             "No AF/AE/AWB region available on this device!",
-            hasMeteringRegion(cameraSelector)
+            hasMeteringRegion(cameraSelector),
         )
 
-        val focusMeteringAction = FocusMeteringAction.Builder(validMeteringPoint)
-            .setAutoCancelDuration(5_000, TimeUnit.MILLISECONDS)
-            .build()
+        val focusMeteringAction =
+            FocusMeteringAction.Builder(validMeteringPoint)
+                .setAutoCancelDuration(5_000, TimeUnit.MILLISECONDS)
+                .build()
 
         val resultFuture = camera.cameraControl.startFocusAndMetering(focusMeteringAction)
 
@@ -322,19 +401,18 @@ class FocusMeteringDeviceTest(
         Assume.assumeTrue(
             "Not CameraX lab environment," +
                 " or lensFacing:${cameraSelector.lensFacing!!} camera is not enabled",
-            isLensFacingEnabledInLabTest(lensFacing = cameraSelector.lensFacing!!)
+            isLensFacingEnabledInLabTest(lensFacing = cameraSelector.lensFacing!!),
         )
 
         Assume.assumeTrue(
             "No AF region available on this device!",
-            hasMeteringRegion(cameraSelector, FLAG_AF)
+            hasMeteringRegion(cameraSelector, FLAG_AF),
         )
 
-        val focusMeteringAction = FocusMeteringAction.Builder(
-            validMeteringPoint,
-            FLAG_AF
-        ).setAutoCancelDuration(5_000, TimeUnit.MILLISECONDS)
-            .build()
+        val focusMeteringAction =
+            FocusMeteringAction.Builder(validMeteringPoint, FLAG_AF)
+                .setAutoCancelDuration(5_000, TimeUnit.MILLISECONDS)
+                .build()
 
         val resultFuture = camera.cameraControl.startFocusAndMetering(focusMeteringAction)
 
@@ -346,33 +424,46 @@ class FocusMeteringDeviceTest(
         Assume.assumeTrue(
             "Not CameraX lab environment," +
                 " or lensFacing:${cameraSelector.lensFacing!!} camera is not enabled",
-            isLensFacingEnabledInLabTest(lensFacing = cameraSelector.lensFacing!!)
+            isLensFacingEnabledInLabTest(lensFacing = cameraSelector.lensFacing!!),
         )
 
         Assume.assumeTrue(
             "No AE/AWB region available on this device!",
-            hasMeteringRegion(cameraSelector, FLAG_AE or FLAG_AWB)
+            hasMeteringRegion(cameraSelector, FLAG_AE or FLAG_AWB),
         )
 
-        val focusMeteringAction = FocusMeteringAction.Builder(
-            validMeteringPoint,
-            FLAG_AE or FLAG_AWB
-        ).setAutoCancelDuration(5_000, TimeUnit.MILLISECONDS)
-            .build()
+        val focusMeteringAction =
+            FocusMeteringAction.Builder(validMeteringPoint, FLAG_AE or FLAG_AWB)
+                .setAutoCancelDuration(5_000, TimeUnit.MILLISECONDS)
+                .build()
 
         val resultFuture = camera.cameraControl.startFocusAndMetering(focusMeteringAction)
 
         assertFutureCompletes(resultFuture)
     }
 
+    @Test
+    fun resultUpdated_whenExposureCompensationSet() = runBlocking {
+        val exposureState = cameraProvider.getCameraInfo(cameraSelector).exposureState
+        Assume.assumeTrue(exposureState.isExposureCompensationSupported)
+        val upper = exposureState.exposureCompensationRange.upper
+
+        // If the device is facing a scene that the exposure can't converge, the future may not be
+        // completed and the capture result may not change accordingly. So here doesn't wait for the
+        // future and check the capture request instead.
+        camera.cameraControl.setExposureCompensationIndex(upper)
+
+        captureCallback.verifyLastCaptureRequest(
+            mapOf(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION to upper)
+        )
+    }
+
     private fun hasMeteringRegion(
         selector: CameraSelector,
-        @FocusMeteringAction.MeteringMode flags: Int = FLAG_AF or FLAG_AE or FLAG_AWB
+        @FocusMeteringAction.MeteringMode flags: Int = FLAG_AF or FLAG_AE or FLAG_AWB,
     ): Boolean {
         return try {
-            val cameraCharacteristics = CameraUtil.getCameraCharacteristics(
-                selector.lensFacing!!
-            )
+            val cameraCharacteristics = CameraUtil.getCameraCharacteristics(selector.lensFacing!!)
             cameraCharacteristics?.run {
                 (if (flags.hasFlag(FLAG_AF)) (get(CONTROL_MAX_REGIONS_AF)!! > 0) else false) ||
                     (if (flags.hasFlag(FLAG_AE)) (get(CONTROL_MAX_REGIONS_AE)!! > 0) else false) ||
@@ -394,18 +485,25 @@ class FocusMeteringDeviceTest(
     }
 
     private fun <T> assertFutureFailsWithIllegalArgumentException(future: ListenableFuture<T>) {
-        Assert.assertThrows(ExecutionException::class.java) {
-            future[10, TimeUnit.SECONDS]
-        }.apply {
-            assertThat(cause).isInstanceOf(IllegalArgumentException::class.java)
-        }
+        Assert.assertThrows(ExecutionException::class.java) { future[10, TimeUnit.SECONDS] }
+            .apply { assertThat(cause).isInstanceOf(IllegalArgumentException::class.java) }
     }
 
     private fun <T> assertFutureFailsWithOperationCancellation(future: ListenableFuture<T>) {
-        Assert.assertThrows(ExecutionException::class.java) {
-            future[10, TimeUnit.SECONDS]
-        }.apply {
-            assertThat(cause).isInstanceOf(CameraControl.OperationCanceledException::class.java)
-        }
+        Assert.assertThrows(ExecutionException::class.java) { future[10, TimeUnit.SECONDS] }
+            .apply {
+                assertThat(cause).isInstanceOf(CameraControl.OperationCanceledException::class.java)
+            }
     }
+
+    private fun CameraCharacteristics.getMaxRegionCount(
+        optionMaxRegions: CameraCharacteristics.Key<Int>
+    ) = get(optionMaxRegions) ?: 0
+
+    private val Array<MeteringRectangle>.weightedRegionCount: Int
+        get() {
+            var count = 0
+            forEach { count += if (it.meteringWeight != 0) 1 else 0 }
+            return count
+        }
 }

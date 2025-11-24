@@ -16,7 +16,9 @@
 
 package androidx.core.telecom
 
+import android.annotation.SuppressLint
 import android.net.Uri
+import android.os.Build
 import android.telecom.PhoneAccountHandle
 import androidx.annotation.IntDef
 import androidx.annotation.RequiresApi
@@ -24,24 +26,38 @@ import androidx.annotation.RestrictTo
 import androidx.core.telecom.internal.utils.CallAttributesUtils
 import androidx.core.telecom.internal.utils.Utils
 import java.util.Objects
+import kotlin.jvm.JvmOverloads
 
 /**
- * CallAttributes represents a set of properties that define a new Call.  Applications should build
+ * CallAttributes represents a set of properties that define a new Call. Applications should build
  * an instance of this class and use [CallsManager.addCall] to start a new call with Telecom.
  *
- * @param displayName  Display name of the person on the other end of the call
- * @param address Address of the call. Note, this can be extended to a meeting link
+ * @param displayName Display name of the person on the other end of the call
+ * @param address Address of the call. Note, this can be extended to a meeting link or a custom
+ *   scheme. On sdks 26 & 27, the address should start with the "sip:" prefix (e.g
+ *   Uri.parse("sip:")), otherwise the address will be replaced with "sip:" + packageName.
  * @param direction The direction (Outgoing/Incoming) of the new Call
  * @param callType Information related to data being transmitted (voice, video, etc. )
- * @param callCapabilities Allows a package to opt into capabilities on the telecom side,
- *                         on a per-call basis
+ * @param callCapabilities Allows a package to opt into capabilities on the telecom side, on a
+ *   per-call basis
+ * @param preferredStartingCallEndpoint allows clients to specify a [CallEndpointCompat] to start a
+ *   new call on. The [preferredStartingCallEndpoint] should be a value returned from
+ *   [CallsManager.getAvailableStartingCallEndpoints]. Once the call is started, Core-Telecom will
+ *   switch to the [preferredStartingCallEndpoint] before running the [CallControlScope].
+ * @param isLogExcluded Whether this call should be excluded from the call log. This is only
+ *   applicable on sdks 36.1+. Pass null if the default platform behavior is desired or when running
+ *   on older versions.
  */
-class CallAttributesCompat constructor(
-    val displayName: CharSequence,
-    val address: Uri,
-    @Direction val direction: Int,
-    @CallType val callType: Int = CALL_TYPE_AUDIO_CALL,
-    @CallCapability val callCapabilities: Int = SUPPORTS_SET_INACTIVE
+public class CallAttributesCompat
+@JvmOverloads
+constructor(
+    public val displayName: CharSequence,
+    public val address: Uri,
+    @Direction public val direction: Int,
+    @CallType public val callType: Int = CALL_TYPE_AUDIO_CALL,
+    @CallCapability public val callCapabilities: Int = SUPPORTS_SET_INACTIVE,
+    public val preferredStartingCallEndpoint: CallEndpointCompat? = null,
+    @get:SuppressLint("AutoBoxing") public val isLogExcluded: Boolean? = null,
 ) {
     internal var mHandle: PhoneAccountHandle? = null
 
@@ -51,7 +67,9 @@ class CallAttributesCompat constructor(
             "address=[$address], " +
             "direction=[${directionToString()}], " +
             "callType=[${callTypeToString()}], " +
-            "capabilities=[${capabilitiesToString()}])"
+            "capabilities=[${capabilitiesToString()}, " +
+            "isLogExcluded=[$isLogExcluded]" +
+            ")"
     }
 
     override fun equals(other: Any?): Boolean {
@@ -60,86 +78,101 @@ class CallAttributesCompat constructor(
             address == other.address &&
             direction == other.direction &&
             callType == other.callType &&
-            callCapabilities == other.callCapabilities
+            callCapabilities == other.callCapabilities &&
+            isLogExcluded == other.isLogExcluded
     }
 
     override fun hashCode(): Int {
-        return Objects.hash(displayName, address, direction, callType, callCapabilities)
+        return Objects.hash(
+            displayName,
+            address,
+            direction,
+            callType,
+            callCapabilities,
+            isLogExcluded,
+        )
     }
 
-    companion object {
+    public companion object {
         @RestrictTo(RestrictTo.Scope.LIBRARY)
         @Retention(AnnotationRetention.SOURCE)
         @IntDef(DIRECTION_INCOMING, DIRECTION_OUTGOING)
         @Target(AnnotationTarget.TYPE, AnnotationTarget.PROPERTY, AnnotationTarget.VALUE_PARAMETER)
-        annotation class Direction
+        public annotation class Direction
 
-        /**
-         * Indicates that the call is an incoming call.
-         */
-        const val DIRECTION_INCOMING = 1
+        /** Indicates that the call is an incoming call. */
+        public const val DIRECTION_INCOMING: Int = 1
 
-        /**
-         * Indicates that the call is an outgoing call.
-         */
-        const val DIRECTION_OUTGOING = 2
+        /** Indicates that the call is an outgoing call. */
+        public const val DIRECTION_OUTGOING: Int = 2
 
         @RestrictTo(RestrictTo.Scope.LIBRARY)
         @Retention(AnnotationRetention.SOURCE)
         @IntDef(CALL_TYPE_AUDIO_CALL, CALL_TYPE_VIDEO_CALL)
         @Target(AnnotationTarget.TYPE, AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.PROPERTY)
-        annotation class CallType
+        public annotation class CallType
 
         /**
          * Used when answering or dialing a call to indicate that the call does not have a video
          * component
          */
-        const val CALL_TYPE_AUDIO_CALL = 1
+        public const val CALL_TYPE_AUDIO_CALL: Int = 1
 
-        /**
-         * Indicates video transmission is supported
-         */
-        const val CALL_TYPE_VIDEO_CALL = 2
+        /** Indicates video transmission is supported */
+        public const val CALL_TYPE_VIDEO_CALL: Int = 2
 
         @RestrictTo(RestrictTo.Scope.LIBRARY)
         @Retention(AnnotationRetention.SOURCE)
         @IntDef(SUPPORTS_SET_INACTIVE, SUPPORTS_STREAM, SUPPORTS_TRANSFER, flag = true)
         @Target(AnnotationTarget.TYPE, AnnotationTarget.PROPERTY, AnnotationTarget.VALUE_PARAMETER)
-        annotation class CallCapability
+        public annotation class CallCapability
 
         /**
-         * This call being created can be set to inactive (traditionally referred to as hold).  This
+         * This call being created can be set to inactive (traditionally referred to as hold). This
          * means that once a new call goes active, if the active call needs to be held in order to
-         * place or receive an incoming call, the active call will be placed on hold.  otherwise,
-         * the active call may be disconnected.
+         * place or receive an incoming call, the active call will be placed on hold. otherwise, the
+         * active call may be disconnected.
          */
-        const val SUPPORTS_SET_INACTIVE = 1 shl 1
+        public const val SUPPORTS_SET_INACTIVE: Int = 1 shl 1
 
         /**
          * This call can be streamed from a root device to another device to continue the call
          * without completely transferring it. The call continues to take place on the source
          * device, however media and control are streamed to another device.
          */
-        const val SUPPORTS_STREAM = 1 shl 2
+        public const val SUPPORTS_STREAM: Int = 1 shl 2
 
-        /**
-         * This call can be completely transferred from one endpoint to another.
-         */
-        const val SUPPORTS_TRANSFER = 1 shl 3
+        /** This call can be completely transferred from one endpoint to another. */
+        public const val SUPPORTS_TRANSFER: Int = 1 shl 3
     }
 
-    @RequiresApi(34)
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     internal fun toCallAttributes(
         phoneAccountHandle: PhoneAccountHandle
     ): android.telecom.CallAttributes {
-        return CallAttributesUtils.Api34PlusImpl.toTelecomCallAttributes(
-            phoneAccountHandle,
-            direction,
-            displayName,
-            address,
-            callType,
-            callCapabilities
-        )
+        return if (
+            isLogExcluded != null &&
+                Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1
+        ) {
+            CallAttributesUtils.Api36Point1PlusImpl.toTelecomCallAttributes(
+                phoneAccountHandle,
+                direction,
+                displayName,
+                address,
+                callType,
+                callCapabilities,
+                isLogExcluded,
+            )
+        } else {
+            CallAttributesUtils.Api34PlusImpl.toTelecomCallAttributes(
+                phoneAccountHandle,
+                direction,
+                displayName,
+                address,
+                callType,
+                callCapabilities,
+            )
+        }
     }
 
     private fun directionToString(): String {

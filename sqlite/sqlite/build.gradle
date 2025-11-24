@@ -22,30 +22,33 @@
  * modifying its settings.
  */
 
+
+import androidx.build.KotlinTarget
 import androidx.build.PlatformIdentifier
-import androidx.build.Publish
+import androidx.build.SoftwareType
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 
 plugins {
     id("AndroidXPlugin")
-    id("com.android.library")
 }
 
-
 androidXMultiplatform {
-    android()
+    androidLibrary {
+        namespace = "androidx.sqlite.db"
+    }
     ios()
     jvm()
     linux()
     mac()
+    tvos()
+    watchos()
 
     defaultPlatform(PlatformIdentifier.ANDROID)
 
     sourceSets {
         commonMain {
             dependencies {
-                implementation(libs.kotlinStdlib)
-                api(project(":annotation:annotation"))
+                api("androidx.annotation:annotation:1.9.1")
             }
         }
         commonTest {
@@ -56,7 +59,7 @@ androidXMultiplatform {
         androidMain {
             dependsOn(commonMain)
         }
-        androidUnitTest {
+        androidHostTest {
             dependsOn(commonTest)
             dependencies {
                 implementation(libs.junit)
@@ -70,7 +73,7 @@ androidXMultiplatform {
         nativeMain {
             dependsOn(commonMain)
         }
-        targets.all { target ->
+        targets.configureEach { target ->
             if (target.platformType == KotlinPlatformType.native) {
                 def main = target.compilations["main"]
                 main.defaultSourceSet {
@@ -81,14 +84,10 @@ androidXMultiplatform {
     }
 }
 
-android {
-    namespace "androidx.sqlite.db"
-}
-
 androidx {
     name = "SQLite"
-    publish = Publish.SNAPSHOT_AND_RELEASE
+    type = SoftwareType.PUBLISHED_LIBRARY
     inceptionYear = "2017"
     description = "SQLite API"
-    metalavaK2UastEnabled = true
+    kotlinTarget = KotlinTarget.KOTLIN_2_1
 }

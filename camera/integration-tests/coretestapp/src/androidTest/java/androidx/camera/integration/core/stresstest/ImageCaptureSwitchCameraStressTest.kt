@@ -26,7 +26,6 @@ import androidx.camera.integration.core.util.StressTestUtil.VERIFICATION_TARGET_
 import androidx.camera.integration.core.util.StressTestUtil.assumeCameraSupportUseCaseCombination
 import androidx.camera.testing.impl.LabTestRule
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.testutils.RepeatRule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,12 +33,9 @@ import org.junit.runners.Parameterized
 
 @LargeTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
-class ImageCaptureSwitchCameraStressTest constructor(
-    implName: String,
-    cameraConfig: CameraXConfig,
-    cameraId: String
-) : SwitchCameraStressTestBase(implName, cameraConfig, cameraId) {
+class ImageCaptureSwitchCameraStressTest
+constructor(implName: String, cameraConfig: CameraXConfig, cameraId: String) :
+    SwitchCameraStressTestBase(implName, cameraConfig, cameraId) {
     @LabTestRule.LabTestOnly
     @Test
     @RepeatRule.Repeat(times = LARGE_STRESS_TEST_REPEAT_COUNT)
@@ -48,7 +44,7 @@ class ImageCaptureSwitchCameraStressTest constructor(
         switchCamera_checkOutput_repeatedly(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_IMAGE_CAPTURE
+            VERIFICATION_TARGET_IMAGE_CAPTURE,
         )
     }
 
@@ -61,7 +57,7 @@ class ImageCaptureSwitchCameraStressTest constructor(
         switchCamera_checkOutput_repeatedly(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_IMAGE_CAPTURE
+            VERIFICATION_TARGET_IMAGE_CAPTURE,
         )
     }
 
@@ -74,7 +70,7 @@ class ImageCaptureSwitchCameraStressTest constructor(
         switchCamera_checkOutput_repeatedly(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_IMAGE_CAPTURE
+            VERIFICATION_TARGET_IMAGE_CAPTURE,
         )
     }
 
@@ -86,7 +82,7 @@ class ImageCaptureSwitchCameraStressTest constructor(
         switchCamera_repeatedly_thenCheckOutput(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_IMAGE_CAPTURE
+            VERIFICATION_TARGET_IMAGE_CAPTURE,
         )
     }
 
@@ -99,7 +95,7 @@ class ImageCaptureSwitchCameraStressTest constructor(
         switchCamera_repeatedly_thenCheckOutput(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_IMAGE_CAPTURE
+            VERIFICATION_TARGET_IMAGE_CAPTURE,
         )
     }
 
@@ -112,7 +108,7 @@ class ImageCaptureSwitchCameraStressTest constructor(
         switchCamera_repeatedly_thenCheckOutput(
             cameraId,
             useCaseCombination,
-            VERIFICATION_TARGET_IMAGE_CAPTURE
+            VERIFICATION_TARGET_IMAGE_CAPTURE,
         )
     }
 }

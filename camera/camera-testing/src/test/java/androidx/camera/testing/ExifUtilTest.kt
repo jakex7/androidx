@@ -16,7 +16,6 @@
 
 package androidx.camera.testing
 
-import android.os.Build
 import androidx.camera.core.impl.utils.Exif.createFromInputStream
 import androidx.camera.testing.impl.ExifUtil.updateExif
 import androidx.camera.testing.impl.TestImageUtil.createJpegBytes
@@ -28,12 +27,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
 
-/**
- * Unit tests for [ExifUtil]
- */
+/** Unit tests for [ExifUtil] */
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class ExifUtilTest {
 
     companion object {
@@ -45,9 +42,7 @@ class ExifUtilTest {
         // Arrange: create a JPEG file.
         val jpeg = createJpegBytes(640, 480)
         // Act: update the description tag.
-        val jpegWithExif = updateExif(jpeg) {
-            it.description = DESCRIPTION
-        }
+        val jpegWithExif = updateExif(jpeg) { it.description = DESCRIPTION }
         // Assert: the description tag has been updated.
         val exif = createFromInputStream(ByteArrayInputStream(jpegWithExif))
         assertThat(exif.description).isEqualTo(DESCRIPTION)

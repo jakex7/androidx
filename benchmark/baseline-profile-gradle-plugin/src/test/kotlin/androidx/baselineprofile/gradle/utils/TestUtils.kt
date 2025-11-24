@@ -18,10 +18,12 @@ package androidx.baselineprofile.gradle.utils
 
 import com.google.common.truth.StringSubject
 import com.google.common.truth.Truth.assertThat
-import org.gradle.configurationcache.extensions.capitalized
+import java.io.File
+import kotlin.io.path.Path
 import org.gradle.testkit.runner.GradleRunner
 
-internal val GRADLE_CODE_PRINT_TASK = """
+internal val GRADLE_CODE_PRINT_TASK =
+    """
     abstract class DisplaySourceSets extends DefaultTask {
         @Input abstract ListProperty<Directory> getSrcs()
         @TaskAction void exec() {
@@ -42,37 +44,32 @@ internal val GRADLE_CODE_PRINT_TASK = """
         println("agpVersion=" + agpVersion)
     }
 
-    """.trimIndent()
+    """
+        .trimIndent()
 
-internal fun GradleRunner.build(vararg arguments: String, block: (String) -> (Unit)) = this
-    .withArguments(*arguments, "--stacktrace")
-    .build()
-    .output
-    .also(block)
+internal fun GradleRunner.build(vararg arguments: String, block: (String) -> (Unit)) =
+    this.withArguments(*arguments, "--stacktrace").build().output.also(block)
 
-internal fun GradleRunner.buildAndFail(vararg arguments: String, block: (String) -> (Unit)) = this
-    .withArguments(*arguments, "--stacktrace")
-    .buildAndFail()
-    .output
-    .also(block)
+internal fun GradleRunner.buildAndFail(vararg arguments: String, block: (String) -> (Unit)) =
+    this.withArguments(*arguments, "--stacktrace").buildAndFail().output.also(block)
 
 internal fun GradleRunner.buildAndAssertThatOutput(
     vararg arguments: String,
-    assertBlock: StringSubject.() -> (Unit)
+    assertBlock: StringSubject.() -> (Unit),
 ) {
     this.build(*arguments) { assertBlock(assertThat(it)) }
 }
 
 internal fun GradleRunner.buildAndFailAndAssertThatOutput(
     vararg arguments: String,
-    assertBlock: StringSubject.() -> (Unit)
+    assertBlock: StringSubject.() -> (Unit),
 ) {
     this.buildAndFail(*arguments) { assertBlock(assertThat(it)) }
 }
 
 internal fun List<String>.requireInOrder(
     vararg toFind: String,
-    predicate: (String, String) -> (Boolean) = { line, nextToFind -> line.startsWith(nextToFind) }
+    predicate: (String, String) -> (Boolean) = { line, nextToFind -> line.startsWith(nextToFind) },
 ): List<String> {
     var remaining = toFind.filter { it.isNotBlank() }.toMutableList()
     for (line in this) {
@@ -100,13 +97,20 @@ internal fun List<String>.require(
     return remaining
 }
 
+internal fun List<String>.containsOnly(vararg strings: String): Boolean =
+    toSet().union(setOf(*strings)).size == this.size
+
 fun camelCase(vararg strings: String): String {
     if (strings.isEmpty()) return ""
-    return StringBuilder().apply {
-        var shouldCapitalize = false
-        for (str in strings.filter { it.isNotBlank() }) {
-            append(if (shouldCapitalize) str.capitalized() else str)
-            shouldCapitalize = true
+    return StringBuilder()
+        .apply {
+            var shouldCapitalize = false
+            for (str in strings.filter { it.isNotBlank() }) {
+                append(if (shouldCapitalize) str.capitalized() else str)
+                shouldCapitalize = true
+            }
         }
-    }.toString()
+        .toString()
 }
+
+fun File.toUri() = Path(canonicalPath).toUri()

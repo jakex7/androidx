@@ -39,6 +39,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class GlanceAppWidgetStateTest {
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
@@ -49,7 +50,7 @@ class GlanceAppWidgetStateTest {
             GlanceState.deleteStore(
                 context,
                 PreferencesGlanceStateDefinition,
-                createUniqueRemoteUiName(appWidgetId.appWidgetId)
+                createUniqueRemoteUiName(appWidgetId.appWidgetId),
             )
         }
     }
@@ -68,9 +69,7 @@ class GlanceAppWidgetStateTest {
     @Test
     fun getAppWidgetState_default_shouldReturnEmptyState() {
         val appWidget = GlanceAppWidgetProviderPreferencesState()
-        val result = runBlocking {
-            appWidget.getAppWidgetState<Preferences>(context, appWidgetId)
-        }
+        val result = runBlocking { appWidget.getAppWidgetState<Preferences>(context, appWidgetId) }
         assertThat(result).isEqualTo(emptyPreferences())
     }
 
@@ -79,9 +78,7 @@ class GlanceAppWidgetStateTest {
         val key = intPreferencesKey("int_key")
         val appWidget = GlanceAppWidgetProviderPreferencesState()
         val storedPrefs = runBlocking {
-            updateAppWidgetState(context, appWidgetId) {
-                it[key] = 1
-            }
+            updateAppWidgetState(context, appWidgetId) { it[key] = 1 }
             appWidget.getAppWidgetState<Preferences>(context, appWidgetId)
         }
         assertThat(storedPrefs).isEqualTo(preferencesOf(key to 1))
@@ -90,19 +87,13 @@ class GlanceAppWidgetStateTest {
     class GlanceAppWidgetProviderWithoutState : GlanceAppWidget() {
         override val stateDefinition: GlanceStateDefinition<*>? = null
 
-        override suspend fun provideGlance(
-            context: Context,
-            id: GlanceId
-        ) {
+        override suspend fun provideGlance(context: Context, id: GlanceId) {
             provideContent {}
         }
     }
 
     class GlanceAppWidgetProviderPreferencesState : GlanceAppWidget() {
-        override suspend fun provideGlance(
-            context: Context,
-            id: GlanceId
-        ) {
+        override suspend fun provideGlance(context: Context, id: GlanceId) {
             provideContent {}
         }
     }

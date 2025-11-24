@@ -27,17 +27,17 @@ import org.junit.runner.RunWith
 
 @SmallTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 21)
 class ExifUtilDeviceTest {
 
     companion object {
         private const val WIDTH = 640
         private const val HEIGHT = 480
-        private val EXIF_GAINMAP_PATTERNS = listOf(
-            "xmlns:hdrgm=\"http://ns.adobe.com/hdr-gain-map/",
-            "hdrgm:Version=",
-            "Item:Semantic=\"GainMap\"",
-        )
+        private val EXIF_GAINMAP_PATTERNS =
+            listOf(
+                "xmlns:hdrgm=\"http://ns.adobe.com/hdr-gain-map/",
+                "hdrgm:Version=",
+                "Item:Semantic=\"GainMap\"",
+            )
     }
 
     @SdkSuppress(minSdkVersion = 34)

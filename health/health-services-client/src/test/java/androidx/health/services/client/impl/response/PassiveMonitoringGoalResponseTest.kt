@@ -26,12 +26,15 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class PassiveMonitoringGoalResponseTest {
     @Test
     fun protoRoundTrip() {
-        val proto = PassiveMonitoringGoalResponse(
-            PassiveGoal(DataTypeCondition(STEPS_DAILY, 1000, ComparisonType.GREATER_THAN))
-        ).proto
+        val proto =
+            PassiveMonitoringGoalResponse(
+                    PassiveGoal(DataTypeCondition(STEPS_DAILY, 1000, ComparisonType.GREATER_THAN))
+                )
+                .proto
 
         val response = PassiveMonitoringGoalResponse(proto)
 

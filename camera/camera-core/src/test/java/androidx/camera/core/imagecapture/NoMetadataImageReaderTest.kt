@@ -15,7 +15,6 @@
  */
 package androidx.camera.core.imagecapture
 
-import android.os.Build
 import android.util.Pair
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.imagecapture.Utils.createProcessingRequest
@@ -31,12 +30,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
 
-/**
- * Unit tests for [NoMetadataImageReader].
- */
+/** Unit tests for [NoMetadataImageReader]. */
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class NoMetadataImageReaderTest {
     @Test
     fun acquireLatestImage_receiveImageWithTimestamp() {
@@ -56,10 +53,8 @@ class NoMetadataImageReaderTest {
         val noMetadataImageReader = NoMetadataImageReader(fakeImageReader)
         var image: ImageProxy? = null
         noMetadataImageReader.setOnImageAvailableListener(
-            { imageReader ->
-                image = getImageProxy(imageReader)
-            },
-            directExecutor()
+            { imageReader -> image = getImageProxy(imageReader) },
+            directExecutor(),
         )
         noMetadataImageReader.acceptProcessingRequest(createProcessingRequest())
         // Act: trigger the image available callback.

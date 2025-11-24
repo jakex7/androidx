@@ -71,7 +71,7 @@ private const val TAG = "ImageCaptureScreen"
 fun ImageCaptureScreen(
     modifier: Modifier = Modifier,
     state: ImageCaptureScreenState = rememberImageCaptureScreenState(),
-    onStreamStateChange: (PreviewView.StreamState) -> Unit = {}
+    onStreamStateChange: (PreviewView.StreamState) -> Unit = {},
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val localContext = LocalContext.current
@@ -90,14 +90,12 @@ fun ImageCaptureScreen(
         flashModeIcon = state.flashModeIcon,
         onFlashModeIconClicked = state::toggleFlashMode,
         onFlipCameraIconClicked = state::toggleLensFacing,
-        onImageCaptureIconClicked = {
-            state.takePhoto(localContext)
-        },
+        onImageCaptureIconClicked = { state.takePhoto(localContext) },
         onSurfaceProviderReady = state::setSurfaceProvider,
         onOutputTransformReady = state::setOutputTransform,
         onTouch = state::startTapToFocus,
         onStreamStateChange = onStreamStateChange,
-        onDispose = state::releaseResources
+        onDispose = state::releaseResources,
     ) {
         // Uses overlay to draw detected QRCode in the image stream
         QRCodeOverlay(qrCodeBoundingBox = state.qrCodeBoundingBox)
@@ -123,15 +121,13 @@ fun ImageCaptureScreen(
     onTouch: (MeteringPoint) -> Unit,
     onStreamStateChange: (PreviewView.StreamState) -> Unit = {},
     onDispose: () -> Unit = {},
-    content: @Composable () -> Unit = {} // overlay to display something above PreviewView
+    content: @Composable () -> Unit = {}, // overlay to display something above PreviewView
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val localContext = LocalContext.current
 
     val streamStateObserver = remember {
-        Observer<PreviewView.StreamState> { state ->
-            onStreamStateChange(state)
-        }
+        Observer<PreviewView.StreamState> { state -> onStreamStateChange(state) }
     }
 
     // Saving an instance of PreviewView outside of AndroidView
@@ -140,10 +136,11 @@ fun ImageCaptureScreen(
     // This instance needs to be carefully used in controlled environments (e.g. LaunchedEffect)
     val previewView = remember {
         PreviewView(localContext).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            layoutParams =
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
 
             // Uses TextureView. Required by MLKitAnalyzer to acquire the correct OutputTransform
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
@@ -186,36 +183,29 @@ fun ImageCaptureScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { previewView }
-        )
+        AndroidView(factory = { previewView })
 
         // Overlay over PreviewView in ImageCaptureScreen
         content()
 
         Column(
             modifier = Modifier.align(Alignment.BottomCenter),
-            verticalArrangement = Arrangement.Bottom
+            verticalArrangement = Arrangement.Bottom,
         ) {
 
             // Display Zoom Slider only when Camera is ready
             if (isCameraReady) {
                 Row(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(modifier = Modifier.weight(1f)) {
-                        Slider(
-                            value = linearZoom,
-                            onValueChange = onLinearZoomChange
-                        )
+                        Slider(value = linearZoom, onValueChange = onLinearZoomChange)
                     }
 
                     Text(
                         text = "%.2f x".format(zoomRatio),
-                        modifier = Modifier
-                            .padding(horizontal = 10.dp)
-                            .background(Color.White)
+                        modifier = Modifier.padding(horizontal = 10.dp).background(Color.White),
                     )
                 }
             }
@@ -224,26 +214,26 @@ fun ImageCaptureScreen(
                 CameraControlButton(
                     imageVector = Icons.Sharp.FlipCameraAndroid,
                     contentDescription = "Toggle Camera Lens",
-                    onClick = onFlipCameraIconClicked
+                    onClick = onFlipCameraIconClicked,
                 )
 
                 CameraControlButton(
                     imageVector = Icons.Sharp.Lens,
                     contentDescription = "Image Capture",
-                    modifier = Modifier
-                        .padding(1.dp)
-                        .border(1.dp, MaterialTheme.colors.onSecondary, CircleShape),
-                    onClick = onImageCaptureIconClicked
+                    modifier =
+                        Modifier.padding(1.dp)
+                            .border(1.dp, MaterialTheme.colors.onSecondary, CircleShape),
+                    onClick = onImageCaptureIconClicked,
                 )
 
                 if (hasFlashUnit) {
                     CameraControlButton(
                         imageVector = flashModeIcon,
                         contentDescription = "Toggle Flash Mode",
-                        modifier = Modifier
-                            .padding(1.dp)
-                            .border(1.dp, MaterialTheme.colors.onSecondary, RectangleShape),
-                        onClick = onFlashModeIconClicked
+                        modifier =
+                            Modifier.padding(1.dp)
+                                .border(1.dp, MaterialTheme.colors.onSecondary, RectangleShape),
+                        onClick = onFlashModeIconClicked,
                     )
                 } else {
                     CameraControlButtonPlaceholder()
@@ -261,17 +251,10 @@ fun QRCodeOverlay(qrCodeBoundingBox: Rect?) {
         if (qrCodeBoundingBox != null) {
             drawRect(
                 color = Color.Red,
-                topLeft = Offset(
-                    qrCodeBoundingBox.left.toFloat(),
-                    qrCodeBoundingBox.top.toFloat()
-                ),
-                size = Size(
-                    qrCodeBoundingBox.width().toFloat(),
-                    qrCodeBoundingBox.height().toFloat()
-                ),
-                style = Stroke(
-                    width = 5.0f
-                )
+                topLeft = Offset(qrCodeBoundingBox.left.toFloat(), qrCodeBoundingBox.top.toFloat()),
+                size =
+                    Size(qrCodeBoundingBox.width().toFloat(), qrCodeBoundingBox.height().toFloat()),
+                style = Stroke(width = 5.0f),
             )
         }
     }

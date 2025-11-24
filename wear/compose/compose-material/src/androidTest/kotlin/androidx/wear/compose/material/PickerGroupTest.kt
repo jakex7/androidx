@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,8 +40,7 @@ import org.junit.runner.RunWith
 @LargeTest
 @RunWith(AndroidJUnit4::class)
 class PickerGroupTest {
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     fun supports_test_tag() {
@@ -48,7 +48,7 @@ class PickerGroupTest {
             PickerGroup(
                 pickers = getPickerColumns(1),
                 modifier = Modifier.testTag(TEST_TAG_1),
-                pickerGroupState = rememberPickerGroupState()
+                pickerGroupState = rememberPickerGroupState(),
             )
         }
 
@@ -62,9 +62,8 @@ class PickerGroupTest {
         rule.setContentWithTheme {
             PickerGroup(
                 pickers = getPickerColumns(2),
-                pickerGroupState = rememberPickerGroupState(initiallySelectedColumn).also {
-                    pickerGroupState = it
-                }
+                pickerGroupState =
+                    rememberPickerGroupState(initiallySelectedColumn).also { pickerGroupState = it },
             )
         }
 
@@ -87,14 +86,13 @@ class PickerGroupTest {
 
         rule.onNodeWithText("2").assertExists()
     }
+
     @Test
     fun pickers_are_added_to_picker_group() {
         val pickerColumnZero = getPickerColumnWithTag(TEST_TAG_1)
         val pickerColumnOne = getPickerColumnWithTag(TEST_TAG_2)
 
-        rule.setContentWithTheme {
-            PickerGroup(pickerColumnZero, pickerColumnOne)
-        }
+        rule.setContentWithTheme { PickerGroup(pickerColumnZero, pickerColumnOne) }
 
         rule.onNodeWithTag(TEST_TAG_1).assertExists()
         rule.onNodeWithTag(TEST_TAG_2).assertExists()
@@ -114,7 +112,7 @@ class PickerGroupTest {
                 pickerColumnZero,
                 pickerColumnOne,
                 pickerGroupState = pickerGroupState,
-                touchExplorationStateProvider = touchExplorationStateProvider
+                touchExplorationStateProvider = touchExplorationStateProvider,
             )
         }
 
@@ -124,20 +122,18 @@ class PickerGroupTest {
         assertThat(pickerGroupState.selectedIndex).isEqualTo(1)
     }
 
-    private fun getPickerColumns(count: Int): Array<PickerGroupItem> = Array(count) {
-        PickerGroupItem(pickerState = PickerState(10)) { _: Int, _: Boolean ->
-            Box(modifier = Modifier.size(20.dp))
+    private fun getPickerColumns(count: Int): Array<PickerGroupItem> =
+        Array(count) {
+            PickerGroupItem(pickerState = PickerState(10)) { _: Int, _: Boolean ->
+                Box(modifier = Modifier.size(20.dp))
+            }
         }
-    }
 
-    private fun getPickerColumnWithTag(
-        tag: String,
-        onSelected: () -> Unit = {}
-    ): PickerGroupItem {
+    private fun getPickerColumnWithTag(tag: String, onSelected: () -> Unit = {}): PickerGroupItem {
         return PickerGroupItem(
             pickerState = PickerState(10),
             modifier = Modifier.testTag(tag),
-            onSelected = onSelected
+            onSelected = onSelected,
         ) { _: Int, _: Boolean ->
             Box(modifier = Modifier.size(20.dp))
         }

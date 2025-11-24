@@ -35,6 +35,7 @@ import androidx.camera.integration.extensions.IntentExtraKey.INTENT_EXTRA_KEY_TE
 import androidx.camera.integration.extensions.R
 import androidx.camera.integration.extensions.TestResultType.TEST_RESULT_NOT_SUPPORTED
 import androidx.camera.integration.extensions.validation.CameraValidationResultActivity.Companion.getLensFacingStringFromInt
+import androidx.camera.testing.impl.util.EdgeToEdgeUtil
 import androidx.core.app.ActivityCompat
 
 /**
@@ -58,6 +59,11 @@ class ExtensionValidationResultActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.full_listview)
 
+        EdgeToEdgeUtil.enableEdgeToEdge(
+            activity = this,
+            viewIdsTopPaddingRequired = listOf(R.id.full_listview_root),
+        )
+
         testResults = TestResults.getInstance(this)
 
         testType = intent.getStringExtra(INTENT_EXTRA_KEY_TEST_TYPE)!!
@@ -72,11 +78,12 @@ class ExtensionValidationResultActivity : AppCompatActivity() {
         val requestCode = intent.getIntExtra(INTENT_EXTRA_KEY_REQUEST_CODE, -1)
         setResult(requestCode, result)
 
-        supportActionBar?.title = if (testType == TEST_TYPE_CAMERAX_EXTENSION) {
-            resources.getString(R.string.camerax_extensions_validator)
-        } else {
-            resources.getString(R.string.camera2_extensions_validator)
-        }
+        supportActionBar?.title =
+            if (testType == TEST_TYPE_CAMERAX_EXTENSION) {
+                resources.getString(R.string.camerax_extensions_validator)
+            } else {
+                resources.getString(R.string.camera2_extensions_validator)
+            }
         supportActionBar!!.subtitle = "Camera $cameraId [${getLensFacingStringFromInt(lensFacing)}]"
 
         val layoutInflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
@@ -87,8 +94,10 @@ class ExtensionValidationResultActivity : AppCompatActivity() {
 
         listView.onItemClickListener =
             AdapterView.OnItemClickListener { _, _, position, _ ->
-                if (extensionTestResultMap.values.elementAt(position).first ==
-                    TEST_RESULT_NOT_SUPPORTED) {
+                if (
+                    extensionTestResultMap.values.elementAt(position).first ==
+                        TEST_RESULT_NOT_SUPPORTED
+                ) {
                     Toast.makeText(this, "Not supported!", Toast.LENGTH_SHORT).show()
                     return@OnItemClickListener
                 }
@@ -96,7 +105,7 @@ class ExtensionValidationResultActivity : AppCompatActivity() {
                 startCaptureValidationActivity(
                     testType,
                     cameraId,
-                    extensionTestResultMap.keys.elementAt(position)
+                    extensionTestResultMap.keys.elementAt(position),
                 )
             }
     }
@@ -125,7 +134,7 @@ class ExtensionValidationResultActivity : AppCompatActivity() {
             this,
             intent,
             imageValidationActivityRequestCode,
-            null
+            null,
         )
     }
 }

@@ -24,6 +24,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class UpdateExerciseTypeConfigRequestTest {
     @Test
     fun parcelableRoundTrip() {
@@ -31,9 +32,9 @@ class UpdateExerciseTypeConfigRequestTest {
             UpdateExerciseTypeConfigRequest(
                 "package",
                 GolfExerciseTypeConfig(
-                    GolfExerciseTypeConfig
-                        .GolfShotTrackingPlaceInfo.GOLF_SHOT_TRACKING_PLACE_INFO_TEE_BOX
-                )
+                    GolfExerciseTypeConfig.GolfShotTrackingPlaceInfo
+                        .GOLF_SHOT_TRACKING_PLACE_INFO_TEE_BOX
+                ),
             )
         val parcel = Parcel.obtain()
 

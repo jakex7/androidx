@@ -18,16 +18,16 @@ package androidx.wear.activity {
 package androidx.wear.ambient {
 
   public interface AmbientLifecycleObserver extends androidx.lifecycle.DefaultLifecycleObserver {
-    method public boolean isAmbient();
+    method @InaccessibleFromKotlin public boolean isAmbient();
     property public abstract boolean isAmbient;
   }
 
   public static final class AmbientLifecycleObserver.AmbientDetails {
     ctor public AmbientLifecycleObserver.AmbientDetails(boolean burnInProtectionRequired, boolean deviceHasLowBitAmbient);
-    method public boolean getBurnInProtectionRequired();
-    method public boolean getDeviceHasLowBitAmbient();
-    property public final boolean burnInProtectionRequired;
-    property public final boolean deviceHasLowBitAmbient;
+    method @InaccessibleFromKotlin public boolean getBurnInProtectionRequired();
+    method @InaccessibleFromKotlin public boolean getDeviceHasLowBitAmbient();
+    property public boolean burnInProtectionRequired;
+    property public boolean deviceHasLowBitAmbient;
   }
 
   public static interface AmbientLifecycleObserver.AmbientLifecycleCallback {

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package androidx.privacysandbox.activity.provider
 
@@ -63,8 +64,7 @@ class SdkActivityLauncherBundlingTest {
 
         var tokensReceived = mutableListOf<IBinder>()
 
-        override suspend fun launchSdkActivity(sdkActivityHandlerToken: IBinder):
-            Boolean {
+        override suspend fun launchSdkActivity(sdkActivityHandlerToken: IBinder): Boolean {
             tokensReceived.add(sdkActivityHandlerToken)
             return allowActivityLaunches
         }

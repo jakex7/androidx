@@ -19,15 +19,13 @@ package androidx.camera.video.internal.utils;
 import android.util.Range;
 import android.util.Size;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.camera.core.impl.EncoderProfilesProxy;
-import androidx.camera.video.VideoSpec;
 import androidx.camera.video.internal.config.VideoConfigUtil;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 /** Utility class for encoder profiles related operations. */
-@RequiresApi(21)
 public class EncoderProfilesUtil {
 
     private EncoderProfilesUtil() {
@@ -42,24 +40,22 @@ public class EncoderProfilesUtil {
      * @param baseVideoProfile    the VideoProfile to derive.
      * @param newResolution       the new resolution.
      * @param bitrateRangeToClamp the bitrate range to clamp. This is usually the supported
-     *                            bitrate range of the target codec. Set
-     *                            {@link VideoSpec#BITRATE_RANGE_AUTO} as no clamp required.
+     *                            bitrate range of the target codec.
      * @return a derived VideoProfile.
      */
-    @NonNull
-    public static EncoderProfilesProxy.VideoProfileProxy deriveVideoProfile(
-            @NonNull EncoderProfilesProxy.VideoProfileProxy baseVideoProfile,
+    public static EncoderProfilesProxy.@NonNull VideoProfileProxy deriveVideoProfile(
+            EncoderProfilesProxy.@NonNull VideoProfileProxy baseVideoProfile,
             @NonNull Size newResolution,
             @NonNull Range<Integer> bitrateRangeToClamp) {
 
         // "Guess" bit rate.
-        int derivedBitrate = VideoConfigUtil.scaleAndClampBitrate(
+        int derivedBitrate = VideoConfigUtil.scaleBitrate(
                 baseVideoProfile.getBitrate(),
                 baseVideoProfile.getBitDepth(), baseVideoProfile.getBitDepth(),
                 baseVideoProfile.getFrameRate(), baseVideoProfile.getFrameRate(),
                 newResolution.getWidth(), baseVideoProfile.getWidth(),
-                newResolution.getHeight(), baseVideoProfile.getHeight(),
-                bitrateRangeToClamp);
+                newResolution.getHeight(), baseVideoProfile.getHeight());
+        derivedBitrate = bitrateRangeToClamp.clamp(derivedBitrate);
 
         return EncoderProfilesProxy.VideoProfileProxy.create(
                 baseVideoProfile.getCodec(),
@@ -79,8 +75,7 @@ public class EncoderProfilesUtil {
      * Gets the first VideoProfile from the given EncoderProfileProxy. Returns null if
      * encoderProfiles is null or there is no VideoProfile.
      */
-    @Nullable
-    public static EncoderProfilesProxy.VideoProfileProxy getFirstVideoProfile(
+    public static EncoderProfilesProxy.@Nullable VideoProfileProxy getFirstVideoProfile(
             @Nullable EncoderProfilesProxy encoderProfiles) {
         if (encoderProfiles != null && !encoderProfiles.getVideoProfiles().isEmpty()) {
             return encoderProfiles.getVideoProfiles().get(0);

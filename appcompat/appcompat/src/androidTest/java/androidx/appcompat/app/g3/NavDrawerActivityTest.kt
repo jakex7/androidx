@@ -17,7 +17,6 @@
 package androidx.appcompat.app.g3
 
 import android.content.Intent
-import android.os.Build
 import androidx.appcompat.app.NightModeActivity
 import androidx.appcompat.test.R
 import androidx.lifecycle.Lifecycle
@@ -29,7 +28,7 @@ import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.testutils.LifecycleOwnerUtils.waitUntilState
+import androidx.testutils.lifecycle.LifecycleOwnerUtils.waitUntilState
 import com.google.common.truth.Truth.assertThat
 import org.junit.After
 import org.junit.Before
@@ -37,9 +36,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Regression test for b/235567649, adapted from Translate's own tests.
- */
+/** Regression test for b/235567649, adapted from Translate's own tests. */
 @LargeTest
 @RunWith(AndroidJUnit4::class)
 class NavDrawerActivityTest {
@@ -47,11 +44,12 @@ class NavDrawerActivityTest {
 
     @Suppress("DEPRECATION")
     @get:Rule
-    val activityTestRule = androidx.test.rule.ActivityTestRule(
-        OldTranslateActivity::class.java,
-        /* initialTouchMode = */ false,
-        /* launchActivity = */ false
-    )
+    val activityTestRule =
+        androidx.test.rule.ActivityTestRule(
+            OldTranslateActivity::class.java,
+            /* initialTouchMode = */ false,
+            /* launchActivity = */ false,
+        )
 
     private lateinit var activity: OldTranslateActivity
     private lateinit var originalScreenOrientation: AndroidTestUtil.ScreenOrientation
@@ -82,7 +80,7 @@ class NavDrawerActivityTest {
         // Rotate the screen.
         UITestUtils.rotateScreen(
             InstrumentationRegistry.getInstrumentation(),
-            originalScreenOrientation
+            originalScreenOrientation,
         )
 
         // Close the top activity.
@@ -102,9 +100,6 @@ class NavDrawerActivityTest {
     }
 
     private fun verifyPressBackAndExitAfterRotation() {
-        // On 5.1, back button doesn't exit the app, appears to be an emulator quirk.
-        if (Build.VERSION.SDK_INT != Build.VERSION_CODES.LOLLIPOP_MR1) {
-            assertThat(UITestUtils.verifyPressBackAndExit()).isTrue()
-        }
+        assertThat(UITestUtils.verifyPressBackAndExit()).isTrue()
     }
 }

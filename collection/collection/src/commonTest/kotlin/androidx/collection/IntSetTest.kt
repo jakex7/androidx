@@ -15,6 +15,7 @@
  */
 package androidx.collection
 
+import kotlin.js.JsName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -31,6 +32,7 @@ import kotlin.test.assertTrue
 // to ensure the change is available on all versions of the map.
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+@Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD")
 class IntSetTest {
     @Test
     fun emptyIntSetConstructor() {
@@ -82,9 +84,7 @@ class IntSetTest {
         assertEquals(2, set.size)
         val elements = IntArray(2)
         var index = 0
-        set.forEach { element ->
-            elements[index++] = element
-        }
+        set.forEach { element -> elements[index++] = element }
         elements.sort()
         assertEquals(1, elements[0])
         assertEquals(2, elements[1])
@@ -305,9 +305,7 @@ class IntSetTest {
 
             val elements = IntArray(i)
             var index = 0
-            set.forEach { element ->
-                elements[index++] = element
-            }
+            set.forEach { element -> elements[index++] = element }
             elements.sort()
 
             index = 0
@@ -340,10 +338,7 @@ class IntSetTest {
 
         set += 1
         set += 5
-        assertTrue(
-            "[${1}, ${5}]" == set.toString() ||
-                "[${5}, ${1}]" == set.toString()
-        )
+        assertTrue("[${1}, ${5}]" == set.toString() || "[${5}, ${1}]" == set.toString())
     }
 
     @Test
@@ -351,31 +346,30 @@ class IntSetTest {
         val set = intSetOf(1, 2, 3, 4, 5)
         val order = IntArray(5)
         var index = 0
-        set.forEach { element ->
-            order[index++] = element.toInt()
-        }
+        set.forEach { element -> order[index++] = element.toInt() }
         assertEquals(
             "${order[0].toInt()}, ${order[1].toInt()}, ${order[2].toInt()}, " +
-            "${order[3].toInt()}, ${order[4].toInt()}",
-            set.joinToString()
+                "${order[3].toInt()}, ${order[4].toInt()}",
+            set.joinToString(),
         )
         assertEquals(
-            "x${order[0].toInt()}, ${order[1].toInt()}, ${order[2].toInt()}...",
-            set.joinToString(prefix = "x", postfix = "y", limit = 3)
+            "x${order[0].toInt()}, ${order[1].toInt()}, ${order[2].toInt()}, ...y",
+            set.joinToString(prefix = "x", postfix = "y", limit = 3),
         )
         assertEquals(
             ">${order[0].toInt()}-${order[1].toInt()}-${order[2].toInt()}-" +
-            "${order[3].toInt()}-${order[4].toInt()}<",
-            set.joinToString(separator = "-", prefix = ">", postfix = "<")
+                "${order[3].toInt()}-${order[4].toInt()}<",
+            set.joinToString(separator = "-", prefix = ">", postfix = "<"),
         )
         val names = arrayOf("one", "two", "three", "four", "five")
         assertEquals(
-            "${names[order[0]]}, ${names[order[1]]}, ${names[order[2]]}...",
-            set.joinToString(limit = 3) { names[it.toInt()] }
+            "${names[order[0]]}, ${names[order[1]]}, ${names[order[2]]}, ...",
+            set.joinToString(limit = 3) { names[it.toInt()] },
         )
     }
 
     @Test
+    @JsName("jsEquals")
     fun equals() {
         val set = MutableIntSet()
         set += 1
@@ -474,8 +468,7 @@ class IntSetTest {
         set.clear()
         assertEquals(capacity, set.trim())
         assertEquals(0, set.capacity)
-        set.addAll(intArrayOf(1, 2, 3, 4, 5, 7, 6, 8,
-            9, 10, 11, 12, 13, 14))
+        set.addAll(intArrayOf(1, 2, 3, 4, 5, 7, 6, 8, 9, 10, 11, 12, 13, 14))
         set.removeAll(intArrayOf(6, 8, 9, 10, 11, 12, 13, 14))
         assertTrue(set.trim() > 0)
         assertEquals(capacity, set.capacity)
@@ -559,5 +552,46 @@ class IntSetTest {
         assertTrue(3 in set)
         assertTrue(4 in set)
         assertFalse(5 in set)
+    }
+
+    @Test
+    fun buildIntSetFunction() {
+        val contract: Boolean
+        val set = buildIntSet {
+            contract = true
+            add(1)
+            add(2)
+        }
+        assertTrue(contract)
+        assertEquals(2, set.size)
+        assertTrue(1 in set)
+        assertTrue(2 in set)
+    }
+
+    @Test
+    fun buildIntSetWithCapacityFunction() {
+        val contract: Boolean
+        val set =
+            buildIntSet(20) {
+                contract = true
+                add(1)
+                add(2)
+            }
+        assertTrue(contract)
+        assertEquals(2, set.size)
+        assertTrue(set.capacity >= 18)
+        assertTrue(1 in set)
+        assertTrue(2 in set)
+    }
+
+    @Test
+    fun insertManyRemoveMany() {
+        val set = mutableIntSetOf()
+
+        for (i in 0..1000000) {
+            set.add(i.toInt())
+            set.remove(i.toInt())
+            assertTrue(set.capacity < 16, "Set grew larger than 16 after step $i")
+        }
     }
 }

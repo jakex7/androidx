@@ -39,8 +39,7 @@ private const val CHANNEL = AudioFormat.CHANNEL_OUT_MONO
 
 class AudioGenerator(private val isEnabled: Boolean = true) {
 
-    @VisibleForTesting
-    var audioTrack: AudioTrack? = null
+    @VisibleForTesting var audioTrack: AudioTrack? = null
 
     fun start() {
         if (isEnabled) {
@@ -71,11 +70,7 @@ class AudioGenerator(private val isEnabled: Boolean = true) {
         audioTrack!!.reloadStaticData()
     }
 
-    suspend fun initial(
-        context: Context,
-        frequency: Int,
-        beepLengthInSec: Double,
-    ): Boolean {
+    suspend fun initial(context: Context, frequency: Int, beepLengthInSec: Double): Boolean {
         checkArgumentNonnegative(frequency, "The input frequency should not be negative.")
         checkArgument(beepLengthInSec >= 0, "The beep length should not be negative.")
 
@@ -100,23 +95,26 @@ class AudioGenerator(private val isEnabled: Boolean = true) {
         Logger.i(TAG, "initAudioTrack with beep frequency: $frequency")
         Logger.i(TAG, "initAudioTrack with buffer size: $bufferSize")
 
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
-        val audioFormat = AudioFormat.Builder()
-            .setSampleRate(sampleRate)
-            .setEncoding(ENCODING)
-            .setChannelMask(CHANNEL)
-            .build()
+        val audioAttributes =
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+        val audioFormat =
+            AudioFormat.Builder()
+                .setSampleRate(sampleRate)
+                .setEncoding(ENCODING)
+                .setChannelMask(CHANNEL)
+                .build()
 
-        audioTrack = AudioTrack(
-            audioAttributes,
-            audioFormat,
-            bufferSize,
-            AudioTrack.MODE_STATIC,
-            AudioManager.AUDIO_SESSION_ID_GENERATE
-        )
+        audioTrack =
+            AudioTrack(
+                audioAttributes,
+                audioFormat,
+                bufferSize,
+                AudioTrack.MODE_STATIC,
+                AudioManager.AUDIO_SESSION_ID_GENERATE,
+            )
 
         audioTrack!!.write(samples, 0, samples.size)
 
@@ -135,7 +133,7 @@ class AudioGenerator(private val isEnabled: Boolean = true) {
         frequency: Int,
         beepLengthInSec: Double,
         sampleWidth: Int,
-        sampleRate: Int
+        sampleRate: Int,
     ): ByteArray {
         val waveData = generateSineData(frequency, beepLengthInSec, sampleRate)
         val samples = toSamples(waveData, sampleWidth)
@@ -143,40 +141,35 @@ class AudioGenerator(private val isEnabled: Boolean = true) {
         return samples.toByteArray()
     }
 
-    /**
-     * magnitude is expected to be from 0 to 1
-     */
+    /** magnitude is expected to be from 0 to 1 */
     @VisibleForTesting
     suspend fun generateSineData(
         frequency: Int,
         lengthInSec: Double,
         sampleRate: Int,
-        magnitude: Double = MAGNITUDE
-    ): List<Double> = withContext(Dispatchers.Default) {
-        val n = (lengthInSec * sampleRate).toInt()
-        val angularFrequency = 2.0 * Math.PI * frequency
+        magnitude: Double = MAGNITUDE,
+    ): List<Double> =
+        withContext(Dispatchers.Default) {
+            val n = (lengthInSec * sampleRate).toInt()
+            val angularFrequency = 2.0 * Math.PI * frequency
 
-        val res = mutableListOf<Double>()
-        for (i in 0 until n) {
-            val x = i * lengthInSec / n
-            val y = magnitude * sin(angularFrequency * x)
-            res.add(y)
+            val res = mutableListOf<Double>()
+            for (i in 0 until n) {
+                val x = i * lengthInSec / n
+                val y = magnitude * sin(angularFrequency * x)
+                res.add(y)
+            }
+
+            res
         }
-
-        res
-    }
 
     @VisibleForTesting
-    suspend fun toSamples(
-        data: List<Double>,
-        sampleWidth: Int
-    ): List<Byte> = withContext(Dispatchers.Default) {
-        val scaleFactor = 2.toDouble().pow(8 * sampleWidth - 1) - 1
+    suspend fun toSamples(data: List<Double>, sampleWidth: Int): List<Byte> =
+        withContext(Dispatchers.Default) {
+            val scaleFactor = 2.toDouble().pow(8 * sampleWidth - 1) - 1
 
-        data.flatMap {
-            (it * scaleFactor).toInt().toBytes(sampleWidth)
+            data.flatMap { (it * scaleFactor).toInt().toBytes(sampleWidth) }
         }
-    }
 
     @VisibleForTesting
     fun Int.toBytes(sampleWidth: Int): List<Byte> {

@@ -21,33 +21,53 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.LibraryType
+
+import androidx.build.SoftwareType
 import androidx.build.PlatformIdentifier
+import com.android.build.api.dsl.KotlinMultiplatformAndroidHostTestCompilation
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.jetbrains.kotlin.konan.target.Family
 
 plugins {
     id("AndroidXPlugin")
     id("AndroidXComposePlugin")
-    id("com.android.library")
 }
 
 androidXMultiplatform {
-    android()
+    androidLibrary {
+        namespace = "androidx.compose.runtime"
+        optimization {
+            it.consumerKeepRules.publish = true
+            it.consumerKeepRules.files.add(new File("proguard-rules.pro"))
+        }
+        compilations.withType(KotlinMultiplatformAndroidHostTestCompilation) {
+            it.returnDefaultValues = true
+        }
+    }
     desktop()
+    mingwX64()
+    linux()
+    mac()
+    ios()
+    tvos()
+    watchos()
+    js()
+    wasmJs()
 
     defaultPlatform(PlatformIdentifier.ANDROID)
 
     sourceSets {
         commonMain {
             dependencies {
-                implementation(libs.kotlinStdlibCommon)
-                implementation(libs.kotlinCoroutinesCore)
-                implementation("androidx.collection:collection:1.4.0")
+                api(libs.kotlinCoroutinesCore)
+                api(project(":compose:runtime:runtime-annotation"))
+                implementation("androidx.collection:collection:1.5.0")
             }
         }
 
         commonTest {
             dependencies {
-                implementation kotlin("test-junit")
+                implementation(libs.kotlinTest)
                 implementation(libs.kotlinCoroutinesTest)
                 implementation(libs.kotlinReflect)
                 implementation(project(":compose:runtime:runtime-test-utils"))
@@ -73,47 +93,101 @@ androidXMultiplatform {
         jvmMain {
             dependsOn(nonEmulatorJvmMain)
             dependencies {
-                implementation(libs.kotlinStdlib)
-                api(libs.kotlinCoroutinesCore)
             }
+        }
+
+        jvmTest {
+            dependsOn(commonTest)
         }
 
         androidMain {
             dependsOn(jvmMain)
             dependencies {
                 api(libs.kotlinCoroutinesAndroid)
-                api("androidx.annotation:annotation-experimental:1.4.0")
+                api("androidx.annotation:annotation-experimental:1.4.1")
             }
         }
 
-        desktopMain {
-            dependsOn(jvmMain)
-        }
-
-        jvmTest {
-            dependsOn(commonTest)
-            dependencies {
-            }
-        }
-
-        androidInstrumentedTest {
+        androidDeviceTest {
             dependsOn(jvmTest)
             dependencies {
                 implementation(libs.testExtJunit)
                 implementation(libs.testRules)
                 implementation(libs.testRunner)
+                implementation(libs.espressoCore)
                 implementation(libs.truth)
             }
         }
 
-        androidUnitTest {
+        androidHostTest {
             dependsOn(jvmTest)
             dependsOn(nonEmulatorJvmTest)
+        }
+
+        nonAndroidMain {
+            dependsOn(commonMain)
+        }
+
+        nonAndroidTest {
+            dependsOn(commonTest)
+        }
+
+        desktopMain {
+            dependsOn(jvmMain)
+            dependsOn(nonAndroidMain)
         }
 
         desktopTest {
             dependsOn(jvmTest)
             dependsOn(nonEmulatorJvmTest)
+            dependsOn(nonAndroidTest)
+        }
+
+        nonJvmMain {
+            dependsOn(nonAndroidMain)
+            dependencies {
+                implementation(libs.atomicFu)
+            }
+        }
+
+        nonJvmTest {
+            dependsOn(nonAndroidTest)
+        }
+
+        nativeMain {
+            dependsOn(nonAndroidMain)
+            dependsOn(nonJvmMain)
+        }
+
+        nativeTest {
+            dependsOn(nonAndroidTest)
+            dependsOn(nonJvmTest)
+            dependsOn(nonEmulatorCommonTest)
+        }
+
+        webMain {
+            dependsOn(nonJvmMain)
+        }
+
+        webTest {
+            dependsOn(nonJvmTest)
+            dependsOn(nonEmulatorCommonTest)
+        }
+
+        wasmJsMain {
+            dependencies {
+                implementation(libs.kotlinXw3c)
+            }
+        }
+
+        targets.configureEach { target ->
+            if (target.platformType == KotlinPlatformType.native) {
+                target.compilations["main"].defaultSourceSet.dependsOn(nativeMain)
+                target.compilations["test"].defaultSourceSet.dependsOn(nativeTest)
+            } else if (target.platformType in [KotlinPlatformType.js, KotlinPlatformType.wasm]) {
+                target.compilations["main"].defaultSourceSet.dependsOn(webMain)
+                target.compilations["test"].defaultSourceSet.dependsOn(webTest)
+            }
         }
     }
 }
@@ -121,20 +195,21 @@ androidXMultiplatform {
 dependencies {
     lintChecks(project(":compose:runtime:runtime-lint"))
     lintPublish(project(":compose:runtime:runtime-lint"))
-}
 
-android {
-    defaultConfig {
-        consumerProguardFiles 'proguard-rules.pro'
+    constraints {
+        // Prevents symbols duplication with old versions of JetBrains' fork.
+        // Starting with version 1.9.0, this module is published as empty artifact
+        // with dependency to this androidx module.
+        commonMainImplementation("org.jetbrains.compose.runtime:runtime:1.9.0") {
+            because "prevents symbols duplication"
+        }
     }
-    namespace "androidx.compose.runtime"
 }
 
 androidx {
     name = "Compose Runtime"
-    type = LibraryType.PUBLISHED_LIBRARY_ONLY_USED_BY_KOTLIN_CONSUMERS
+    type = SoftwareType.PUBLISHED_LIBRARY_ONLY_USED_BY_KOTLIN_CONSUMERS
     inceptionYear = "2019"
     description = "Tree composition support for code generated by the Compose compiler plugin and corresponding public API"
-    legacyDisableKotlinStrictApiMode = true
     samples(project(":compose:runtime:runtime:runtime-samples"))
 }

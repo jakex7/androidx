@@ -16,8 +16,10 @@
 
 package androidx.benchmark.macro
 
+import android.os.Build.VERSION.SDK_INT
+import androidx.benchmark.DeviceInfo.isEmulator
 import androidx.benchmark.perfetto.PerfettoHelper
-import androidx.benchmark.perfetto.PerfettoTraceProcessor
+import androidx.benchmark.traceprocessor.TraceProcessor
 import androidx.test.filters.MediumTest
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -25,24 +27,21 @@ import org.junit.Test
 @MediumTest
 @OptIn(ExperimentalMetricApi::class)
 class TraceMetricTest {
-    private val api31HotStart = createTempFileFromAsset(
-        prefix = "api31_startup_hot",
-        suffix = ".perfetto-trace"
-    ).absolutePath
+    private val api31HotStart =
+        createTempFileFromAsset(prefix = "api31_startup_hot", suffix = ".perfetto-trace")
+            .absolutePath
 
     @Test
-    fun verifyActivityResume() = verifyActivityResume(
-        tracePath = api31HotStart,
-        expectedMs = 0.322
-    )
+    fun verifyActivityResume() = verifyActivityResume(tracePath = api31HotStart, expectedMs = 0.322)
 
     class ActivityResumeMetric : TraceMetric() {
         override fun getMeasurements(
             captureInfo: CaptureInfo,
-            traceSession: PerfettoTraceProcessor.Session
+            traceSession: TraceProcessor.Session,
         ): List<Measurement> {
-            val rowSequence = traceSession.query(
-                """
+            val rowSequence =
+                traceSession.query(
+                    """
                 SELECT
                     slice.name as name,
                     slice.ts as ts,
@@ -54,8 +53,9 @@ class TraceMetricTest {
                 WHERE
                     process.name LIKE "${captureInfo.targetPackageName}"
                         AND slice.name LIKE "activityResume"
-                """.trimIndent()
-            )
+                """
+                        .trimIndent()
+                )
             val row = rowSequence.firstOrNull()
             val activityResultNs = row?.long("dur")
             println("ns $row, $activityResultNs")
@@ -68,32 +68,33 @@ class TraceMetricTest {
     }
 
     companion object {
-        private val captureInfo = Metric.CaptureInfo(
-            targetPackageName = Packages.TARGET,
-            testPackageName = Packages.TEST,
-            startupMode = StartupMode.HOT,
-            apiLevel = 31
-        )
+        private val captureInfo =
+            Metric.CaptureInfo(
+                targetPackageName = Packages.TARGET,
+                testPackageName = Packages.TEST,
+                startupMode = StartupMode.HOT,
+                apiLevel = 31,
+            )
 
         private fun verifyActivityResume(
             tracePath: String,
-            @Suppress("SameParameterValue") expectedMs: Double
+            @Suppress("SameParameterValue") expectedMs: Double,
         ) {
             assumeTrue(PerfettoHelper.isAbiSupported())
+            // Our API 23 emulators seem to be misconfigured b/438214932
+            assumeTrue(!isEmulator || SDK_INT != 23)
             val metric = ActivityResumeMetric()
-            metric.configure(packageName = Packages.TEST)
+            metric.configure(captureInfo)
 
-            val result = PerfettoTraceProcessor.runSingleSessionServer(tracePath) {
-                metric.getMeasurements(
-                    captureInfo = captureInfo,
-                    traceSession = this
-                )
-            }
+            val result =
+                TraceProcessor.runSingleSessionServer(tracePath) {
+                    metric.getMeasurements(captureInfo = captureInfo, traceSession = this)
+                }
 
             assertEqualMeasurements(
                 expected = listOf(Metric.Measurement("activityResumeMs", expectedMs)),
                 observed = result,
-                threshold = 0.001
+                threshold = 0.001,
             )
         }
     }

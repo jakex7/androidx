@@ -18,7 +18,6 @@ package androidx.camera.camera2.pipe.integration.impl
 
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
-import android.os.Build
 import androidx.camera.camera2.pipe.integration.adapter.RobolectricCameraPipeTestRunner
 import androidx.camera.camera2.pipe.testing.FakeCameraMetadata
 import com.google.common.truth.Truth.assertThat
@@ -29,7 +28,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricCameraPipeTestRunner::class)
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 @DoNotInstrument
 class CameraMetadataIntegrationTest {
     private lateinit var cameraMetadata: androidx.camera.camera2.pipe.CameraMetadata
@@ -47,44 +46,54 @@ class CameraMetadataIntegrationTest {
 
     @Test
     fun getSupportedAeMode_returnsPreferredMode_whenSupported() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH,
-                CameraMetadata.CONTROL_AE_MODE_ON,
-                CameraMetadata.CONTROL_AE_MODE_OFF,
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES to
+                    intArrayOf(
+                        CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH,
+                        CameraMetadata.CONTROL_AE_MODE_ON,
+                        CameraMetadata.CONTROL_AE_MODE_OFF,
+                    )
             )
-        ))
+        )
 
         assertThat(
-            cameraMetadata.getSupportedAeMode(CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
-        ).isEqualTo(CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
+                cameraMetadata.getSupportedAeMode(CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
+            )
+            .isEqualTo(CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
     }
 
     @Test
     fun getSupportedAeMode_returnsAeModeOnIfSupported_whenPreferredModeNotSupported() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AE_MODE_ON,
-                CameraMetadata.CONTROL_AE_MODE_OFF,
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES to
+                    intArrayOf(
+                        CameraMetadata.CONTROL_AE_MODE_ON,
+                        CameraMetadata.CONTROL_AE_MODE_OFF,
+                    )
             )
-        ))
+        )
 
         assertThat(
-            cameraMetadata.getSupportedAeMode(CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
-        ).isEqualTo(CameraMetadata.CONTROL_AE_MODE_ON)
+                cameraMetadata.getSupportedAeMode(CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
+            )
+            .isEqualTo(CameraMetadata.CONTROL_AE_MODE_ON)
     }
 
     @Test
     fun getSupportedAeMode_returnsAeModeOff_whenPreferredModeAndAeModeOnNotSupported() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AE_MODE_OFF,
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES to
+                    intArrayOf(CameraMetadata.CONTROL_AE_MODE_OFF)
             )
-        ))
+        )
 
         assertThat(
-            cameraMetadata.getSupportedAeMode(CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
-        ).isEqualTo(CameraMetadata.CONTROL_AE_MODE_OFF)
+                cameraMetadata.getSupportedAeMode(CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
+            )
+            .isEqualTo(CameraMetadata.CONTROL_AE_MODE_OFF)
     }
 
     @Test
@@ -102,109 +111,126 @@ class CameraMetadataIntegrationTest {
     @Test
     @Config(minSdk = 28)
     fun isExternalFlashAeModeSupported_returnsTrueWhenSupported() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AE_MODE_ON_EXTERNAL_FLASH,
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES to
+                    intArrayOf(CameraMetadata.CONTROL_AE_MODE_ON_EXTERNAL_FLASH)
             )
-        ))
+        )
 
         assertThat(cameraMetadata.isExternalFlashAeModeSupported()).isTrue()
     }
 
     @Test
     fun getSupportedAfMode_returnsPreferredMode_whenSupported() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO,
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES to
+                    intArrayOf(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
             )
-        ))
+        )
 
         assertThat(
-            cameraMetadata.getSupportedAfMode(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-        ).isEqualTo(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+                cameraMetadata.getSupportedAfMode(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+            )
+            .isEqualTo(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
     }
 
     @Test
     fun getSupportedAfMode_returnsContinuousPictureIfSupported_whenPreferredModeNotSupported() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE,
-                CameraMetadata.CONTROL_AF_MODE_AUTO,
-                CameraMetadata.CONTROL_AF_MODE_OFF
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES to
+                    intArrayOf(
+                        CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE,
+                        CameraMetadata.CONTROL_AF_MODE_AUTO,
+                        CameraMetadata.CONTROL_AF_MODE_OFF,
+                    )
             )
-        ))
+        )
 
         assertThat(
-            cameraMetadata.getSupportedAfMode(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-        ).isEqualTo(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                cameraMetadata.getSupportedAfMode(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+            )
+            .isEqualTo(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
     }
 
     @Test
     fun getSupportedAfMode_returnsAfModeAutoIfSupported_whenNoPreferredModeAndContinuousPicture() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AF_MODE_AUTO,
-                CameraMetadata.CONTROL_AF_MODE_OFF
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES to
+                    intArrayOf(
+                        CameraMetadata.CONTROL_AF_MODE_AUTO,
+                        CameraMetadata.CONTROL_AF_MODE_OFF,
+                    )
             )
-        ))
+        )
 
         assertThat(
-            cameraMetadata.getSupportedAfMode(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-        ).isEqualTo(CameraMetadata.CONTROL_AF_MODE_AUTO)
+                cameraMetadata.getSupportedAfMode(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+            )
+            .isEqualTo(CameraMetadata.CONTROL_AF_MODE_AUTO)
     }
 
     @Test
     fun getSupportedAfMode_returnsAfModeOff_whenNoPreferredModeAndContinuousPictureAndAfModeAuto() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AF_MODE_OFF
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES to
+                    intArrayOf(CameraMetadata.CONTROL_AF_MODE_OFF)
             )
-        ))
+        )
 
         assertThat(
-            cameraMetadata.getSupportedAfMode(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-        ).isEqualTo(CameraMetadata.CONTROL_AF_MODE_OFF)
+                cameraMetadata.getSupportedAfMode(CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+            )
+            .isEqualTo(CameraMetadata.CONTROL_AF_MODE_OFF)
     }
 
     @Test
     fun getSupportedAwbMode_returnsPreferredMode_whenSupported() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT,
-                CameraMetadata.CONTROL_AWB_MODE_AUTO,
-                CameraMetadata.CONTROL_AWB_MODE_OFF
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES to
+                    intArrayOf(
+                        CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT,
+                        CameraMetadata.CONTROL_AWB_MODE_AUTO,
+                        CameraMetadata.CONTROL_AWB_MODE_OFF,
+                    )
             )
-        ))
+        )
 
-        assertThat(
-            cameraMetadata.getSupportedAwbMode(CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT)
-        ).isEqualTo(CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT)
+        assertThat(cameraMetadata.getSupportedAwbMode(CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT))
+            .isEqualTo(CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT)
     }
 
     @Test
     fun getSupportedAwbMode_returnsAwbModeAutoIfSupported_whenPreferredModeNotSupported() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AWB_MODE_AUTO,
-                CameraMetadata.CONTROL_AWB_MODE_OFF
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES to
+                    intArrayOf(
+                        CameraMetadata.CONTROL_AWB_MODE_AUTO,
+                        CameraMetadata.CONTROL_AWB_MODE_OFF,
+                    )
             )
-        ))
+        )
 
-        assertThat(
-            cameraMetadata.getSupportedAwbMode(CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT)
-        ).isEqualTo(CameraMetadata.CONTROL_AWB_MODE_AUTO)
+        assertThat(cameraMetadata.getSupportedAwbMode(CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT))
+            .isEqualTo(CameraMetadata.CONTROL_AWB_MODE_AUTO)
     }
 
     @Test
     fun getSupportedAwbMode_returnsAwbModeOff_whenPreferredModeAndAwbModeAutoNotSupported() {
-        initCameraMetadata(mapOf(
-            CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES to intArrayOf(
-                CameraMetadata.CONTROL_AWB_MODE_OFF
+        initCameraMetadata(
+            mapOf(
+                CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES to
+                    intArrayOf(CameraMetadata.CONTROL_AWB_MODE_OFF)
             )
-        ))
+        )
 
-        assertThat(
-            cameraMetadata.getSupportedAwbMode(CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT)
-        ).isEqualTo(CameraMetadata.CONTROL_AWB_MODE_OFF)
+        assertThat(cameraMetadata.getSupportedAwbMode(CameraMetadata.CONTROL_AWB_MODE_DAYLIGHT))
+            .isEqualTo(CameraMetadata.CONTROL_AWB_MODE_OFF)
     }
 }

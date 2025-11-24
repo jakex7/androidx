@@ -46,13 +46,17 @@ class ExerciseRoute constructor(val route: List<Location>) {
         return route.hashCode()
     }
 
+    override fun toString(): String {
+        return "ExerciseRoute(route=$route)"
+    }
+
     /**
      * Represents a single location point recorded during an exercise.
      *
      * @param time The point in time when the location was recorded; Required field.
      * @param latitude Latitude of the location point; Required field; Valid range [-90; 90]
      * @param longitude Longitude of the location point; Required field; Valid range [-180; 180]
-     * @param altitude in [Length] unit. Optional field. Valid range: non-negative numbers.
+     * @param altitude in [Length] unit. Optional field.
      * @param horizontalAccuracy in [Length] unit. Optional field. Valid range: non-negative
      *   numbers.
      * @param verticalAccuracy in [Length] unit. Optional field. Valid range: non-negative numbers.
@@ -64,7 +68,7 @@ class ExerciseRoute constructor(val route: List<Location>) {
         val longitude: Double,
         val horizontalAccuracy: Length? = null,
         val verticalAccuracy: Length? = null,
-        val altitude: Length? = null
+        val altitude: Length? = null,
     ) {
 
         companion object {
@@ -81,11 +85,11 @@ class ExerciseRoute constructor(val route: List<Location>) {
             longitude.requireNotMore(other = MAX_LONGITUDE, name = "longitude")
             horizontalAccuracy?.requireNotLess(
                 other = horizontalAccuracy.zero(),
-                name = "horizontalAccuracy"
+                name = "horizontalAccuracy",
             )
             verticalAccuracy?.requireNotLess(
                 other = verticalAccuracy.zero(),
-                name = "verticalAccuracy"
+                name = "verticalAccuracy",
             )
         }
 
@@ -111,6 +115,10 @@ class ExerciseRoute constructor(val route: List<Location>) {
             result = 31 * result + (verticalAccuracy?.hashCode() ?: 0)
             result = 31 * result + (altitude?.hashCode() ?: 0)
             return result
+        }
+
+        override fun toString(): String {
+            return "Location(time=$time, latitude=$latitude, longitude=$longitude, horizontalAccuracy=$horizontalAccuracy, verticalAccuracy=$verticalAccuracy, altitude=$altitude)"
         }
     }
 }

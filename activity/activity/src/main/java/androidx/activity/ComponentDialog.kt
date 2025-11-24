@@ -28,27 +28,28 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.navigationevent.DirectNavigationEventInput
+import androidx.navigationevent.NavigationEventDispatcher
+import androidx.navigationevent.NavigationEventDispatcherOwner
+import androidx.navigationevent.setViewTreeNavigationEventDispatcherOwner
 import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 
-/**
- * Base class for dialogs that enables composition of higher level components.
- */
-open class ComponentDialog @JvmOverloads constructor(
-    context: Context,
-    @StyleRes themeResId: Int = 0
-) : Dialog(context, themeResId),
+/** Base class for dialogs that enables composition of higher level components. */
+open class ComponentDialog
+@JvmOverloads
+constructor(context: Context, @StyleRes themeResId: Int = 0) :
+    Dialog(context, themeResId),
     LifecycleOwner,
     OnBackPressedDispatcherOwner,
+    NavigationEventDispatcherOwner,
     SavedStateRegistryOwner {
 
     private var _lifecycleRegistry: LifecycleRegistry? = null
     private val lifecycleRegistry: LifecycleRegistry
-        get() = _lifecycleRegistry ?: LifecycleRegistry(this).also {
-            _lifecycleRegistry = it
-        }
+        get() = _lifecycleRegistry ?: LifecycleRegistry(this).also { _lifecycleRegistry = it }
 
     private val savedStateRegistryController: SavedStateRegistryController =
         SavedStateRegistryController.create(this)
@@ -58,13 +59,20 @@ open class ComponentDialog @JvmOverloads constructor(
     override val lifecycle: Lifecycle
         get() = lifecycleRegistry
 
+    // Input from for `ComponentDialog.onBackPressed()`, which can get called when API < 33 or
+    // when `android:enableOnBackInvokedCallback` is `false`.
+    private val onBackPressedInput: DirectNavigationEventInput by lazy {
+        val input = DirectNavigationEventInput()
+        navigationEventDispatcher.addInput(input)
+        input
+    }
+
     override fun onSaveInstanceState(): Bundle {
         val bundle = super.onSaveInstanceState()
         savedStateRegistryController.performSave(bundle)
         return bundle
     }
 
-    @Suppress("ClassVerificationFailure") // needed for onBackInvokedDispatcher call
     @CallSuper
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,14 +97,35 @@ open class ComponentDialog @JvmOverloads constructor(
         super.onStop()
     }
 
+    /**
+     * Retrieve the [OnBackPressedDispatcher] that will be triggered when [onBackPressed] is called.
+     *
+     * @return The [OnBackPressedDispatcher] associated with this ComponentDialog.
+     */
     @Suppress("DEPRECATION")
-    final override val onBackPressedDispatcher = OnBackPressedDispatcher {
-        super.onBackPressed()
+    final override val onBackPressedDispatcher: OnBackPressedDispatcher by lazy {
+        OnBackPressedDispatcher { @Suppress("DEPRECATION") super.onBackPressed() }
     }
 
+    /**
+     * Lazily provides a [NavigationEventDispatcher] for back navigation handling, including support
+     * for predictive back gestures introduced in Android 13 (API 33+).
+     *
+     * This dispatcher acts as the central point for back navigation events. When a navigation event
+     * occurs (e.g., a back gesture), it safely invokes [ComponentDialog.onBackPressed].
+     */
+    override val navigationEventDispatcher: NavigationEventDispatcher
+        get() = onBackPressedDispatcher.eventDispatcher
+
     @CallSuper
+    @Deprecated(
+        """This method has been deprecated in favor of using the
+      {@link OnBackPressedDispatcher} via {@link #getOnBackPressedDispatcher()}.
+      The OnBackPressedDispatcher controls how back button events are dispatched
+      to one or more {@link OnBackPressedCallback} objects."""
+    )
     override fun onBackPressed() {
-        onBackPressedDispatcher.onBackPressed()
+        onBackPressedInput.backCompleted()
     }
 
     override fun setContentView(layoutResID: Int) {
@@ -120,13 +149,14 @@ open class ComponentDialog @JvmOverloads constructor(
     }
 
     /**
-     * Sets the view tree owners before setting the content view so that the
-     * inflation process and attach listeners will see them already present.
+     * Sets the view tree owners before setting the content view so that the inflation process and
+     * attach listeners will see them already present.
      */
     @CallSuper
     open fun initializeViewTreeOwners() {
         window!!.decorView.setViewTreeLifecycleOwner(this)
         window!!.decorView.setViewTreeOnBackPressedDispatcherOwner(this)
         window!!.decorView.setViewTreeSavedStateRegistryOwner(this)
+        window!!.decorView.setViewTreeNavigationEventDispatcherOwner(this)
     }
 }

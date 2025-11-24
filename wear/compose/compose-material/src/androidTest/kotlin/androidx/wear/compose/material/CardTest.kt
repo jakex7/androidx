@@ -37,23 +37,20 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
 public class CardBehaviourTest {
     @get:Rule
-    public val rule: ComposeContentTestRule = createComposeRule()
+    public val rule: ComposeContentTestRule =
+        createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     public fun supports_test_tag() {
         rule.setContentWithTheme {
-            Card(
-                onClick = {},
-                modifier = Modifier.testTag(TEST_TAG)
-            ) {
-                TestImage()
-            }
+            Card(onClick = {}, modifier = Modifier.testTag(TEST_TAG)) { TestImage() }
         }
 
         rule.onNodeWithTag(TEST_TAG).assertExists()
@@ -62,11 +59,7 @@ public class CardBehaviourTest {
     @Test
     public fun has_clickaction_when_enabled() {
         rule.setContentWithTheme {
-            Card(
-                onClick = {},
-                enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            ) {
+            Card(onClick = {}, enabled = true, modifier = Modifier.testTag(TEST_TAG)) {
                 TestImage()
             }
         }
@@ -77,11 +70,7 @@ public class CardBehaviourTest {
     @Test
     public fun has_clickaction_when_disabled() {
         rule.setContentWithTheme {
-            Card(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.testTag(TEST_TAG)
-            ) {
+            Card(onClick = {}, enabled = false, modifier = Modifier.testTag(TEST_TAG)) {
                 TestImage()
             }
         }
@@ -92,11 +81,7 @@ public class CardBehaviourTest {
     @Test
     public fun is_correctly_enabled_when_enabled_equals_true() {
         rule.setContentWithTheme {
-            Card(
-                onClick = {},
-                enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
-            ) {
+            Card(onClick = {}, enabled = true, modifier = Modifier.testTag(TEST_TAG)) {
                 TestImage()
             }
         }
@@ -107,11 +92,7 @@ public class CardBehaviourTest {
     @Test
     public fun is_correctly_disabled_when_enabled_equals_false() {
         rule.setContentWithTheme {
-            Card(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.testTag(TEST_TAG)
-            ) {
+            Card(onClick = {}, enabled = false, modifier = Modifier.testTag(TEST_TAG)) {
                 TestImage()
             }
         }
@@ -127,7 +108,7 @@ public class CardBehaviourTest {
             Card(
                 onClick = { clicked = true },
                 enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             ) {
                 TestImage()
             }
@@ -135,9 +116,7 @@ public class CardBehaviourTest {
 
         rule.onNodeWithTag(TEST_TAG).performClick()
 
-        rule.runOnIdle {
-            assertEquals(true, clicked)
-        }
+        rule.runOnIdle { assertEquals(true, clicked) }
     }
 
     @Test
@@ -148,7 +127,7 @@ public class CardBehaviourTest {
             Card(
                 onClick = { clicked = true },
                 enabled = false,
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             ) {
                 TestImage()
             }
@@ -156,9 +135,7 @@ public class CardBehaviourTest {
 
         rule.onNodeWithTag(TEST_TAG).performClick()
 
-        rule.runOnIdle {
-            assertEquals(false, clicked)
-        }
+        rule.runOnIdle { assertEquals(false, clicked) }
     }
 
     @Test
@@ -168,25 +145,22 @@ public class CardBehaviourTest {
                 onClick = {},
                 enabled = false,
                 modifier = Modifier.testTag(TEST_TAG),
-                role = Role.Button
+                role = Role.Button,
             ) {
                 TestImage()
             }
         }
 
-        rule.onNodeWithTag(TEST_TAG)
-            .assert(
-                SemanticsMatcher.expectValue(
-                    SemanticsProperties.Role,
-                    Role.Button
-                )
-            )
+        rule
+            .onNodeWithTag(TEST_TAG)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
     }
 }
 
 public class AppCardTest {
     @get:Rule
-    public val rule: ComposeContentTestRule = createComposeRule()
+    public val rule: ComposeContentTestRule =
+        createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     public fun responds_to_click_when_enabled() {
@@ -199,7 +173,7 @@ public class AppCardTest {
                 appName = {},
                 time = {},
                 title = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             ) {
                 TestImage()
             }
@@ -207,9 +181,7 @@ public class AppCardTest {
 
         rule.onNodeWithTag(TEST_TAG).performClick()
 
-        rule.runOnIdle {
-            assertEquals(true, clicked)
-        }
+        rule.runOnIdle { assertEquals(true, clicked) }
     }
 
     @Test
@@ -223,7 +195,7 @@ public class AppCardTest {
                 time = {},
                 title = {},
                 enabled = false,
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             ) {
                 TestImage()
             }
@@ -231,15 +203,14 @@ public class AppCardTest {
 
         rule.onNodeWithTag(TEST_TAG).performClick()
 
-        rule.runOnIdle {
-            assertEquals(false, clicked)
-        }
+        rule.runOnIdle { assertEquals(false, clicked) }
     }
 }
 
 public class TitleCardTest {
     @get:Rule
-    public val rule: ComposeContentTestRule = createComposeRule()
+    public val rule: ComposeContentTestRule =
+        createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     public fun responds_to_click_when_enabled() {
@@ -251,7 +222,7 @@ public class TitleCardTest {
                 enabled = true,
                 time = {},
                 title = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             ) {
                 TestImage()
             }
@@ -259,9 +230,7 @@ public class TitleCardTest {
 
         rule.onNodeWithTag(TEST_TAG).performClick()
 
-        rule.runOnIdle {
-            assertEquals(true, clicked)
-        }
+        rule.runOnIdle { assertEquals(true, clicked) }
     }
 
     @Test
@@ -274,7 +243,7 @@ public class TitleCardTest {
                 enabled = false,
                 time = {},
                 title = {},
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             ) {
                 TestImage()
             }
@@ -282,51 +251,44 @@ public class TitleCardTest {
 
         rule.onNodeWithTag(TEST_TAG).performClick()
 
-        rule.runOnIdle {
-            assertEquals(false, clicked)
-        }
+        rule.runOnIdle { assertEquals(false, clicked) }
     }
 }
 
 public class CardSizeTest {
     @get:Rule
-    public val rule: ComposeContentTestRule = createComposeRule()
+    public val rule: ComposeContentTestRule =
+        createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     public fun gives_base_card_correct_default_max_height(): Unit =
         verifyHeight(
-            expectedHeight = 100.dp +
-                CardDefaults.ContentPadding.calculateBottomPadding() +
-                CardDefaults.ContentPadding.calculateTopPadding(),
-            imageModifier = Modifier.requiredHeight(100.dp)
+            expectedHeight =
+                100.dp +
+                    CardDefaults.ContentPadding.calculateBottomPadding() +
+                    CardDefaults.ContentPadding.calculateTopPadding(),
+            imageModifier = Modifier.requiredHeight(100.dp),
         )
 
     private fun verifyHeight(expectedHeight: Dp, imageModifier: Modifier = Modifier) {
         rule.verifyHeight(expectedHeight) {
-            Card(
-                onClick = {},
-            ) {
-                TestIcon(modifier = imageModifier)
-            }
+            Card(onClick = {}) { TestIcon(modifier = imageModifier) }
         }
     }
 }
 
 public class CardColorTest {
     @get:Rule
-    public val rule: ComposeContentTestRule = createComposeRule()
+    public val rule: ComposeContentTestRule =
+        createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     public fun gives_enabled_default_colors(): Unit =
-        verifyColors(
-            CardStatus.Enabled,
-        ) { MaterialTheme.colors.onSurfaceVariant }
+        verifyColors(CardStatus.Enabled) { MaterialTheme.colors.onSurfaceVariant }
 
     @Test
     public fun gives_disabled_default_colors(): Unit =
-        verifyColors(
-            CardStatus.Disabled,
-        ) { MaterialTheme.colors.onSurfaceVariant }
+        verifyColors(CardStatus.Disabled) { MaterialTheme.colors.onSurfaceVariant }
 
     @Test
     public fun app_card_gives_default_colors() {
@@ -345,17 +307,13 @@ public class CardColorTest {
             expectedTimeColor = MaterialTheme.colors.onSurfaceVariant
             expectedTitleColor = MaterialTheme.colors.onSurface
             expectedContentColor = MaterialTheme.colors.onSurfaceVariant
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(testBackground)
-            ) {
+            Box(modifier = Modifier.fillMaxSize().background(testBackground)) {
                 AppCard(
                     onClick = {},
                     appName = { actualAppColor = LocalContentColor.current },
                     time = { actualTimeColor = LocalContentColor.current },
                     title = { actualTitleColor = LocalContentColor.current },
-                    modifier = Modifier.testTag(TEST_TAG)
+                    modifier = Modifier.testTag(TEST_TAG),
                 ) {
                     actualContentColor = LocalContentColor.current
                 }
@@ -382,16 +340,12 @@ public class CardColorTest {
             expectedTimeColor = MaterialTheme.colors.onSurfaceVariant
             expectedTitleColor = MaterialTheme.colors.onSurface
             expectedContentColor = MaterialTheme.colors.onSurfaceVariant
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(testBackground)
-            ) {
+            Box(modifier = Modifier.fillMaxSize().background(testBackground)) {
                 TitleCard(
                     onClick = {},
                     time = { actualTimeColor = LocalContentColor.current },
                     title = { actualTitleColor = LocalContentColor.current },
-                    modifier = Modifier.testTag(TEST_TAG)
+                    modifier = Modifier.testTag(TEST_TAG),
                 ) {
                     actualContentColor = LocalContentColor.current
                 }
@@ -403,26 +357,19 @@ public class CardColorTest {
         assertEquals(expectedContentColor, actualContentColor)
     }
 
-    private fun verifyColors(
-        status: CardStatus,
-        contentColor: @Composable () -> Color
-    ) {
+    private fun verifyColors(status: CardStatus, contentColor: @Composable () -> Color) {
         var expectedContent = Color.Transparent
         var actualContent = Color.Transparent
         val testBackground = Color.White
 
         rule.setContentWithTheme {
             expectedContent = contentColor()
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(testBackground)
-            ) {
+            Box(modifier = Modifier.fillMaxSize().background(testBackground)) {
                 Card(
                     onClick = {},
                     content = { actualContent = LocalContentColor.current },
                     enabled = status.enabled(),
-                    modifier = Modifier.testTag(TEST_TAG)
+                    modifier = Modifier.testTag(TEST_TAG),
                 )
             }
         }
@@ -433,7 +380,8 @@ public class CardColorTest {
 
 public class CardFontTest {
     @get:Rule
-    public val rule: ComposeContentTestRule = createComposeRule()
+    public val rule: ComposeContentTestRule =
+        createComposeRule(effectContext = StandardTestDispatcher())
 
     @Test
     public fun gives_correct_text_style_base() {
@@ -443,11 +391,9 @@ public class CardFontTest {
             expectedTextStyle = MaterialTheme.typography.button
             Card(
                 onClick = {},
-                content = {
-                    actualTextStyle = LocalTextStyle.current
-                },
+                content = { actualTextStyle = LocalTextStyle.current },
                 enabled = true,
-                modifier = Modifier.testTag(TEST_TAG)
+                modifier = Modifier.testTag(TEST_TAG),
             )
         }
         assertEquals(expectedTextStyle, actualTextStyle)
@@ -472,16 +418,10 @@ public class CardFontTest {
 
             AppCard(
                 onClick = {},
-                appName = {
-                    actualAppTextStyle = LocalTextStyle.current
-                },
-                time = {
-                    actualTimeTextStyle = LocalTextStyle.current
-                },
-                title = {
-                    actualTitleTextStyle = LocalTextStyle.current
-                },
-                modifier = Modifier.testTag(TEST_TAG)
+                appName = { actualAppTextStyle = LocalTextStyle.current },
+                time = { actualTimeTextStyle = LocalTextStyle.current },
+                title = { actualTitleTextStyle = LocalTextStyle.current },
+                modifier = Modifier.testTag(TEST_TAG),
             ) {
                 actuaContentTextStyle = LocalTextStyle.current
             }
@@ -508,13 +448,9 @@ public class CardFontTest {
 
             TitleCard(
                 onClick = {},
-                time = {
-                    actualTimeTextStyle = LocalTextStyle.current
-                },
-                title = {
-                    actualTitleTextStyle = LocalTextStyle.current
-                },
-                modifier = Modifier.testTag(TEST_TAG)
+                time = { actualTimeTextStyle = LocalTextStyle.current },
+                title = { actualTitleTextStyle = LocalTextStyle.current },
+                modifier = Modifier.testTag(TEST_TAG),
             ) {
                 actuaContentTextStyle = LocalTextStyle.current
             }
@@ -526,9 +462,7 @@ public class CardFontTest {
 }
 
 private fun ComposeContentTestRule.verifyHeight(expected: Dp, content: @Composable () -> Unit) {
-    setContentWithThemeForSizeAssertions {
-        content()
-    }.assertHeightIsEqualTo(expected, Dp(1.0f))
+    setContentWithThemeForSizeAssertions { content() }.assertHeightIsEqualTo(expected, Dp(1.0f))
 }
 
 private enum class CardStatus {

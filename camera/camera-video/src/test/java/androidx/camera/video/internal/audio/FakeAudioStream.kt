@@ -16,7 +16,6 @@
 
 package androidx.camera.video.internal.audio
 
-import androidx.annotation.RequiresApi
 import androidx.camera.testing.impl.mocks.MockConsumer
 import androidx.camera.testing.impl.mocks.helpers.CallTimes
 import androidx.camera.video.internal.audio.AudioStream.PacketInfo
@@ -25,12 +24,11 @@ import java.nio.ByteBuffer
 import java.util.concurrent.Executor
 import kotlin.math.min
 
-@RequiresApi(21)
 class FakeAudioStream(
     private val audioDataProvider: (index: Int) -> AudioData,
     isSilenced: Boolean = false,
     private val exceptionOnStart: AudioStream.AudioStreamException? = null,
-    private val exceptionOnStartMaxTimes: Int = Int.MAX_VALUE
+    private val exceptionOnStartMaxTimes: Int = Int.MAX_VALUE,
 ) : AudioStream {
     var isSilenced: Boolean = isSilenced
         set(value) {
@@ -39,6 +37,7 @@ class FakeAudioStream(
                 notifySilence()
             }
         }
+
     private val _audioDataList = mutableListOf<AudioData>()
     private val startCalls = MockConsumer<Unit>()
     private val stopCalls = MockConsumer<Unit>()
@@ -112,7 +111,7 @@ class FakeAudioStream(
     override fun setCallback(callback: AudioStream.AudioStreamCallback?, executor: Executor?) {
         checkArgument(
             callback == null || executor != null,
-            "executor can't be null with non-null callback."
+            "executor can't be null with non-null callback.",
         )
         audioStreamCallback = callback
         callbackExecutor = executor
@@ -126,54 +125,32 @@ class FakeAudioStream(
     fun verifyStartCall(
         callTimes: CallTimes,
         timeoutMs: Long = MockConsumer.NO_TIMEOUT,
-        inOder: Boolean = false
-    ) = startCalls.verifyAcceptCall(
-        Unit::class.java,
-        inOder,
-        timeoutMs,
-        callTimes,
-    )
+        inOder: Boolean = false,
+    ) = startCalls.verifyAcceptCall(Unit::class.java, inOder, timeoutMs, callTimes)
 
     fun verifyStopCall(
         callTimes: CallTimes,
         timeoutMs: Long = MockConsumer.NO_TIMEOUT,
-        inOder: Boolean = false
-    ) = stopCalls.verifyAcceptCall(
-        Unit::class.java,
-        inOder,
-        timeoutMs,
-        callTimes,
-    )
+        inOder: Boolean = false,
+    ) = stopCalls.verifyAcceptCall(Unit::class.java, inOder, timeoutMs, callTimes)
 
     fun verifyReleaseCall(
         callTimes: CallTimes,
         timeoutMs: Long = MockConsumer.NO_TIMEOUT,
-        inOder: Boolean = false
-    ) = releaseCalls.verifyAcceptCall(
-        Unit::class.java,
-        inOder,
-        timeoutMs,
-        callTimes,
-    )
+        inOder: Boolean = false,
+    ) = releaseCalls.verifyAcceptCall(Unit::class.java, inOder, timeoutMs, callTimes)
 
     fun verifyReadCall(
         callTimes: CallTimes,
         timeoutMs: Long = MockConsumer.NO_TIMEOUT,
-        inOder: Boolean = false
-    ) = readCalls.verifyAcceptCall(
-        Unit::class.java,
-        inOder,
-        timeoutMs,
-        callTimes,
-    )
+        inOder: Boolean = false,
+    ) = readCalls.verifyAcceptCall(Unit::class.java, inOder, timeoutMs, callTimes)
 
     private fun notifySilence() {
         if (!isStarted || isReleased) {
             return
         }
-        callbackExecutor?.execute {
-            audioStreamCallback?.onSilenceStateChanged(isSilenced)
-        }
+        callbackExecutor?.execute { audioStreamCallback?.onSilenceStateChanged(isSilenced) }
     }
 
     data class AudioData(val byteBuffer: ByteBuffer, val timestampNs: Long)

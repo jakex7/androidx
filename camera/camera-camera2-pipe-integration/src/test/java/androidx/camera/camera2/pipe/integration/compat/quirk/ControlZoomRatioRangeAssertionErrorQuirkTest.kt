@@ -26,11 +26,11 @@ import org.robolectric.shadows.ShadowBuild
 
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = 21)
+@Config(sdk = [Config.ALL_SDKS])
 class ControlZoomRatioRangeAssertionErrorQuirkTest(
     private val brand: String,
     private val model: String,
-    private val quirkEnablingExpected: Boolean
+    private val quirkEnablingExpected: Boolean,
 ) {
     @Test
     fun canEnableControlZoomRatioRangeAssertionErrorQuirkCorrectly() {
@@ -42,14 +42,16 @@ class ControlZoomRatioRangeAssertionErrorQuirkTest(
     }
 
     companion object {
+        @Suppress("TYPE_INTERSECTION_AS_REIFIED_WARNING")
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "Brand: {0}, Model: {1}")
-        fun data() = listOf(
-            arrayOf("jio", "LS1542QWN", true),
-            arrayOf("samsung", "SM-A025M/DS", true),
-            arrayOf("Samsung", "SM-S124DL", true),
-            arrayOf("vivo", "vivo 2039", true),
-            arrayOf("motorola", "MotoG100", false),
-        )
+        fun data() =
+            listOf(
+                arrayOf("jio", "LS1542QWN", true),
+                arrayOf("samsung", "SM-A025M/DS", true),
+                arrayOf("Samsung", "SM-S124DL", true),
+                arrayOf("vivo", "vivo 2039", true),
+                arrayOf("motorola", "MotoG100", false),
+            )
     }
 }

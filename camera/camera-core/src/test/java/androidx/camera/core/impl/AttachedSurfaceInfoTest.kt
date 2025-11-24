@@ -16,10 +16,11 @@
 package androidx.camera.core.impl
 
 import android.graphics.ImageFormat
-import android.os.Build
 import android.util.Range
 import android.util.Size
 import androidx.camera.core.DynamicRange
+import androidx.camera.core.impl.SessionConfig.SESSION_TYPE_REGULAR
+import androidx.camera.core.impl.StreamSpec.FRAME_RATE_RANGE_UNSPECIFIED
 import androidx.camera.core.impl.UseCaseConfigFactory.CaptureType
 import androidx.camera.testing.impl.fakes.FakeUseCaseConfig
 import com.google.common.truth.Truth
@@ -32,44 +33,49 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class AttachedSurfaceInfoTest {
     private var attachedSurfaceInfo: AttachedSurfaceInfo? = null
-    private val surfaceConfig = SurfaceConfig.create(
-        SurfaceConfig.ConfigType.JPEG,
-        SurfaceConfig.ConfigSize.PREVIEW
-    )
+    private val surfaceConfig =
+        SurfaceConfig.create(SurfaceConfig.ConfigType.JPEG, SurfaceConfig.ConfigSize.PREVIEW)
     private val imageFormat = ImageFormat.JPEG
     private val size = Size(1920, 1080)
     private val dynamicRange = DynamicRange.SDR
     private val captureTypes = listOf(CaptureType.PREVIEW)
     private val inputFormat = ImageFormat.PRIVATE
-    private val targetFramerate = Range(10, 20)
-    private val config = FakeUseCaseConfig.Builder(
-        CaptureType.PREVIEW,
-        inputFormat
-    ).useCaseConfig.config
+    private val sessionType = SESSION_TYPE_REGULAR
+    private val targetFrameRate = Range(10, 20)
+    private val isStrictFrameRateRequired = true
+    private val customMaxFrameRate = 60
+    private val config =
+        FakeUseCaseConfig.Builder(CaptureType.PREVIEW, inputFormat).useCaseConfig.config
 
     @Before
     fun setup() {
-        attachedSurfaceInfo = AttachedSurfaceInfo.create(
-            surfaceConfig,
-            imageFormat,
-            size,
-            dynamicRange,
-            captureTypes,
-            config,
-            targetFramerate
-        )
+        attachedSurfaceInfo =
+            AttachedSurfaceInfo.create(
+                surfaceConfig,
+                imageFormat,
+                size,
+                dynamicRange,
+                captureTypes,
+                config,
+                sessionType,
+                targetFrameRate,
+                isStrictFrameRateRequired,
+                customMaxFrameRate,
+            )
     }
 
     @Test
     fun canGetSurfaceConfig() {
-        Truth.assertThat(attachedSurfaceInfo!!.surfaceConfig).isEqualTo(
-            SurfaceConfig.create(
-                SurfaceConfig.ConfigType.JPEG, SurfaceConfig.ConfigSize.PREVIEW
+        Truth.assertThat(attachedSurfaceInfo!!.surfaceConfig)
+            .isEqualTo(
+                SurfaceConfig.create(
+                    SurfaceConfig.ConfigType.JPEG,
+                    SurfaceConfig.ConfigSize.PREVIEW,
+                )
             )
-        )
     }
 
     @Test
@@ -98,33 +104,51 @@ class AttachedSurfaceInfoTest {
     @Test
     fun canGetImplementationOption() {
         Truth.assertThat(
-            attachedSurfaceInfo!!.implementationOptions!!
-                .containsOption(ImageInputConfig.OPTION_INPUT_FORMAT)
-        )
+                attachedSurfaceInfo!!
+                    .implementationOptions!!
+                    .containsOption(ImageInputConfig.OPTION_INPUT_FORMAT)
+            )
             .isTrue()
         Truth.assertThat(
-            attachedSurfaceInfo!!.implementationOptions!!
-                .retrieveOption(ImageInputConfig.OPTION_INPUT_FORMAT)
-        )
+                attachedSurfaceInfo!!
+                    .implementationOptions!!
+                    .retrieveOption(ImageInputConfig.OPTION_INPUT_FORMAT)
+            )
             .isEqualTo(inputFormat)
     }
 
     @Test
     fun canGetTargetFrameRate() {
-        Truth.assertThat(attachedSurfaceInfo!!.targetFrameRate).isEqualTo(targetFramerate)
+        Truth.assertThat(attachedSurfaceInfo!!.targetFrameRate).isEqualTo(targetFrameRate)
     }
 
     @Test
-    fun nullGetTargetFrameRateReturnsNull() {
-        val attachedSurfaceInfo2 = AttachedSurfaceInfo.create(
-            surfaceConfig,
-            imageFormat,
-            size,
-            dynamicRange,
-            listOf(CaptureType.PREVIEW),
-            config,
-            null
-        )
-        Truth.assertThat(attachedSurfaceInfo2.targetFrameRate).isNull()
+    fun canGetIsStrictFrameRateRequired() {
+        Truth.assertThat(attachedSurfaceInfo!!.isStrictFrameRateRequired).isTrue()
+    }
+
+    @Test
+    fun canGetCustomMaxFrameRate() {
+        Truth.assertThat(attachedSurfaceInfo!!.customMaxFrameRate).isEqualTo(customMaxFrameRate)
+    }
+
+    @Test
+    fun defaultSessionTypeAndFrameRate() {
+        val attachedSurfaceInfo2 =
+            AttachedSurfaceInfo.create(
+                surfaceConfig,
+                imageFormat,
+                size,
+                dynamicRange,
+                listOf(CaptureType.PREVIEW),
+                config,
+                sessionType,
+                FRAME_RATE_RANGE_UNSPECIFIED,
+                isStrictFrameRateRequired,
+                customMaxFrameRate,
+            )
+        Truth.assertThat(attachedSurfaceInfo2.sessionType).isEqualTo(SESSION_TYPE_REGULAR)
+        Truth.assertThat(attachedSurfaceInfo2.targetFrameRate)
+            .isEqualTo(FRAME_RATE_RANGE_UNSPECIFIED)
     }
 }

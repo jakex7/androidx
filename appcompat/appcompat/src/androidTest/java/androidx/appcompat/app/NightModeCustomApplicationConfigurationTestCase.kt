@@ -34,11 +34,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
-/**
- * This is one approach to customizing Activity configuration that's used in google3.
- *
- * The ContextThemeWrapper.applyOverrideConfiguration method only exists on API level 17 and up.
- */
+/** This is one approach to customizing Activity configuration that's used in google3. */
 @LargeTest
 @RunWith(Parameterized::class)
 class NightModeCustomApplicationConfigurationTestCase(private val setMode: NightSetMode) {
@@ -46,9 +42,8 @@ class NightModeCustomApplicationConfigurationTestCase(private val setMode: Night
     private var initialConfig: Configuration? = null
 
     @get:Rule
-    val activityRule = NightModeActivityTestRule(
-        NightModeCustomAttachBaseContextActivity::class.java
-    )
+    val activityRule =
+        NightModeActivityTestRule(NightModeCustomAttachBaseContextActivity::class.java)
 
     @Suppress("DEPRECATION")
     @Before

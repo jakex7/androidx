@@ -23,17 +23,20 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 internal class CumulativeDataPointTest {
     fun Int.instant() = Instant.ofEpochMilli(toLong())
 
     @Test
     fun protoRoundTrip() {
-        val proto = CumulativeDataPoint(
-            dataType = DataType.CALORIES_TOTAL,
-            total = 100.0,
-            start = 10.instant(),
-            end = 99.instant(),
-        ).proto
+        val proto =
+            CumulativeDataPoint(
+                    dataType = DataType.CALORIES_TOTAL,
+                    total = 100.0,
+                    start = 10.instant(),
+                    end = 99.instant(),
+                )
+                .proto
 
         val dataPoint = CumulativeDataPoint.fromProto(proto.cumulativeDataPoint)
 

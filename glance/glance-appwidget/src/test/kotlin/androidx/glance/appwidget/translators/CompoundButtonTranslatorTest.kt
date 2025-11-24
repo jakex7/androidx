@@ -26,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class CompoundButtonTranslatorTest {
 
     private val lightContext = configurationContext { uiMode = Configuration.UI_MODE_NIGHT_NO }
@@ -33,9 +34,7 @@ class CompoundButtonTranslatorTest {
 
     @Test
     fun resolveColorResource_0_shouldReturnFallback() {
-        val colorProvider = ResourceCheckableColorProvider(
-            resId = 0,
-        )
+        val colorProvider = ResourceCheckableColorProvider(resId = 0)
 
         assertThat(colorProvider.getColor(lightContext, isChecked = true))
             .isSameColorAs(checkableColorProviderFallbackColor)
@@ -43,9 +42,7 @@ class CompoundButtonTranslatorTest {
 
     @Test
     fun resolveColorResource_invalid_shouldReturnFallback() {
-        val colorProvider = ResourceCheckableColorProvider(
-            resId = -1,
-        )
+        val colorProvider = ResourceCheckableColorProvider(resId = -1)
 
         assertThat(colorProvider.getColor(lightContext, isChecked = true))
             .isSameColorAs(checkableColorProviderFallbackColor)
@@ -53,21 +50,15 @@ class CompoundButtonTranslatorTest {
 
     @Test
     fun resolveColorResource_valid_day_shouldReturnResolvedColor() {
-        val colorProvider = ResourceCheckableColorProvider(
-            resId = R.color.my_checkbox_colors,
-        )
+        val colorProvider = ResourceCheckableColorProvider(resId = R.color.my_checkbox_colors)
 
-        assertThat(colorProvider.getColor(lightContext, isChecked = true))
-            .isSameColorAs("#FF0000")
+        assertThat(colorProvider.getColor(lightContext, isChecked = true)).isSameColorAs("#FF0000")
     }
 
     @Test
     fun resolveColorResource_valid_night_shouldReturnResolvedColor() {
-        val colorProvider = ResourceCheckableColorProvider(
-            resId = R.color.my_checkbox_colors,
-        )
+        val colorProvider = ResourceCheckableColorProvider(resId = R.color.my_checkbox_colors)
 
-        assertThat(colorProvider.getColor(darkContext, isChecked = true))
-            .isSameColorAs("#FFFF00")
+        assertThat(colorProvider.getColor(darkContext, isChecked = true)).isSameColorAs("#FFFF00")
     }
 }

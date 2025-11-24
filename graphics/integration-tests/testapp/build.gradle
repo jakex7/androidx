@@ -21,23 +21,19 @@
  * Please use that script when creating a new project, rather than copying an existing project and
  * modifying its settings.
  */
-import androidx.build.LibraryType
+import androidx.build.SoftwareType
 
 plugins {
     id("AndroidXPlugin")
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.experimental.built-in-kotlin")
 }
 
 dependencies {
-    api(libs.kotlinStdlib)
     implementation(project(":graphics:graphics-shapes"))
     implementation("androidx.core:core-ktx:1.9.0")
 }
 
 android {
-    defaultConfig {
-        minSdkVersion 21
-    }
-    namespace "androidx.graphics.shapes.test"
+    namespace = "androidx.graphics.shapes.test"
 }

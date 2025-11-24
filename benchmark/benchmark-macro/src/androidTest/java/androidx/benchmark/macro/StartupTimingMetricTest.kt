@@ -19,15 +19,17 @@ package androidx.benchmark.macro
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Build
+import android.os.Build.VERSION.SDK_INT
 import androidx.annotation.RequiresApi
 import androidx.benchmark.DeviceInfo
+import androidx.benchmark.DeviceInfo.isEmulator
 import androidx.benchmark.Outputs
 import androidx.benchmark.perfetto.PerfettoCapture.PerfettoSdkConfig
 import androidx.benchmark.perfetto.PerfettoCapture.PerfettoSdkConfig.InitialProcessState
 import androidx.benchmark.perfetto.PerfettoCaptureWrapper
 import androidx.benchmark.perfetto.PerfettoConfig
 import androidx.benchmark.perfetto.PerfettoHelper.Companion.isAbiSupported
-import androidx.benchmark.perfetto.PerfettoTraceProcessor
+import androidx.benchmark.traceprocessor.TraceProcessor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.filters.MediumTest
@@ -46,18 +48,20 @@ import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 
-@SdkSuppress(minSdkVersion = 23)
 @RunWith(AndroidJUnit4::class)
 class StartupTimingMetricTest {
     @MediumTest
     @Test
     @Ignore("b/258335082")
     fun noResults() {
+        // Our API 23 emulators seem to be misconfigured b/438214932
+        assumeTrue(!isEmulator || SDK_INT != 23)
         assumeTrue(isAbiSupported())
         val packageName = "fake.package.fiction.nostartups"
-        val measurements = measureStartup(packageName, StartupMode.COLD) {
-            // Do nothing
-        }
+        val measurements =
+            measureStartup(packageName, StartupMode.COLD) {
+                // Do nothing
+            }
         assertEquals(true, measurements.isEmpty())
     }
 
@@ -68,51 +72,44 @@ class StartupTimingMetricTest {
     // reflection to force reportFullyDrawn() to be traced. See b/182386956
     @SdkSuppress(minSdkVersion = 29)
     fun startup() {
+        // Our API 23 emulators seem to be misconfigured b/438214932
+        assumeTrue(!isEmulator || SDK_INT != 23)
         assumeTrue(isAbiSupported())
         val packageName = "androidx.benchmark.integration.macrobenchmark.target"
         val intent =
             Intent("androidx.benchmark.integration.macrobenchmark.target.TRIVIAL_STARTUP_ACTIVITY")
-        val scope = MacrobenchmarkScope(
-            packageName = packageName,
-            launchWithClearTask = true
-        )
-        val measurements = measureStartup(packageName, StartupMode.COLD) {
-            // Simulate a cold start
-            scope.killProcess()
-            scope.dropKernelPageCache()
-            scope.pressHome()
-            scope.startActivityAndWait(intent)
-        }
+        val scope = MacrobenchmarkScope(packageName = packageName, launchWithClearTask = true)
+        val measurements =
+            measureStartup(packageName, StartupMode.COLD) {
+                // Simulate a cold start
+                scope.killProcess()
+                scope.dropKernelPageCache()
+                scope.pressHome()
+                scope.startActivityAndWait(intent)
+            }
 
-        assertEquals(
-            listOf("timeToInitialDisplayMs"),
-            measurements.map { it.name }
-        )
+        assertEquals(listOf("timeToInitialDisplayMs"), measurements.map { it.name })
     }
 
     /**
      * Validate that reasonable startup and fully drawn metrics are extracted, either from
      * startActivityAndWait, or from in-app Activity based navigation
      */
-    private fun validateStartup_fullyDrawn(
-        delayMs: Long,
-        useInAppNav: Boolean = false
-    ) {
+    private fun validateStartup_fullyDrawn(delayMs: Long, useInAppNav: Boolean = false) {
         val awaitActivityText: (String) -> UiObject2 = { expectedText ->
-            UiDevice
-                .getInstance(InstrumentationRegistry.getInstrumentation())
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 .wait(Until.findObject(By.text(expectedText)), 3000)!!
         }
         assumeTrue(isAbiSupported())
+        // Our API 23 emulators seem to be misconfigured b/438214932
+        assumeTrue(!isEmulator || SDK_INT != 23)
 
-        val scope = MacrobenchmarkScope(
-            packageName = Packages.TEST,
-            launchWithClearTask = true
-        )
-        val launchIntent = ConfigurableActivity.createIntent(
-            text = "ORIGINAL TEXT",
-            reportFullyDrawnDelayMs = delayMs
-        )
+        val scope = MacrobenchmarkScope(packageName = Packages.TEST, launchWithClearTask = true)
+        val launchIntent =
+            ConfigurableActivity.createIntent(
+                text = "ORIGINAL TEXT",
+                reportFullyDrawnDelayMs = delayMs,
+            )
         // setup initial Activity if needed
         if (useInAppNav) {
             scope.startActivityAndWait(launchIntent)
@@ -122,47 +119,49 @@ class StartupTimingMetricTest {
         }
 
         // measure the activity launch
-        val measurements = measureStartup(Packages.TEST, StartupMode.WARM) {
-            // Simulate a warm start, since it's our own process
-            if (useInAppNav) {
-                // click the textview, which triggers an activity launch
-                awaitActivityText(
-                    if (delayMs > 0) {
-                        ConfigurableActivity.FULLY_DRAWN_TEXT
-                    } else {
-                        "ORIGINAL TEXT"
-                    }
-                ).click()
-            } else {
-                scope.pressHome()
-                scope.startActivityAndWait(launchIntent)
-            }
+        val measurements =
+            measureStartup(Packages.TEST, StartupMode.WARM) {
+                // Simulate a warm start, since it's our own process
+                if (useInAppNav) {
+                    // click the textview, which triggers an activity launch
+                    awaitActivityText(
+                            if (delayMs > 0) {
+                                ConfigurableActivity.FULLY_DRAWN_TEXT
+                            } else {
+                                "ORIGINAL TEXT"
+                            }
+                        )
+                        .click()
+                } else {
+                    scope.pressHome()
+                    scope.startActivityAndWait(launchIntent)
+                }
 
-            if (useInAppNav) {
-                // in app nav destinations always have different strings to differentiate
-                // vs the first activity's strings to prevent races
-                awaitActivityText(
-                    if (delayMs > 0) {
-                        ConfigurableActivity.INNER_ACTIVITY_FULLY_DRAWN_TEXT
-                    } else {
-                        ConfigurableActivity.INNER_ACTIVITY_TEXT
-                    }
-                )
-            } else if (delayMs > 0) {
-                awaitActivityText(ConfigurableActivity.FULLY_DRAWN_TEXT)
+                if (useInAppNav) {
+                    // in app nav destinations always have different strings to differentiate
+                    // vs the first activity's strings to prevent races
+                    awaitActivityText(
+                        if (delayMs > 0) {
+                            ConfigurableActivity.INNER_ACTIVITY_FULLY_DRAWN_TEXT
+                        } else {
+                            ConfigurableActivity.INNER_ACTIVITY_TEXT
+                        }
+                    )
+                } else if (delayMs > 0) {
+                    awaitActivityText(ConfigurableActivity.FULLY_DRAWN_TEXT)
+                }
             }
-        }
 
         // validate
         assertEquals(
             setOf("timeToInitialDisplayMs", "timeToFullDisplayMs"),
-            measurements.map { it.name }.toSet()
+            measurements.map { it.name }.toSet(),
         )
 
-        val timeToInitialDisplayMs = measurements
-            .first { it.name == "timeToInitialDisplayMs" }.data.single()
-        val timeToFullDisplayMs = measurements
-            .first { it.name == "timeToFullDisplayMs" }.data.single()
+        val timeToInitialDisplayMs =
+            measurements.first { it.name == "timeToInitialDisplayMs" }.data.single()
+        val timeToFullDisplayMs =
+            measurements.first { it.name == "timeToFullDisplayMs" }.data.single()
 
         if (delayMs == 0L) {
             // since reportFullyDrawn is dispatched before startup is complete,
@@ -173,7 +172,7 @@ class StartupTimingMetricTest {
             assertTrue(
                 timeToFullDisplayMs > timeToInitialDisplayMs,
                 "Didn't see full draw delayed after initial display: " +
-                    "ttid $timeToInitialDisplayMs, ttfd $timeToFullDisplayMs"
+                    "ttid $timeToInitialDisplayMs, ttfd $timeToFullDisplayMs",
             )
         }
     }
@@ -210,53 +209,57 @@ class StartupTimingMetricTest {
 
     private fun getApi32WarmMeasurements(metric: Metric): List<Metric.Measurement> {
         assumeTrue(isAbiSupported())
+        // Our API 23 emulators seem to be misconfigured b/438214932
+        assumeTrue(!isEmulator || SDK_INT != 23)
         val traceFile = createTempFileFromAsset("api32_startup_warm", ".perfetto-trace")
-        val packageName = "androidx.benchmark.integration.macrobenchmark.target"
-
-        metric.configure(packageName)
-        return PerfettoTraceProcessor.runSingleSessionServer(traceFile.absolutePath) {
-            metric.getMeasurements(
-                captureInfo = Metric.CaptureInfo(
-                    targetPackageName = "androidx.benchmark.integration.macrobenchmark.target",
-                    testPackageName = "androidx.benchmark.integration.macrobenchmark.test",
-                    startupMode = StartupMode.WARM,
-                    apiLevel = 32
-                ),
-                traceSession = this
+        val captureInfo =
+            Metric.CaptureInfo(
+                targetPackageName = "androidx.benchmark.integration.macrobenchmark.target",
+                testPackageName = "androidx.benchmark.integration.macrobenchmark.test",
+                startupMode = StartupMode.WARM,
+                apiLevel = 32,
             )
+
+        metric.configure(captureInfo)
+        return TraceProcessor.runSingleSessionServer(traceFile.absolutePath) {
+            metric.getMeasurements(captureInfo = captureInfo, traceSession = this)
         }
     }
 
     @MediumTest
     @Test
     fun fixedStartupTraceMetricsReport_fullyDrawnBeforeFirstFrame() {
+        // Our API 23 emulators seem to be misconfigured b/438214932
+        assumeTrue(!isEmulator || SDK_INT != 23)
         assumeTrue(isAbiSupported())
-        val traceFile = createTempFileFromAsset(
-            prefix = "api24_startup_sameproc_immediatefullydrawn",
-            suffix = ".perfetto-trace"
-        )
-        val metric = StartupTimingMetric()
-        metric.configure(Packages.TEST)
-
-        val measurements = PerfettoTraceProcessor.runSingleSessionServer(traceFile.absolutePath) {
-            metric.getMeasurements(
-                captureInfo = Metric.CaptureInfo(
-                    targetPackageName = Packages.TEST,
-                    testPackageName = Packages.TEST,
-                    startupMode = StartupMode.WARM,
-                    apiLevel = 24
-                ),
-                traceSession = this
+        val traceFile =
+            createTempFileFromAsset(
+                prefix = "api24_startup_sameproc_immediatefullydrawn",
+                suffix = ".perfetto-trace",
             )
-        }
+        val metric = StartupTimingMetric()
+        val captureInfo =
+            Metric.CaptureInfo(
+                targetPackageName = Packages.TEST,
+                testPackageName = Packages.TEST,
+                startupMode = StartupMode.WARM,
+                apiLevel = 24,
+            )
+        metric.configure(captureInfo)
+
+        val measurements =
+            TraceProcessor.runSingleSessionServer(traceFile.absolutePath) {
+                metric.getMeasurements(captureInfo = captureInfo, traceSession = this)
+            }
 
         assertEqualMeasurements(
-            expected = listOf(
-                Metric.Measurement("timeToInitialDisplayMs", 178.58525),
-                Metric.Measurement("timeToFullDisplayMs", 178.58525)
-            ),
+            expected =
+                listOf(
+                    Metric.Measurement("timeToInitialDisplayMs", 178.58525),
+                    Metric.Measurement("timeToFullDisplayMs", 178.58525),
+                ),
             observed = measurements,
-            threshold = 0.0001
+            threshold = 0.0001,
         )
     }
 
@@ -266,12 +269,13 @@ class StartupTimingMetricTest {
         val measurements = getApi32WarmMeasurements(StartupTimingMetric())
 
         assertEqualMeasurements(
-            expected = listOf(
-                Metric.Measurement("timeToInitialDisplayMs", 154.629883),
-                Metric.Measurement("timeToFullDisplayMs", 659.641358)
-            ),
+            expected =
+                listOf(
+                    Metric.Measurement("timeToInitialDisplayMs", 154.629883),
+                    Metric.Measurement("timeToFullDisplayMs", 659.641358),
+                ),
             observed = measurements,
-            threshold = 0.0001
+            threshold = 0.0001,
         )
     }
 
@@ -282,12 +286,13 @@ class StartupTimingMetricTest {
         val measurements = getApi32WarmMeasurements(StartupTimingLegacyMetric())
 
         assertEqualMeasurements(
-            expected = listOf(
-                Metric.Measurement("startupMs", 156.515747),
-                Metric.Measurement("fullyDrawnMs", 644.613729)
-            ),
+            expected =
+                listOf(
+                    Metric.Measurement("startupMs", 156.515747),
+                    Metric.Measurement("fullyDrawnMs", 644.613729),
+                ),
             observed = measurements,
-            threshold = 0.0001
+            threshold = 0.0001,
         )
     }
 }
@@ -296,44 +301,46 @@ class StartupTimingMetricTest {
 internal fun measureStartup(
     packageName: String,
     startupMode: StartupMode,
-    measureBlock: () -> Unit
+    measureBlock: () -> Unit,
 ): List<Metric.Measurement> {
     val metric = StartupTimingMetric()
-    metric.configure(packageName)
-    val tracePath = PerfettoCaptureWrapper().record(
-        fileLabel = packageName,
-        config = PerfettoConfig.Benchmark(
-            // note - packageName may be this package, so we convert to set then list to make unique
-            // and on API 23 and below, we use reflection to trace instead within this process
-            appTagPackages = if (Build.VERSION.SDK_INT >= 24 && packageName != Packages.TEST) {
-                listOf(packageName, Packages.TEST)
-            } else {
-                listOf(packageName)
-            },
-            useStackSamplingConfig = false
-        ),
-        perfettoSdkConfig = PerfettoSdkConfig(packageName, InitialProcessState.Unknown),
-        block = measureBlock
-    )!!
-
-    return PerfettoTraceProcessor.runSingleSessionServer(tracePath) {
-        metric.getMeasurements(
-            captureInfo = Metric.CaptureInfo(
-                targetPackageName = packageName,
-                testPackageName = Packages.TEST,
-                startupMode = startupMode,
-                apiLevel = Build.VERSION.SDK_INT
-            ),
-            traceSession = this
+    val captureInfo =
+        Metric.CaptureInfo.forLocalCapture(
+            targetPackageName = packageName,
+            startupMode = startupMode,
         )
+    metric.configure(captureInfo)
+    val tracePath =
+        PerfettoCaptureWrapper()
+            .record(
+                fileLabel = packageName,
+                config =
+                    PerfettoConfig.Benchmark(
+                        // note - packageName may be this package, so we convert to set then list to
+                        // make unique
+                        // and on API 23 and below, we use reflection to trace instead within this
+                        // process
+                        appTagPackages =
+                            if (Build.VERSION.SDK_INT >= 24 && packageName != Packages.TEST) {
+                                listOf(packageName, Packages.TEST)
+                            } else {
+                                listOf(packageName)
+                            },
+                        useStackSamplingConfig = false,
+                    ),
+                perfettoSdkConfig = PerfettoSdkConfig(packageName, InitialProcessState.Unknown),
+                block = measureBlock,
+            )!!
+
+    return TraceProcessor.runSingleSessionServer(tracePath) {
+        metric.getMeasurements(captureInfo = captureInfo, traceSession = this)
     }
 }
 
 @Suppress("SameParameterValue")
 internal fun createTempFileFromAsset(prefix: String, suffix: String): File {
     val file = File.createTempFile(prefix, suffix, Outputs.dirUsableByAppAndShell)
-    InstrumentationRegistry
-        .getInstrumentation()
+    InstrumentationRegistry.getInstrumentation()
         .context
         .assets
         .open(prefix + suffix)

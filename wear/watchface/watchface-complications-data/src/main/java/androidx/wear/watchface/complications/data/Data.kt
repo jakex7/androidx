@@ -23,6 +23,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.PersistableBundle
 import android.support.wearable.complications.ComplicationData as WireComplicationData
 import android.support.wearable.complications.ComplicationData.Builder as WireComplicationDataBuilder
 import android.support.wearable.complications.ComplicationText as WireComplicationText
@@ -33,6 +34,7 @@ import androidx.annotation.ColorInt
 import androidx.annotation.FloatRange
 import androidx.annotation.IntDef
 import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
 import androidx.annotation.RestrictTo
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicFloat
 import androidx.wear.watchface.complications.data.GoalProgressComplicationData.Companion.PLACEHOLDER
@@ -41,6 +43,8 @@ import androidx.wear.watchface.complications.data.RangedValueComplicationData.Co
 import androidx.wear.watchface.complications.data.WeightedElementsComplicationData.Companion.PLACEHOLDER
 import androidx.wear.watchface.complications.data.WeightedElementsComplicationData.Companion.getMaxElements
 import androidx.wear.watchface.complications.data.WeightedElementsComplicationData.Element
+import com.google.wear.expression.ProtoLayoutDynamicFloat as WearSdkDynamicFloat
+import com.google.wear.services.complications.ComplicationData as WearSdkComplicationData
 import java.time.Instant
 
 internal const val TAG = "Data.kt"
@@ -62,8 +66,8 @@ public object ComplicationPersistencePolicies {
     value =
         [
             ComplicationPersistencePolicies.CACHING_ALLOWED,
-            ComplicationPersistencePolicies.DO_NOT_PERSIST
-        ]
+            ComplicationPersistencePolicies.DO_NOT_PERSIST,
+        ],
 )
 @RestrictTo(RestrictTo.Scope.LIBRARY)
 public annotation class ComplicationPersistencePolicy
@@ -82,8 +86,8 @@ public object ComplicationDisplayPolicies {
     value =
         [
             ComplicationDisplayPolicies.ALWAYS_DISPLAY,
-            ComplicationDisplayPolicies.DO_NOT_SHOW_WHEN_DEVICE_LOCKED
-        ]
+            ComplicationDisplayPolicies.DO_NOT_SHOW_WHEN_DEVICE_LOCKED,
+        ],
 )
 @RestrictTo(RestrictTo.Scope.LIBRARY)
 public annotation class ComplicationDisplayPolicy
@@ -133,17 +137,24 @@ public annotation class ComplicationDisplayPolicy
  *   IMPORTANT: This is only used when the system supports dynamic values. See each dynamic field's
  *   fallback companion field for the situation where the system does not support dynamic values at
  *   all.
+ *
+ * @property extras A copy of any extras set by a complication provider with the privileged
+ *   permission `com.google.wear.permission.SET_COMPLICATION_EXTRAS` or [PersistableBundle.EMPTY].
+ *   Extras set by a provider without permission will be stripped. It is assumed that an OEM wrote
+ *   both the complication provider and the watch face, using fields they defined.
  */
 public sealed class ComplicationData
 constructor(
     public val type: ComplicationType,
     public val tapAction: PendingIntent?,
-    internal var cachedWireComplicationData: WireComplicationData?,
+    internal var cachedWireComplicationData: WireComplicationData? = null,
+    internal var cachedWearSdkComplicationData: WearSdkComplicationData? = null,
     public val validTimeRange: TimeRange = TimeRange.ALWAYS,
     public val dataSource: ComponentName?,
     @ComplicationPersistencePolicy public val persistencePolicy: Int,
     @ComplicationDisplayPolicy public val displayPolicy: Int,
     public val dynamicValueInvalidationFallback: ComplicationData?,
+    public val extras: PersistableBundle,
 ) {
     /** Throws [IllegalArgumentException] if the [ComplicationData] is invalid. */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) open fun validate() {}
@@ -183,6 +194,7 @@ constructor(
         builder.setDataSource(dataSource)
         builder.setPersistencePolicy(persistencePolicy)
         builder.setDisplayPolicy(displayPolicy)
+        builder.setExtras(extras)
         if (dynamicValueInvalidationFallback == null) {
             builder.setPlaceholder(null)
         } else {
@@ -191,6 +203,208 @@ constructor(
             dynamicValueInvalidationFallback.fillWireComplicationDataBuilder(placeholderBuilder)
             builder.setPlaceholder(placeholderBuilder.build())
         }
+    }
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public fun asWearSdkComplicationData(): WearSdkComplicationData {
+        cachedWearSdkComplicationData?.let {
+            return it
+        }
+        var input = this
+        fun WearSdkComplicationData.Builder.setTimeRange() {
+            input.validTimeRange.let {
+                if (it.startDateTimeMillis > Instant.MIN) {
+                    setStartDateTimeMillis(it.startDateTimeMillis.toEpochMilli())
+                }
+                if (it.endDateTimeMillis != Instant.MAX) {
+                    setEndDateTimeMillis(it.endDateTimeMillis.toEpochMilli())
+                }
+            }
+        }
+
+        var builder =
+            when (input) {
+                is NoDataComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.NO_DATA.toWireComplicationType()
+                        )
+                        .apply {
+                            setPlaceholder(input.placeholder?.asWearSdkComplicationData())
+                            setInvalidatedData(input.invalidatedData?.asWearSdkComplicationData())
+                            setExtras(extras)
+                        }
+                is EmptyComplicationData ->
+                    WearSdkComplicationData.Builder(ComplicationType.EMPTY.toWireComplicationType())
+                is NotConfiguredComplicationData ->
+                    WearSdkComplicationData.Builder(
+                        ComplicationType.NOT_CONFIGURED.toWireComplicationType()
+                    )
+                is ShortTextComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.SHORT_TEXT.toWireComplicationType()
+                        )
+                        .apply {
+                            setShortText(input.text.asWearSdkComplicationText())
+                            setShortTitle(input.title?.asWearSdkComplicationText())
+                            setIcon(input.monochromaticImage?.image)
+                            setBurnInProtectionIcon(input.monochromaticImage?.ambientImage)
+                            setContentDescription(
+                                input.contentDescription?.asWearSdkComplicationText()
+                            )
+                            setTapAction(input.tapAction)
+                            setTimeRange()
+                        }
+                is LongTextComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.LONG_TEXT.toWireComplicationType()
+                        )
+                        .apply {
+                            setLongText(input.text.asWearSdkComplicationText())
+                            setLongTitle(input.title?.asWearSdkComplicationText())
+                            setIcon(input.monochromaticImage?.image)
+                            setBurnInProtectionIcon(input.monochromaticImage?.ambientImage)
+                            setContentDescription(
+                                input.contentDescription?.asWearSdkComplicationText()
+                            )
+                            setTapAction(input.tapAction)
+                            setTimeRange()
+                        }
+                is RangedValueComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.RANGED_VALUE.toWireComplicationType()
+                        )
+                        .apply {
+                            setRangedValue(input.value)
+                            input.dynamicValue?.toDynamicFloatByteArray()?.let {
+                                setRangedDynamicValue(WearSdkDynamicFloat.fromBytes(it))
+                            }
+                            setRangedMinValue(input.min)
+                            setRangedMaxValue(input.max)
+                            setRangedValueType(input.valueType)
+                            setIcon(input.monochromaticImage?.image)
+                            setBurnInProtectionIcon(input.monochromaticImage?.ambientImage)
+                            input.smallImage?.addToWearSdkComplicationData(this)
+                            setShortText(input.text?.asWearSdkComplicationText())
+                            setShortTitle(input.title?.asWearSdkComplicationText())
+                            setTimeRange()
+                            setContentDescription(
+                                input.contentDescription?.asWearSdkComplicationText()
+                            )
+                            setTapAction(input.tapAction)
+                        }
+                is MonochromaticImageComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.MONOCHROMATIC_IMAGE.toWireComplicationType()
+                        )
+                        .apply {
+                            setIcon(input.monochromaticImage.image)
+                            setBurnInProtectionIcon(input.monochromaticImage.ambientImage)
+                            setTimeRange()
+                            setContentDescription(
+                                input.contentDescription?.asWearSdkComplicationText()
+                            )
+                            setTapAction(input.tapAction)
+                        }
+                is SmallImageComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.SMALL_IMAGE.toWireComplicationType()
+                        )
+                        .apply {
+                            input.smallImage?.addToWearSdkComplicationData(this)
+                            setTimeRange()
+                            setContentDescription(
+                                input.contentDescription?.asWearSdkComplicationText()
+                            )
+                            setTapAction(input.tapAction)
+                        }
+                is PhotoImageComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.PHOTO_IMAGE.toWireComplicationType()
+                        )
+                        .apply {
+                            setLargeImage(input.photoImage)
+                            setTimeRange()
+                            setContentDescription(
+                                input.contentDescription?.asWearSdkComplicationText()
+                            )
+                            setTapAction(input.tapAction)
+                        }
+                is NoPermissionComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.NO_PERMISSION.toWireComplicationType()
+                        )
+                        .apply {
+                            setShortText(input.text?.asWearSdkComplicationText())
+                            setShortTitle(input.title?.asWearSdkComplicationText())
+                            setIcon(input.monochromaticImage?.image)
+                            setBurnInProtectionIcon(input.monochromaticImage?.ambientImage)
+                        }
+                is GoalProgressComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.GOAL_PROGRESS.toWireComplicationType()
+                        )
+                        .apply {
+                            setRangedValue(input.value)
+                            input.dynamicValue?.toDynamicFloatByteArray()?.let {
+                                setRangedDynamicValue(WearSdkDynamicFloat.fromBytes(it))
+                            }
+                            setTargetValue(input.targetValue)
+                            setIcon(input.monochromaticImage?.image)
+                            setBurnInProtectionIcon(input.monochromaticImage?.ambientImage)
+                            input.smallImage?.addToWearSdkComplicationData(this)
+                            setShortText(input.text?.asWearSdkComplicationText())
+                            setShortTitle(input.title?.asWearSdkComplicationText())
+                            setTimeRange()
+                            setContentDescription(
+                                input.contentDescription?.asWearSdkComplicationText()
+                            )
+                            setTapAction(input.tapAction)
+                        }
+                is WeightedElementsComplicationData ->
+                    WearSdkComplicationData.Builder(
+                            ComplicationType.WEIGHTED_ELEMENTS.toWireComplicationType()
+                        )
+                        .apply {
+                            setElementBackgroundColor(input.elementBackgroundColor)
+                            if (input.elements.isEmpty()) {
+                                setElementColors(IntArray(0))
+                                setElementWeights(FloatArray(0))
+                            } else {
+                                var weights = ArrayList<Float>()
+                                var colors = ArrayList<Int>()
+                                input.elements.forEach {
+                                    weights.add(it.weight)
+                                    colors.add(it.color)
+                                }
+                                setElementColors(colors.toIntArray())
+                                setElementWeights(weights.toFloatArray())
+                            }
+
+                            setIcon(input.monochromaticImage?.image)
+                            setBurnInProtectionIcon(input.monochromaticImage?.ambientImage)
+                            input.smallImage?.addToWearSdkComplicationData(this)
+                            setShortText(input.text?.asWearSdkComplicationText())
+                            setShortTitle(input.title?.asWearSdkComplicationText())
+                            setTimeRange()
+                            setContentDescription(
+                                input.contentDescription?.asWearSdkComplicationText()
+                            )
+                            setTapAction(input.tapAction)
+                        }
+            }
+        fillExtraComplicationDataFields(builder)
+        cachedWearSdkComplicationData = builder.build()
+        return cachedWearSdkComplicationData!!
+    }
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    internal fun fillExtraComplicationDataFields(builder: WearSdkComplicationData.Builder) {
+        builder.setDataSource(dataSource)
+        builder.setPersistencePolicy(persistencePolicy)
+        builder.setDisplayPolicy(displayPolicy)
+        builder.setExtras(extras)
+        builder.setPlaceholder(dynamicValueInvalidationFallback?.asWearSdkComplicationData())
     }
 
     /**
@@ -233,6 +447,22 @@ constructor(
         internal var persistencePolicy = ComplicationPersistencePolicies.CACHING_ALLOWED
         internal var displayPolicy = ComplicationDisplayPolicies.ALWAYS_DISPLAY
         internal var dynamicValueInvalidationFallback: BuiltT? = null
+        internal var extras = PersistableBundle.EMPTY
+
+        /**
+         * Intended to allow an OEM complication provider to provide extras in the form of a
+         * [PersistableBundle] that is passed to the OEM watch face. The fields used in the extras
+         * are defined by the OEM.
+         *
+         * Note if the complication provider does not have the privileged permission
+         * `com.google.wear.permission.SET_COMPLICATION_EXTRAS` any extras set will be removed.
+         */
+        @Suppress("UNCHECKED_CAST", "SetterReturnsThis")
+        @RequiresPermission("com.google.wear.permission.SET_COMPLICATION_EXTRAS")
+        public fun setExtras(extras: PersistableBundle): BuilderT {
+            this.extras = extras
+            return this as BuilderT
+        }
 
         /**
          * Sets the [ComponentName] of the ComplicationDataSourceService that provided this
@@ -319,27 +549,31 @@ internal constructor(
     public val placeholder: ComplicationData?,
     public val invalidatedData: ComplicationData?,
     cachedWireComplicationData: WireComplicationData?,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
         placeholder?.tapAction,
         cachedWireComplicationData,
         dataSource = null,
-        persistencePolicy = placeholder?.persistencePolicy
-                ?: ComplicationPersistencePolicies.CACHING_ALLOWED,
+        persistencePolicy =
+            placeholder?.persistencePolicy ?: ComplicationPersistencePolicies.CACHING_ALLOWED,
         displayPolicy = placeholder?.displayPolicy ?: ComplicationDisplayPolicies.ALWAYS_DISPLAY,
         dynamicValueInvalidationFallback = placeholder,
+        extras = extras,
     ) {
 
     /** Constructs a NoDataComplicationData without a [placeholder]. */
-    constructor() : this(null, null, null)
+    constructor() : this(null, null, null, PersistableBundle.EMPTY)
 
     /**
      * Constructs a NoDataComplicationData with a [placeholder] [ComplicationData] which is allowed
      * to contain placeholder fields (see [hasPlaceholderFields]) which must be drawn to look like
      * placeholders. E.g. with grey boxes / arcs.
      */
-    constructor(placeholder: ComplicationData) : this(placeholder, null, null)
+    constructor(
+        placeholder: ComplicationData
+    ) : this(placeholder, null, null, PersistableBundle.EMPTY)
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     override fun getContentDescription(context: Context): TimeDependentText? =
@@ -379,7 +613,8 @@ internal constructor(
             "placeholder=$placeholder, " +
             "tapActionLostDueToSerialization=$tapActionLostDueToSerialization, " +
             "tapAction=$tapAction, validTimeRange=$validTimeRange, " +
-            "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy)"
+            "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy, " +
+            "extras=$extras)"
     }
 
     public companion object {
@@ -402,6 +637,7 @@ public class EmptyComplicationData :
         persistencePolicy = ComplicationPersistencePolicies.CACHING_ALLOWED,
         displayPolicy = ComplicationDisplayPolicies.ALWAYS_DISPLAY,
         dynamicValueInvalidationFallback = null,
+        extras = PersistableBundle.EMPTY,
     ) {
     // Always empty.
     override fun fillWireComplicationDataBuilder(builder: WireComplicationDataBuilder) {}
@@ -434,6 +670,7 @@ public class NotConfiguredComplicationData :
         persistencePolicy = ComplicationPersistencePolicies.CACHING_ALLOWED,
         displayPolicy = ComplicationDisplayPolicies.ALWAYS_DISPLAY,
         dynamicValueInvalidationFallback = null,
+        extras = PersistableBundle.EMPTY,
     ) {
     // Always empty.
     override fun fillWireComplicationDataBuilder(builder: WireComplicationDataBuilder) {}
@@ -511,6 +748,7 @@ internal constructor(
     @ComplicationPersistencePolicy persistencePolicy: Int,
     @ComplicationDisplayPolicy displayPolicy: Int,
     dynamicValueInvalidationFallback: ShortTextComplicationData?,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
@@ -521,6 +759,7 @@ internal constructor(
         persistencePolicy = persistencePolicy,
         displayPolicy = displayPolicy,
         dynamicValueInvalidationFallback = dynamicValueInvalidationFallback,
+        extras = extras,
     ) {
     /**
      * Builder for [ShortTextComplicationData].
@@ -536,7 +775,7 @@ internal constructor(
     @SuppressWarnings("HiddenSuperclass")
     public class Builder(
         private val text: ComplicationText,
-        private val contentDescription: ComplicationText
+        private val contentDescription: ComplicationText,
     ) : BaseBuilder<Builder, ShortTextComplicationData>() {
         private var tapAction: PendingIntent? = null
         private var validTimeRange: TimeRange? = null
@@ -583,6 +822,7 @@ internal constructor(
                 persistencePolicy,
                 displayPolicy,
                 dynamicValueInvalidationFallback,
+                extras,
             )
     }
 
@@ -613,7 +853,8 @@ internal constructor(
             "tapActionLostDueToSerialization=$tapActionLostDueToSerialization, " +
             "tapAction=$tapAction, validTimeRange=$validTimeRange, dataSource=$dataSource, " +
             "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy, " +
-            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback)"
+            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback, " +
+            "extras=$extras)"
     }
 
     override fun hasPlaceholderFields() =
@@ -695,6 +936,7 @@ internal constructor(
     @ComplicationPersistencePolicy persistencePolicy: Int,
     @ComplicationDisplayPolicy displayPolicy: Int,
     dynamicValueInvalidationFallback: LongTextComplicationData?,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
@@ -705,6 +947,7 @@ internal constructor(
         persistencePolicy = persistencePolicy,
         displayPolicy = displayPolicy,
         dynamicValueInvalidationFallback = dynamicValueInvalidationFallback,
+        extras = extras,
     ) {
     /**
      * Builder for [LongTextComplicationData].
@@ -721,7 +964,7 @@ internal constructor(
     @SuppressWarnings("HiddenSuperclass")
     public class Builder(
         private val text: ComplicationText,
-        private val contentDescription: ComplicationText
+        private val contentDescription: ComplicationText,
     ) : BaseBuilder<Builder, LongTextComplicationData>() {
         private var tapAction: PendingIntent? = null
         private var validTimeRange: TimeRange? = null
@@ -768,6 +1011,7 @@ internal constructor(
                 persistencePolicy,
                 displayPolicy,
                 dynamicValueInvalidationFallback,
+                extras,
             )
     }
 
@@ -798,7 +1042,8 @@ internal constructor(
             "tapActionLostDueToSerialization=$tapActionLostDueToSerialization, " +
             "tapAction=$tapAction, validTimeRange=$validTimeRange, dataSource=$dataSource, " +
             "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy, " +
-            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback)"
+            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback, " +
+            "extras=$extras)"
     }
 
     override fun hasPlaceholderFields() =
@@ -848,7 +1093,7 @@ internal constructor(
  */
 public class ColorRamp(
     @ColorInt val colors: IntArray,
-    @get:JvmName("isInterpolated") val interpolated: Boolean
+    @get:JvmName("isInterpolated") val interpolated: Boolean,
 ) {
     /** Throws [IllegalArgumentException] if the [ColorRamp] is invalid. */
     internal fun validate() {
@@ -960,6 +1205,7 @@ internal constructor(
     @ComplicationPersistencePolicy persistencePolicy: Int,
     @ComplicationDisplayPolicy displayPolicy: Int,
     dynamicValueInvalidationFallback: RangedValueComplicationData?,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
@@ -970,6 +1216,7 @@ internal constructor(
         persistencePolicy = persistencePolicy,
         displayPolicy = displayPolicy,
         dynamicValueInvalidationFallback = dynamicValueInvalidationFallback,
+        extras = extras,
     ) {
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -1012,7 +1259,7 @@ internal constructor(
         private val dynamicValue: DynamicFloat?,
         private val min: Float,
         private val max: Float,
-        private val contentDescription: ComplicationText
+        private val contentDescription: ComplicationText,
     ) : BaseBuilder<Builder, RangedValueComplicationData>() {
         /**
          * Creates a [Builder] for a [RangedValueComplicationData] with a [Float] value.
@@ -1031,7 +1278,7 @@ internal constructor(
             value: Float,
             min: Float,
             max: Float,
-            contentDescription: ComplicationText
+            contentDescription: ComplicationText,
         ) : this(value, dynamicValue = null, min, max, contentDescription)
 
         /**
@@ -1065,7 +1312,7 @@ internal constructor(
             fallbackValue: Float,
             min: Float,
             max: Float,
-            contentDescription: ComplicationText
+            contentDescription: ComplicationText,
         ) : this(value = fallbackValue, dynamicValue, min = min, max = max, contentDescription)
 
         /**
@@ -1088,7 +1335,7 @@ internal constructor(
             dynamicValue: DynamicFloat,
             min: Float,
             max: Float,
-            contentDescription: ComplicationText
+            contentDescription: ComplicationText,
         ) : this(value = min, dynamicValue, min = min, max = max, contentDescription)
 
         private var tapAction: PendingIntent? = null
@@ -1146,8 +1393,8 @@ internal constructor(
         }
 
         /** Builds the [RangedValueComplicationData]. */
-        public override fun build() =
-            RangedValueComplicationData(
+        public override fun build(): RangedValueComplicationData {
+            return RangedValueComplicationData(
                 value,
                 dynamicValue,
                 min,
@@ -1166,7 +1413,9 @@ internal constructor(
                 persistencePolicy,
                 displayPolicy,
                 dynamicValueInvalidationFallback,
+                extras,
             )
+        }
     }
 
     override fun fillWireComplicationDataBuilder(builder: WireComplicationDataBuilder) {
@@ -1185,7 +1434,7 @@ internal constructor(
         builder.setTapActionLostDueToSerialization(tapActionLostDueToSerialization)
         colorRamp?.let {
             builder.setColorRamp(it.colors)
-            builder.setColorRampIsSmoothShaded(it.interpolated)
+            builder.setColorRampInterpolated(it.interpolated)
         }
         builder.setRangedValueType(valueType)
     }
@@ -1194,7 +1443,7 @@ internal constructor(
     override fun getContentDescription(context: Context): TimeDependentText? =
         _contentDescription?.emptyToNull()?.toWireComplicationText()
             ?: ComplicationTextTemplate.Builder().addTextAndTitle(text, title).buildOrNull()
-                ?: WireComplicationText(context.getString(R.string.a11y_template_range, value, max))
+            ?: WireComplicationText(context.getString(R.string.a11y_template_range, value, max))
 
     /** The content description field for accessibility. */
     val contentDescription: ComplicationText? = _contentDescription ?: ComplicationText.EMPTY
@@ -1220,7 +1469,8 @@ internal constructor(
             "tapAction=$tapAction, validTimeRange=$validTimeRange, dataSource=$dataSource, " +
             "colorRamp=$colorRamp, persistencePolicy=$persistencePolicy, " +
             "displayPolicy=$displayPolicy, " +
-            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback)"
+            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback, " +
+            "extras=$extras)"
     }
 
     override fun hasPlaceholderFields() =
@@ -1357,6 +1607,7 @@ internal constructor(
     @ComplicationPersistencePolicy persistencePolicy: Int,
     @ComplicationDisplayPolicy displayPolicy: Int,
     dynamicValueInvalidationFallback: GoalProgressComplicationData?,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
@@ -1367,6 +1618,7 @@ internal constructor(
         persistencePolicy = persistencePolicy,
         displayPolicy = displayPolicy,
         dynamicValueInvalidationFallback = dynamicValueInvalidationFallback,
+        extras = extras,
     ) {
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -1395,7 +1647,7 @@ internal constructor(
         private val value: Float,
         private val dynamicValue: DynamicFloat?,
         private val targetValue: Float,
-        private val contentDescription: ComplicationText
+        private val contentDescription: ComplicationText,
     ) : BaseBuilder<Builder, GoalProgressComplicationData>() {
         /**
          * Creates a [Builder] for a [GoalProgressComplicationData] with a [Float] value.
@@ -1410,7 +1662,7 @@ internal constructor(
         public constructor(
             value: Float,
             targetValue: Float,
-            contentDescription: ComplicationText
+            contentDescription: ComplicationText,
         ) : this(value, dynamicValue = null, targetValue, contentDescription)
 
         /**
@@ -1439,7 +1691,7 @@ internal constructor(
             dynamicValue: DynamicFloat,
             fallbackValue: Float,
             targetValue: Float,
-            contentDescription: ComplicationText
+            contentDescription: ComplicationText,
         ) : this(value = fallbackValue, dynamicValue, targetValue = targetValue, contentDescription)
 
         /**
@@ -1458,7 +1710,7 @@ internal constructor(
         public constructor(
             dynamicValue: DynamicFloat,
             targetValue: Float,
-            contentDescription: ComplicationText
+            contentDescription: ComplicationText,
         ) : this(value = 0f, dynamicValue, targetValue = targetValue, contentDescription)
 
         private var tapAction: PendingIntent? = null
@@ -1523,6 +1775,7 @@ internal constructor(
                 persistencePolicy,
                 displayPolicy,
                 dynamicValueInvalidationFallback,
+                extras,
             )
     }
 
@@ -1541,7 +1794,7 @@ internal constructor(
         builder.setTapActionLostDueToSerialization(tapActionLostDueToSerialization)
         colorRamp?.let {
             builder.setColorRamp(it.colors)
-            builder.setColorRampIsSmoothShaded(it.interpolated)
+            builder.setColorRampInterpolated(it.interpolated)
         }
     }
 
@@ -1549,7 +1802,7 @@ internal constructor(
     override fun getContentDescription(context: Context): TimeDependentText? =
         _contentDescription?.emptyToNull()?.toWireComplicationText()
             ?: ComplicationTextTemplate.Builder().addTextAndTitle(text, title).buildOrNull()
-                ?: WireComplicationText(
+            ?: WireComplicationText(
                 context.getString(R.string.a11y_template_range, value, targetValue)
             )
 
@@ -1577,7 +1830,8 @@ internal constructor(
             "tapAction=$tapAction, validTimeRange=$validTimeRange, dataSource=$dataSource, " +
             "colorRamp=$colorRamp, persistencePolicy=$persistencePolicy, " +
             "displayPolicy=$displayPolicy, " +
-            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback)"
+            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback, " +
+            "extras=$extras)"
     }
 
     override fun hasPlaceholderFields() =
@@ -1687,6 +1941,7 @@ internal constructor(
     @ComplicationPersistencePolicy persistencePolicy: Int,
     @ComplicationDisplayPolicy displayPolicy: Int,
     dynamicValueInvalidationFallback: WeightedElementsComplicationData?,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
@@ -1697,6 +1952,7 @@ internal constructor(
         persistencePolicy = persistencePolicy,
         displayPolicy = displayPolicy,
         dynamicValueInvalidationFallback = dynamicValueInvalidationFallback,
+        extras = extras,
     ) {
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -1724,7 +1980,7 @@ internal constructor(
      */
     class Element(
         @FloatRange(from = 0.0, fromInclusive = false) val weight: Float,
-        @ColorInt val color: Int
+        @ColorInt val color: Int,
     ) {
         /** Throws [IllegalArgumentException] if the [Element] is invalid. */
         internal fun validate() {
@@ -1773,7 +2029,7 @@ internal constructor(
     @SuppressWarnings("HiddenSuperclass")
     public class Builder(
         elements: List<Element>,
-        private val contentDescription: ComplicationText
+        private val contentDescription: ComplicationText,
     ) : BaseBuilder<Builder, WeightedElementsComplicationData>() {
         @ColorInt private var elementBackgroundColor: Int = Color.TRANSPARENT
         private var tapAction: PendingIntent? = null
@@ -1788,7 +2044,7 @@ internal constructor(
                 Log.w(
                     TAG,
                     "Found ${elements.size} elements but the maximum is ${getMaxElements()}," +
-                        " truncating!"
+                        " truncating!",
                 )
             }
         }
@@ -1853,6 +2109,7 @@ internal constructor(
                 persistencePolicy,
                 displayPolicy,
                 dynamicValueInvalidationFallback,
+                extras,
             )
     }
 
@@ -1903,7 +2160,8 @@ internal constructor(
             "tapActionLostDueToSerialization=$tapActionLostDueToSerialization, " +
             "tapAction=$tapAction, validTimeRange=$validTimeRange, dataSource=$dataSource, " +
             "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy, " +
-            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback)"
+            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback, " +
+            "extras=$extras)"
     }
 
     override fun hasPlaceholderFields() =
@@ -1964,6 +2222,7 @@ internal constructor(
     @ComplicationPersistencePolicy persistencePolicy: Int,
     @ComplicationDisplayPolicy displayPolicy: Int,
     dynamicValueInvalidationFallback: MonochromaticImageComplicationData?,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
@@ -1974,6 +2233,7 @@ internal constructor(
         persistencePolicy = persistencePolicy,
         displayPolicy = displayPolicy,
         dynamicValueInvalidationFallback = dynamicValueInvalidationFallback,
+        extras = extras,
     ) {
     /**
      * Builder for [MonochromaticImageComplicationData].
@@ -1990,7 +2250,7 @@ internal constructor(
     @SuppressWarnings("HiddenSuperclass")
     public class Builder(
         private val monochromaticImage: MonochromaticImage,
-        private val contentDescription: ComplicationText
+        private val contentDescription: ComplicationText,
     ) : BaseBuilder<Builder, MonochromaticImageComplicationData>() {
         private var tapAction: PendingIntent? = null
         private var validTimeRange: TimeRange? = null
@@ -2018,6 +2278,7 @@ internal constructor(
                 persistencePolicy,
                 displayPolicy,
                 dynamicValueInvalidationFallback,
+                extras,
             )
     }
 
@@ -2045,7 +2306,8 @@ internal constructor(
             "tapActionLostDueToSerialization=$tapActionLostDueToSerialization, " +
             "tapAction=$tapAction, validTimeRange=$validTimeRange, dataSource=$dataSource, " +
             "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy, " +
-            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback)"
+            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback, " +
+            "extras=$extras)"
     }
 
     public companion object {
@@ -2082,6 +2344,7 @@ internal constructor(
     @ComplicationPersistencePolicy persistencePolicy: Int,
     @ComplicationDisplayPolicy displayPolicy: Int,
     dynamicValueInvalidationFallback: SmallImageComplicationData?,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
@@ -2092,6 +2355,7 @@ internal constructor(
         persistencePolicy = persistencePolicy,
         displayPolicy = displayPolicy,
         dynamicValueInvalidationFallback = dynamicValueInvalidationFallback,
+        extras = extras,
     ) {
     /**
      * Builder for [SmallImageComplicationData].
@@ -2108,7 +2372,7 @@ internal constructor(
     @SuppressWarnings("HiddenSuperclass")
     public class Builder(
         private val smallImage: SmallImage,
-        private val contentDescription: ComplicationText
+        private val contentDescription: ComplicationText,
     ) : BaseBuilder<Builder, SmallImageComplicationData>() {
         private var tapAction: PendingIntent? = null
         private var validTimeRange: TimeRange? = null
@@ -2136,6 +2400,7 @@ internal constructor(
                 persistencePolicy,
                 displayPolicy,
                 dynamicValueInvalidationFallback,
+                extras,
             )
     }
 
@@ -2161,7 +2426,8 @@ internal constructor(
             "tapActionLostDueToSerialization=$tapActionLostDueToSerialization, " +
             "tapAction=$tapAction, validTimeRange=$validTimeRange, dataSource=$dataSource, " +
             "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy, " +
-            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback)"
+            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback, " +
+            "extras=$extras)"
     }
 
     override fun hasPlaceholderFields() = smallImage.isPlaceholder()
@@ -2205,6 +2471,7 @@ internal constructor(
     @ComplicationPersistencePolicy persistencePolicy: Int,
     @ComplicationDisplayPolicy displayPolicy: Int,
     dynamicValueInvalidationFallback: PhotoImageComplicationData?,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
@@ -2215,6 +2482,7 @@ internal constructor(
         persistencePolicy = persistencePolicy,
         displayPolicy = displayPolicy,
         dynamicValueInvalidationFallback = dynamicValueInvalidationFallback,
+        extras = extras,
     ) {
     /**
      * Builder for [PhotoImageComplicationData].
@@ -2231,7 +2499,7 @@ internal constructor(
     @SuppressWarnings("HiddenSuperclass")
     public class Builder(
         private val photoImage: Icon,
-        private val contentDescription: ComplicationText
+        private val contentDescription: ComplicationText,
     ) : BaseBuilder<Builder, PhotoImageComplicationData>() {
         private var tapAction: PendingIntent? = null
         private var validTimeRange: TimeRange? = null
@@ -2260,6 +2528,7 @@ internal constructor(
                 persistencePolicy,
                 displayPolicy,
                 dynamicValueInvalidationFallback,
+                extras,
             )
     }
 
@@ -2285,7 +2554,8 @@ internal constructor(
             "tapActionLostDueToSerialization=$tapActionLostDueToSerialization, " +
             "tapAction=$tapAction, validTimeRange=$validTimeRange, dataSource=$dataSource, " +
             "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy, " +
-            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback)"
+            "dynamicValueInvalidationFallback=$dynamicValueInvalidationFallback, " +
+            "extras=$extras)"
     }
 
     override fun hasPlaceholderFields() = photoImage.isPlaceholder()
@@ -2343,6 +2613,7 @@ internal constructor(
     dataSource: ComponentName?,
     @ComplicationPersistencePolicy persistencePolicy: Int,
     @ComplicationDisplayPolicy displayPolicy: Int,
+    extras: PersistableBundle,
 ) :
     ComplicationData(
         TYPE,
@@ -2352,6 +2623,7 @@ internal constructor(
         persistencePolicy = persistencePolicy,
         displayPolicy = displayPolicy,
         dynamicValueInvalidationFallback = null,
+        extras = extras,
     ) {
     /** Builder for [NoPermissionComplicationData]. */
     @SuppressWarnings("HiddenSuperclass")
@@ -2388,6 +2660,7 @@ internal constructor(
                 dataSource,
                 persistencePolicy,
                 displayPolicy,
+                extras,
             )
     }
 
@@ -2413,7 +2686,8 @@ internal constructor(
             "monochromaticImage=$monochromaticImage, smallImage=$smallImage, " +
             "tapActionLostDueToSerialization=$tapActionLostDueToSerialization, " +
             "tapAction=$tapAction, validTimeRange=$validTimeRange, dataSource=$dataSource, " +
-            "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy)"
+            "persistencePolicy=$persistencePolicy, displayPolicy=$displayPolicy, " +
+            "extras=$extras)"
     }
 
     override fun getNextChangeInstant(afterInstant: Instant): Instant {
@@ -2458,6 +2732,7 @@ private fun WireComplicationData.toApiComplicationData(
                     placeholder = placeholder?.toPlaceholderComplicationData(),
                     invalidatedData = invalidatedData?.toApiComplicationData(),
                     cachedWireComplicationData = this,
+                    extras = extras,
                 )
             EmptyComplicationData.TYPE.toWireComplicationType() -> EmptyComplicationData()
             NotConfiguredComplicationData.TYPE.toWireComplicationType() ->
@@ -2476,6 +2751,7 @@ private fun WireComplicationData.toApiComplicationData(
                     persistencePolicy = persistencePolicy,
                     displayPolicy = displayPolicy,
                     dynamicValueInvalidationFallback = placeholder?.toTypedApiComplicationData(),
+                    extras = extras,
                 )
             LongTextComplicationData.TYPE.toWireComplicationType() ->
                 LongTextComplicationData(
@@ -2491,6 +2767,7 @@ private fun WireComplicationData.toApiComplicationData(
                     persistencePolicy = persistencePolicy,
                     displayPolicy = displayPolicy,
                     dynamicValueInvalidationFallback = placeholder?.toTypedApiComplicationData(),
+                    extras = extras,
                 )
             RangedValueComplicationData.TYPE.toWireComplicationType() ->
                 RangedValueComplicationData(
@@ -2512,6 +2789,7 @@ private fun WireComplicationData.toApiComplicationData(
                     persistencePolicy = persistencePolicy,
                     displayPolicy = displayPolicy,
                     dynamicValueInvalidationFallback = placeholder?.toTypedApiComplicationData(),
+                    extras = extras,
                 )
             MonochromaticImageComplicationData.TYPE.toWireComplicationType() ->
                 MonochromaticImageComplicationData(
@@ -2524,6 +2802,7 @@ private fun WireComplicationData.toApiComplicationData(
                     persistencePolicy = persistencePolicy,
                     displayPolicy = displayPolicy,
                     dynamicValueInvalidationFallback = placeholder?.toTypedApiComplicationData(),
+                    extras = extras,
                 )
             SmallImageComplicationData.TYPE.toWireComplicationType() ->
                 SmallImageComplicationData(
@@ -2536,6 +2815,7 @@ private fun WireComplicationData.toApiComplicationData(
                     persistencePolicy = persistencePolicy,
                     displayPolicy = displayPolicy,
                     dynamicValueInvalidationFallback = placeholder?.toTypedApiComplicationData(),
+                    extras = extras,
                 )
             PhotoImageComplicationData.TYPE.toWireComplicationType() ->
                 PhotoImageComplicationData(
@@ -2548,6 +2828,7 @@ private fun WireComplicationData.toApiComplicationData(
                     persistencePolicy = persistencePolicy,
                     displayPolicy = displayPolicy,
                     dynamicValueInvalidationFallback = placeholder?.toTypedApiComplicationData(),
+                    extras = extras,
                 )
             NoPermissionComplicationData.TYPE.toWireComplicationType() ->
                 NoPermissionComplicationData(
@@ -2559,6 +2840,7 @@ private fun WireComplicationData.toApiComplicationData(
                     dataSource = dataSource,
                     persistencePolicy = persistencePolicy,
                     displayPolicy = displayPolicy,
+                    extras = extras,
                 )
             GoalProgressComplicationData.TYPE.toWireComplicationType() ->
                 GoalProgressComplicationData(
@@ -2578,6 +2860,7 @@ private fun WireComplicationData.toApiComplicationData(
                     persistencePolicy = persistencePolicy,
                     displayPolicy = displayPolicy,
                     dynamicValueInvalidationFallback = placeholder?.toTypedApiComplicationData(),
+                    extras = extras,
                 )
             WeightedElementsComplicationData.TYPE.toWireComplicationType() ->
                 WeightedElementsComplicationData(
@@ -2590,7 +2873,7 @@ private fun WireComplicationData.toApiComplicationData(
                             if (elementWeights.size != elementColors.size) {
                                 Log.e(
                                     TAG,
-                                    "elementWeights and elementColors must have the same size"
+                                    "elementWeights and elementColors must have the same size",
                                 )
                             }
                             elementWeights
@@ -2614,6 +2897,7 @@ private fun WireComplicationData.toApiComplicationData(
                     persistencePolicy = persistencePolicy,
                     displayPolicy = displayPolicy,
                     dynamicValueInvalidationFallback = placeholder?.toTypedApiComplicationData(),
+                    extras = extras,
                 )
             else -> NoDataComplicationData()
         }
@@ -2621,7 +2905,7 @@ private fun WireComplicationData.toApiComplicationData(
         Log.e(
             TAG,
             "WireComplicationData.toApiComplicationData failed for " + toStringNoRedaction(),
-            e
+            e,
         )
         throw e
     }
@@ -2638,7 +2922,7 @@ private fun WireComplicationData.parseTimeRange() =
     } else {
         TimeRange(
             Instant.ofEpochMilli(startDateTimeMillis),
-            Instant.ofEpochMilli(endDateTimeMillis)
+            Instant.ofEpochMilli(endDateTimeMillis),
         )
     }
 
@@ -2697,7 +2981,7 @@ internal fun ComplicationText.emptyToNull(): ComplicationText? = if (isAlwaysEmp
 /** Returns whether either text or title were added. */
 internal fun ComplicationTextTemplate.Builder.addTextAndTitle(
     text: ComplicationText?,
-    title: ComplicationText?
+    title: ComplicationText?,
 ): ComplicationTextTemplate.Builder = also {
     text?.emptyToNull()?.let { addComplicationText(it.toWireComplicationText()) }
     title?.emptyToNull()?.let { addComplicationText(it.toWireComplicationText()) }

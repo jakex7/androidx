@@ -18,7 +18,6 @@ package androidx.benchmark.perfetto
 
 import androidx.benchmark.Shell
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.SdkSuppress
 import androidx.test.filters.SmallTest
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -28,7 +27,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 21)
 @SmallTest
 class AtraceTagTest {
     private val shellSessionRooted = Shell.isSessionRooted()
@@ -43,14 +41,15 @@ class AtraceTagTest {
         val results = Shell.executeScriptCaptureStdout("atrace --list_categories")
 
         assertNotEquals("", results)
-        val actualSupportedTags = results
-            .split("\n")
-            .map {
-                println("captured $it")
-                it.trim().split(" ").first()
-            }
-            .filter { it.isNotBlank() }
-            .toSet()
+        val actualSupportedTags =
+            results
+                .split("\n")
+                .map {
+                    println("captured $it")
+                    it.trim().split(" ").first()
+                }
+                .filter { it.isNotBlank() }
+                .toSet()
 
         // verify able to read stdout with guaranteed tag
         assertContains(actualSupportedTags, "view")
@@ -70,9 +69,8 @@ class AtraceTagTest {
     @Test
     fun atraceListCategories_supported() {
         val actualSupportedTags = getActualSupportedTags()
-        val expectedSupportedTags = AtraceTag.supported(rooted = shellSessionRooted)
-            .map { it.tag }
-            .toSet()
+        val expectedSupportedTags =
+            AtraceTag.supported(rooted = shellSessionRooted).map { it.tag }.toSet()
 
         val missingTags = expectedSupportedTags - actualSupportedTags
         assertEquals(setOf(), missingTags, "Tags expected to be supported weren't")

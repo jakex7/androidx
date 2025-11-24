@@ -19,8 +19,8 @@ package androidx.camera.integration.extensions
 import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.os.Build
-import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.impl.CameraInfoInternal
 import androidx.camera.extensions.ExtensionsManager
 import androidx.camera.extensions.impl.PreviewExtenderImpl.ProcessorType
 import androidx.camera.extensions.impl.PreviewImageProcessorImpl
@@ -54,19 +54,16 @@ import org.junit.runners.Parameterized
 
 @SmallTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
 class PreviewExtenderValidationTest(private val config: CameraXExtensionTestParams) {
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = config.implName == CAMERA_PIPE_IMPLEMENTATION_OPTION
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = config.implName == CAMERA_PIPE_IMPLEMENTATION_OPTION)
 
     @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        PreTestCameraIdList(config.cameraXConfig)
-    )
-
-    private val context = ApplicationProvider.getApplicationContext<Context>()
+    val useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            PreTestCameraIdList(config.cameraXConfig)
+        )
 
     private lateinit var cameraProvider: ProcessCameraProvider
     private lateinit var extensionsManager: ExtensionsManager
@@ -82,24 +79,21 @@ class PreviewExtenderValidationTest(private val config: CameraXExtensionTestPara
         val (_, cameraXConfig, cameraId, extensionMode) = config
         ProcessCameraProvider.configureInstance(cameraXConfig)
         cameraProvider = ProcessCameraProvider.getInstance(context)[10000, TimeUnit.MILLISECONDS]
-        extensionsManager = ExtensionsManager.getInstanceAsync(
-            context,
-            cameraProvider
-        )[10000, TimeUnit.MILLISECONDS]
+        extensionsManager = ExtensionsManager.getInstance(context, cameraProvider)
 
         baseCameraSelector = CameraSelectorUtil.createCameraSelectorById(cameraId)
         assumeTrue(extensionsManager.isExtensionAvailable(baseCameraSelector, extensionMode))
 
-        extensionCameraSelector = extensionsManager.getExtensionEnabledCameraSelector(
-            baseCameraSelector,
-            extensionMode
-        )
+        extensionCameraSelector =
+            extensionsManager.getExtensionEnabledCameraSelector(baseCameraSelector, extensionMode)
 
-        val camera = withContext(Dispatchers.Main) {
-            cameraProvider.bindToLifecycle(FakeLifecycleOwner(), extensionCameraSelector)
-        }
+        val camera =
+            withContext(Dispatchers.Main) {
+                cameraProvider.bindToLifecycle(FakeLifecycleOwner(), extensionCameraSelector)
+            }
 
-        cameraCharacteristics = Camera2CameraInfo.extractCameraCharacteristics(camera.cameraInfo)
+        cameraCharacteristics =
+            (camera.cameraInfo as CameraInfoInternal).cameraCharacteristics as CameraCharacteristics
     }
 
     @After
@@ -116,6 +110,7 @@ class PreviewExtenderValidationTest(private val config: CameraXExtensionTestPara
     }
 
     companion object {
+        val context = ApplicationProvider.getApplicationContext<Context>()
         @JvmStatic
         @get:Parameterized.Parameters(name = "config = {0}")
         val parameters: Collection<CameraXExtensionTestParams>
@@ -130,11 +125,12 @@ class PreviewExtenderValidationTest(private val config: CameraXExtensionTestPara
 
         // Creates the ImageCaptureExtenderImpl to retrieve the target format/resolutions pair list
         // from vendor library for the target effect mode.
-        val impl = CameraXExtensionsTestUtil.createPreviewExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
+        val impl =
+            CameraXExtensionsTestUtil.createPreviewExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
 
         // NoSuchMethodError will be thrown if getSupportedResolutions is not implemented in
         // vendor library, and then the test will fail.
@@ -142,36 +138,34 @@ class PreviewExtenderValidationTest(private val config: CameraXExtensionTestPara
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 21, maxSdkVersion = Build.VERSION_CODES.O_MR1)
+    @SdkSuppress(maxSdkVersion = Build.VERSION_CODES.O_MR1)
     fun returnsNullFromOnPresetSession_whenAPILevelOlderThan28() {
         // Creates the ImageCaptureExtenderImpl to check that onPresetSession() returns null when
         // API level is older than 28.
-        val impl = CameraXExtensionsTestUtil.createPreviewExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
+        val impl =
+            CameraXExtensionsTestUtil.createPreviewExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
         assertThat(impl.onPresetSession()).isNull()
     }
 
     @Test
     fun returnCorrectProcessor() {
-        val impl = CameraXExtensionsTestUtil.createPreviewExtenderImpl(
-            config.extensionMode,
-            config.cameraId,
-            cameraCharacteristics
-        )
+        val impl =
+            CameraXExtensionsTestUtil.createPreviewExtenderImpl(
+                config.extensionMode,
+                config.cameraId,
+                cameraCharacteristics,
+            )
 
-        when (val processorType = impl.processorType) {
+        when (impl.processorType) {
             ProcessorType.PROCESSOR_TYPE_NONE -> assertThat(impl.processor).isNull()
             ProcessorType.PROCESSOR_TYPE_REQUEST_UPDATE_ONLY ->
                 assertThat(impl.processor).isInstanceOf(RequestUpdateProcessorImpl::class.java)
-
             ProcessorType.PROCESSOR_TYPE_IMAGE_PROCESSOR ->
                 assertThat(impl.processor).isInstanceOf(PreviewImageProcessorImpl::class.java)
-
-            else ->
-                throw IllegalArgumentException("Unexpected ProcessorType: $processorType")
         }
     }
 }

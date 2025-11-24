@@ -54,24 +54,21 @@ import org.junit.runners.Parameterized
 @LargeTest
 class PreviewViewFragmentTest(
     private val implName: String,
-    private val cameraConfig: CameraXConfig
+    private val cameraConfig: CameraXConfig,
 ) {
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = implName == CameraPipeConfig::class.simpleName,
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = implName == CameraPipeConfig::class.simpleName)
 
     @get:Rule
-    var useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        PreTestCameraIdList(cameraConfig)
-    )
+    var useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(PreTestCameraIdList(cameraConfig))
 
     @get:Rule
     var storagePermissionRule =
         GrantPermissionRule.grant(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
-    @get:Rule
-    var audioPermissionRule = GrantPermissionRule.grant(Manifest.permission.RECORD_AUDIO)
+    @get:Rule var audioPermissionRule = GrantPermissionRule.grant(Manifest.permission.RECORD_AUDIO)
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private var scenario: FragmentScenario<PreviewViewFragment>? = null
     private val context: Context = ApplicationProvider.getApplicationContext()
@@ -207,13 +204,8 @@ class PreviewViewFragmentTest(
         // Resume the fragment
         scenario!!.moveToState(Lifecycle.State.RESUMED)
         instrumentation.runOnMainSync {
-            Truth.assertThat(
-                getPreviewView(
-                    scenario!!
-                ).scaleType
-            ).isEqualTo(
-                PreviewView.ScaleType.FIT_END
-            )
+            Truth.assertThat(getPreviewView(scenario!!).scaleType)
+                .isEqualTo(PreviewView.ScaleType.FIT_END)
         }
     }
 
@@ -230,54 +222,44 @@ class PreviewViewFragmentTest(
         // Resume the fragment
         scenario!!.moveToState(Lifecycle.State.RESUMED)
         instrumentation.runOnMainSync {
-            Truth.assertThat(
-                getPreviewView(
-                    scenario!!
-                ).implementationMode
-            ).isEqualTo(
-                PreviewView.ImplementationMode.COMPATIBLE
-            )
+            Truth.assertThat(getPreviewView(scenario!!).implementationMode)
+                .isEqualTo(PreviewView.ImplementationMode.COMPATIBLE)
         }
     }
 
     private fun createScenario(): FragmentScenario<PreviewViewFragment> {
         return FragmentScenario.launchInContainer(
-            PreviewViewFragment::class.java, null, R.style.AppTheme,
-            FragmentFactory()
+            PreviewViewFragment::class.java,
+            null,
+            R.style.AppTheme,
+            FragmentFactory(),
         )
     }
 
     private fun assertPreviewUpdating(scenario: FragmentScenario<PreviewViewFragment>) {
-        assertPreviewUpdateState(scenario, true)
-    }
-
-    private fun assertPreviewNotUpdating(scenario: FragmentScenario<PreviewViewFragment>) {
-        assertPreviewUpdateState(scenario, false)
-    }
-
-    /**
-     * Waits at most for the duration [.TIMEOUT_SECONDS] for the preview to update at least
-     * [.PREVIEW_UPDATE_COUNT] times.
-     */
-    private fun assertPreviewUpdateState(
-        scenario: FragmentScenario<PreviewViewFragment>,
-        shouldPreviewUpdate: Boolean
-    ) {
+        // Waits at most for the duration [.TIMEOUT_SECONDS] for the preview to update at least
+        // [.PREVIEW_UPDATE_COUNT] times.
         val fragment = AtomicReference<PreviewViewFragment>()
         scenario.onFragment { newValue: PreviewViewFragment -> fragment.set(newValue) }
         val latch = CountDownLatch(PREVIEW_UPDATE_COUNT)
         fragment.get().setPreviewUpdatingLatch(latch)
         val isPreviewUpdating: Boolean
-        isPreviewUpdating = try {
-            latch.await(TIMEOUT_SECONDS.toLong(), TimeUnit.SECONDS)
-        } catch (e: InterruptedException) {
-            false
-        }
-        if (shouldPreviewUpdate) {
-            Truth.assertThat(isPreviewUpdating).isTrue()
-        } else {
-            Truth.assertThat(isPreviewUpdating).isFalse()
-        }
+        isPreviewUpdating =
+            try {
+                latch.await(TIMEOUT_SECONDS.toLong(), TimeUnit.SECONDS)
+            } catch (e: InterruptedException) {
+                false
+            }
+        Truth.assertThat(isPreviewUpdating).isTrue()
+    }
+
+    private fun assertPreviewNotUpdating(scenario: FragmentScenario<PreviewViewFragment>) {
+        val fragment = AtomicReference<PreviewViewFragment>()
+        scenario.onFragment { newValue: PreviewViewFragment -> fragment.set(newValue) }
+        val notUpdatingLatch = CountDownLatch(1)
+        fragment.get().setPreviewNotUpdatingLatch(notUpdatingLatch)
+        Truth.assertThat(notUpdatingLatch.await(TIMEOUT_SECONDS.toLong(), TimeUnit.SECONDS))
+            .isTrue()
     }
 
     private fun getPreviewView(scenario: FragmentScenario<PreviewViewFragment>): PreviewView {
@@ -296,9 +278,10 @@ class PreviewViewFragmentTest(
 
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
-        fun data() = listOf(
-            arrayOf(Camera2Config::class.simpleName, Camera2Config.defaultConfig()),
-            arrayOf(CameraPipeConfig::class.simpleName, CameraPipeConfig.defaultConfig())
-        )
+        fun data() =
+            listOf(
+                arrayOf(Camera2Config::class.simpleName, Camera2Config.defaultConfig()),
+                arrayOf(CameraPipeConfig::class.simpleName, CameraPipeConfig.defaultConfig()),
+            )
     }
 }

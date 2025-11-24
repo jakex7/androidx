@@ -54,40 +54,44 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [org.robolectric.annotation.Config.TARGET_SDK])
 class MeasureClientTest {
 
     private lateinit var callback: FakeCallback
     private lateinit var client: ServiceBackedMeasureClient
     private lateinit var service: FakeServiceStub
     private var cleanup: Boolean = false
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private fun TestScope.advanceMainLooperIdle() =
-        launch { Shadows.shadowOf(Looper.getMainLooper()).idle() }
-    private fun CoroutineScope.advanceMainLooperIdle() =
-        launch { Shadows.shadowOf(Looper.getMainLooper()).idle() }
+    private fun TestScope.advanceMainLooperIdle() = launch {
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+    }
+
+    private fun CoroutineScope.advanceMainLooperIdle() = launch {
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+    }
 
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         callback = FakeCallback()
-        client =
-            ServiceBackedMeasureClient(context, ConnectionManager(context, context.mainLooper))
+        client = ServiceBackedMeasureClient(context, ConnectionManager(context, context.mainLooper))
         service = FakeServiceStub()
 
         val packageName = CLIENT_CONFIGURATION.servicePackageName
         val action = CLIENT_CONFIGURATION.bindAction
-        Shadows.shadowOf(context).setComponentNameAndServiceForBindServiceForIntent(
-            Intent().setPackage(packageName).setAction(action),
-            ComponentName(packageName, CLIENT),
-            service
-        )
+        Shadows.shadowOf(context)
+            .setComponentNameAndServiceForBindServiceForIntent(
+                Intent().setPackage(packageName).setAction(action),
+                ComponentName(packageName, CLIENT),
+                service,
+            )
         cleanup = true
     }
 
     @After
     fun tearDown() {
-        if (!cleanup)
-            return
+        if (!cleanup) return
         runBlocking {
             launch { client.unregisterMeasureCallback(DataType.HEART_RATE_BPM, callback) }
             advanceMainLooperIdle()
@@ -115,9 +119,7 @@ class MeasureClientTest {
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
     fun unregisterCallbackSynchronously_callbackNotRegistered_success() = runTest {
-        val deferred = async {
-            client.unregisterMeasureCallback(DataType.HEART_RATE_BPM, callback)
-        }
+        val deferred = async { client.unregisterMeasureCallback(DataType.HEART_RATE_BPM, callback) }
         advanceMainLooperIdle()
 
         Truth.assertThat(deferred.await()).isNull()
@@ -183,7 +185,7 @@ class MeasureClientTest {
     class FakeCallback : MeasureCallback {
         data class AvailabilityChangeEvent(
             val dataType: DataType<*, *>,
-            val availability: Availability
+            val availability: Availability,
         )
 
         data class DataReceivedEvent(val data: DataPointContainer)
@@ -203,7 +205,7 @@ class MeasureClientTest {
 
         override fun onAvailabilityChanged(
             dataType: DeltaDataType<*, *>,
-            availability: Availability
+            availability: Availability,
         ) {
             availabilityChangeEvents += AvailabilityChangeEvent(dataType, availability)
         }
@@ -219,13 +221,13 @@ class MeasureClientTest {
         class RegisterEvent(
             val request: MeasureRegistrationRequest,
             val callback: IMeasureCallback,
-            val statusCallback: IStatusCallback
+            val statusCallback: IStatusCallback,
         )
 
         class UnregisterEvent(
             val request: MeasureUnregistrationRequest,
             val callback: IMeasureCallback,
-            val statusCallback: IStatusCallback
+            val statusCallback: IStatusCallback,
         )
 
         var statusCallbackAction: (IStatusCallback) -> Unit = { it.onSuccess() }
@@ -240,7 +242,7 @@ class MeasureClientTest {
         override fun registerCallback(
             request: MeasureRegistrationRequest,
             callback: IMeasureCallback,
-            statusCallback: IStatusCallback
+            statusCallback: IStatusCallback,
         ) {
             if (callingAppHasPermissions) {
                 registerEvents += RegisterEvent(request, callback, statusCallback)
@@ -253,7 +255,7 @@ class MeasureClientTest {
         override fun unregisterCallback(
             request: MeasureUnregistrationRequest,
             callback: IMeasureCallback,
-            statusCallback: IStatusCallback
+            statusCallback: IStatusCallback,
         ) {
             unregisterEvents += UnregisterEvent(request, callback, statusCallback)
             statusCallbackAction.invoke(statusCallback)
@@ -277,7 +279,7 @@ class MeasureClientTest {
             ClientConfiguration(
                 CLIENT,
                 IpcConstants.SERVICE_PACKAGE_NAME,
-                IpcConstants.MEASURE_API_BIND_ACTION
+                IpcConstants.MEASURE_API_BIND_ACTION,
             )
     }
 }

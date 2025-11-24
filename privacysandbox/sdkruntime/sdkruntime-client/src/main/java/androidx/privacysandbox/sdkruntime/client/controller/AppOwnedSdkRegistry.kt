@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package androidx.privacysandbox.sdkruntime.client.controller
 
 import androidx.privacysandbox.sdkruntime.core.AppOwnedSdkSandboxInterfaceCompat
 
-/**
- * Register/Unregister/Fetches [AppOwnedSdkSandboxInterfaceCompat]
- */
+/** Register/Unregister/Fetches [AppOwnedSdkSandboxInterfaceCompat] */
 internal interface AppOwnedSdkRegistry {
 
     fun registerAppOwnedSdkSandboxInterface(appOwnedSdk: AppOwnedSdkSandboxInterfaceCompat)

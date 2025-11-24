@@ -22,14 +22,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.tooling.preview.Preview
 
-@Composable
+@Preview(showBackground = true)
 @Sampled
-fun AnnotatedStringWithLinks() {
-    Text(buildAnnotatedString {
+@Composable
+fun TextWithLinks() {
+    val url = "https://developer.android.com/jetpack/compose"
+    val annotatedString = buildAnnotatedString {
         append("Build better apps faster with ")
-        withLink(LinkAnnotation.Url(url = "https://developer.android.com/jetpack/compose")) {
-            append("Jetpack Compose")
-        }
-    })
+        // If the annotation's TextLinkStyles is null,
+        // then the link style defaults to Material styling.
+        withLink(LinkAnnotation.Url(url = url)) { append("Jetpack Compose") }
+    }
+    Text(annotatedString)
 }

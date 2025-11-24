@@ -31,12 +31,12 @@ class FrameStatsResultTest {
             listOf(
                 FrameStatsResult(
                     uniqueName = "com.pkg/com.pkg.MyActivity1/android.view.ViewRootImpl@ade24ea",
-                    lastFrameNs = 4211995467212
+                    lastFrameNs = 4211995467212,
                 ),
                 FrameStatsResult(
                     uniqueName = "com.pkg/com.pkg.MyActivity2/android.view.ViewRootImpl@e8a2229b",
-                    lastFrameNs = 6117484488193
-                )
+                    lastFrameNs = 6117484488193,
+                ),
             ),
             FrameStatsResult.parse(
                 """
@@ -63,8 +63,9 @@ class FrameStatsResultTest {
                     // this should be ignored too
                     com.pkg/com.pkg.MyActivity3/android.view.ViewRootImpl@8a8ebbbc (visibility=8)
                     Window: com.pkg/com.pkg.MyActivity3
-                """.trimIndent()
-            )
+                """
+                    .trimIndent()
+            ),
         )
     }
 }

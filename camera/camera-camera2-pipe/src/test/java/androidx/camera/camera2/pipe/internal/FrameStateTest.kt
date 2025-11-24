@@ -16,7 +16,6 @@
 
 package androidx.camera.camera2.pipe.internal
 
-import android.os.Build
 import androidx.camera.camera2.pipe.CameraTimestamp
 import androidx.camera.camera2.pipe.FrameNumber
 import androidx.camera.camera2.pipe.OutputId
@@ -37,7 +36,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class FrameStateTest {
 
     private val stream1Id = StreamId(1)
@@ -51,32 +50,26 @@ class FrameStateTest {
 
     private val imageStreams = setOf(stream1Id, stream2Id)
     private val fakeImage = FakeImage(640, 480, StreamFormat.YUV_420_888.value, frameTimestampNs)
-    private val outputImage = OutputImage.from(
-        stream1Id,
-        output1Id,
-        fakeImage
-    )
+    private val outputImage = OutputImage.from(stream1Id, output1Id, fakeImage)
     private val fakeSurfaces = FakeSurfaces()
     private val stream1Surface = fakeSurfaces.createFakeSurface()
     private val stream2Surface = fakeSurfaces.createFakeSurface()
 
-    private val fakeRequestMetadata = FakeRequestMetadata(
-        streams = mapOf(stream1Id to stream1Surface, stream2Id to stream2Surface)
-    )
-    private val fakeFrameMetadata = FakeFrameMetadata(
-        frameNumber = frameNumber
-    )
-    private val fakeFrameInfo = FakeFrameInfo(
-        metadata = fakeFrameMetadata,
-        requestMetadata = fakeRequestMetadata
-    )
+    private val fakeRequestMetadata =
+        FakeRequestMetadata(
+            streams = mapOf(stream1Id to stream1Surface, stream2Id to stream2Surface)
+        )
+    private val fakeFrameMetadata = FakeFrameMetadata(frameNumber = frameNumber)
+    private val fakeFrameInfo =
+        FakeFrameInfo(metadata = fakeFrameMetadata, requestMetadata = fakeRequestMetadata)
 
-    private val frameState = FrameState(
-        requestMetadata = fakeRequestMetadata,
-        frameNumber = frameNumber,
-        frameTimestamp = frameTimestamp,
-        imageStreams
-    )
+    private val frameState =
+        FrameState(
+            requestMetadata = fakeRequestMetadata,
+            frameNumber = frameNumber,
+            frameTimestamp = frameTimestamp,
+            imageStreams,
+        )
 
     private val imageResult1 = frameState.imageOutputs.first { it.streamId == stream1Id }
     private val imageResult2 = frameState.imageOutputs.first { it.streamId == stream2Id }
@@ -114,7 +107,7 @@ class FrameStateTest {
             frameTimestamp,
             64L,
             frameTimestampNs,
-            OutputResult.from(outputImage)
+            OutputResult.from(outputImage),
         )
 
         assertThat(fakeImage.isClosed).isFalse()
@@ -138,7 +131,7 @@ class FrameStateTest {
             frameTimestamp,
             64L,
             frameTimestampNs,
-            OutputResult.from(outputImage)
+            OutputResult.from(outputImage),
         )
 
         assertThat(fakeImage.isClosed).isTrue()
@@ -152,7 +145,7 @@ class FrameStateTest {
             frameTimestamp,
             64L,
             frameTimestampNs,
-            OutputResult.from(outputImage)
+            OutputResult.from(outputImage),
         )
         val imageCopy1 = imageResult1.outputOrNull()
         val imageCopy2 = imageResult1.outputOrNull()
@@ -179,7 +172,7 @@ class FrameStateTest {
             frameTimestamp,
             10,
             frameNumber.value,
-            OutputResult.from(fakeFrameInfo)
+            OutputResult.from(fakeFrameInfo),
         )
 
         assertThat(frameState.frameInfoOutput.status).isEqualTo(OutputStatus.AVAILABLE)
@@ -193,7 +186,7 @@ class FrameStateTest {
             frameTimestamp,
             10,
             1,
-            OutputResult.from(fakeFrameInfo)
+            OutputResult.from(fakeFrameInfo),
         )
 
         assertThat(frameState.frameInfoOutput.status).isEqualTo(OutputStatus.AVAILABLE)
@@ -208,7 +201,7 @@ class FrameStateTest {
             frameTimestamp,
             10,
             frameNumber.value,
-            OutputResult.from(fakeFrameInfo)
+            OutputResult.from(fakeFrameInfo),
         )
 
         assertThat(frameState.frameInfoOutput.status).isEqualTo(OutputStatus.UNAVAILABLE)

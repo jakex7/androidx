@@ -20,7 +20,10 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Build.VERSION.SDK_INT
+import androidx.annotation.RequiresApi
 import androidx.benchmark.DeviceInfo
+import androidx.benchmark.DeviceInfo.isEmulator
 import androidx.benchmark.Shell
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
@@ -28,6 +31,7 @@ import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -63,15 +67,29 @@ class MacrobenchmarkScopeTest {
 
     @Test
     fun killTest() {
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = true
-        )
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = true)
         scope.pressHome()
         scope.startActivityAndWait()
         assertTrue(Shell.isPackageAlive(Packages.TARGET))
         scope.killProcess()
         assertFalse(Shell.isPackageAlive(Packages.TARGET))
+    }
+
+    @Test
+    fun killTest_processSuffix() {
+        // regression test for b/408673462, where killall fails
+        // due to each process has a suffix name (com.mypackage:foo)
+        val scope =
+            MacrobenchmarkScope(
+                "com.google.android.googlequicksearchbox",
+                launchWithClearTask = true,
+            )
+
+        // test only useful if package is alive
+        assumeTrue(Shell.getPidsForProcess(scope.packageName).isNotEmpty())
+
+        // killProcess shouldn't fail
+        scope.killProcess()
     }
 
     @SdkSuppress(minSdkVersion = 24)
@@ -81,16 +99,14 @@ class MacrobenchmarkScopeTest {
         // Emulator api 30 does not have dex2oat (b/264938965)
         assumeTrue(Build.VERSION.SDK_INT != Build.VERSION_CODES.R)
 
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = true
-        )
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = true)
         val iterations = 1
         var executions = 0
-        val compilation = CompilationMode.Partial(
-            baselineProfileMode = BaselineProfileMode.Disable,
-            warmupIterations = iterations
-        )
+        val compilation =
+            CompilationMode.Partial(
+                baselineProfileMode = BaselineProfileMode.Disable,
+                warmupIterations = iterations,
+            )
         compilation.resetAndCompile(scope) {
             executions += 1
             scope.pressHome()
@@ -99,31 +115,91 @@ class MacrobenchmarkScopeTest {
         assertEquals(iterations, executions)
     }
 
-    @SdkSuppress(minSdkVersion = 24)
-    @Test
-    fun compile_speedProfile_withProfileFlushes() {
-        // Emulator api 30 does not have dex2oat (b/264938965)
-        assumeTrue(Build.VERSION.SDK_INT != Build.VERSION_CODES.R)
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = true
-        )
+    /**
+     * Verify that profile flushes happen when the target app is killed, with the lambda defining
+     * kill behavior
+     */
+    @RequiresApi(24)
+    fun verify_compile_speedProfile_withProfileFlushes(killProcess: (MacrobenchmarkScope) -> Unit) {
+        if (DeviceInfo.isEmulator) {
+            // Emulator API 30 does not have dex2oat (b/264938965)
+            assumeTrue(Build.VERSION.SDK_INT != 30)
+
+            // Emulator API 26 times out when compiling (b/393186249)
+            assumeTrue(Build.VERSION.SDK_INT != 26)
+        }
+
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = true)
         val warmupIterations = 2
         var executions = 0
-        val compilation = CompilationMode.Partial(
-            baselineProfileMode = BaselineProfileMode.Disable,
-            warmupIterations = warmupIterations
-        )
-        assertFalse(scope.flushArtProfiles)
+        val compilation =
+            CompilationMode.Partial(
+                baselineProfileMode = BaselineProfileMode.Disable,
+                warmupIterations = warmupIterations,
+            )
+        assertEquals(MacrobenchmarkScope.KillMode.None, scope.killMode)
         compilation.resetAndCompile(scope) {
-            assertTrue(scope.flushArtProfiles)
+            assertTrue(scope.killMode.flushArtProfiles)
             executions += 1
-            scope.killProcess()
+
+            // on first iter, kill doesn't kill anything, so profiles are not yet flushed
+            killProcess(scope)
+            assertEquals(
+                executions != 1,
+                scope.hasFlushedArtProfiles,
+                "execution nr $executions, flushed = ${scope.hasFlushedArtProfiles}",
+            )
+
             scope.pressHome()
             scope.startActivityAndWait()
         }
-        assertFalse(scope.flushArtProfiles)
+        assertEquals(MacrobenchmarkScope.KillMode.None, scope.killMode)
         assertEquals(warmupIterations, executions)
+    }
+
+    @SdkSuppress(minSdkVersion = 24)
+    @Test
+    fun compile_speedProfile_withProfileFlushes() {
+        verify_compile_speedProfile_withProfileFlushes { it.killProcess() }
+    }
+
+    @SdkSuppress(minSdkVersion = 24)
+    @Test
+    fun compile_speedProfile_withProfileFlushes_noBroadcast() {
+        assumeTrue(DeviceInfo.isRooted) // codepath only works with root
+        verify_compile_speedProfile_withProfileFlushes {
+            it.killProcessAndFlushArtProfiles(allowFlushWithBroadcast = false)
+        }
+    }
+
+    @SdkSuppress(minSdkVersion = 24)
+    @Test
+    fun compile_speedProfile_noLaunch() {
+        // Emulator api 30 does not have dex2oat (b/264938965)
+        assumeTrue(Build.VERSION.SDK_INT != Build.VERSION_CODES.R)
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = true)
+
+        var executions = 0
+        val compilation =
+            CompilationMode.Partial(
+                baselineProfileMode = BaselineProfileMode.Disable,
+                warmupIterations = 2,
+            )
+        assertEquals(MacrobenchmarkScope.KillMode.None, scope.killMode)
+        assertContains(
+            assertFailsWith<IllegalStateException> {
+                    compilation.resetAndCompile(scope) {
+                        assertTrue(scope.killMode.flushArtProfiles)
+                        assertFalse(scope.hasFlushedArtProfiles)
+                        // not launching process so profiles can't flush, should fail after this
+                        executions++
+                    }
+                }
+                .message!!,
+            "never flushed profiles in any process",
+        )
+        assertEquals(MacrobenchmarkScope.KillMode.None, scope.killMode)
+        assertEquals(2, executions)
     }
 
     @Test
@@ -132,22 +208,14 @@ class MacrobenchmarkScopeTest {
         // Emulator api 30 does not have dex2oat (b/264938965)
         assumeTrue(Build.VERSION.SDK_INT != Build.VERSION_CODES.R)
 
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = true
-        )
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = true)
         val compilation = CompilationMode.Full()
-        compilation.resetAndCompile(scope) {
-            fail("Should never be called for $compilation")
-        }
+        compilation.resetAndCompile(scope) { fail("Should never be called for $compilation") }
     }
 
     @Test
     fun startActivityAndWait_activityNotExported() {
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = true
-        )
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = true)
         scope.pressHome()
 
         val intent = Intent()
@@ -165,9 +233,8 @@ class MacrobenchmarkScopeTest {
         } else {
             // should throw, warning to set exported = true
             // Note: rooted device will hit this path, unless `adb root` is invoked
-            val exceptionMessage = assertFailsWith<SecurityException> {
-                scope.startActivityAndWait(intent)
-            }.message
+            val exceptionMessage =
+                assertFailsWith<SecurityException> { scope.startActivityAndWait(intent) }.message
             assertNotNull(exceptionMessage)
             assertTrue(exceptionMessage.contains("Permission Denial"))
             assertTrue(exceptionMessage.contains("NotExportedActivity"))
@@ -180,10 +247,7 @@ class MacrobenchmarkScopeTest {
     @SdkSuppress(minSdkVersion = 24)
     @Test
     fun startActivityAndWait_invalidActivity() {
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = true
-        )
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = true)
         scope.pressHome()
 
         val intent = Intent()
@@ -191,19 +255,19 @@ class MacrobenchmarkScopeTest {
         intent.action = "${Packages.TARGET}.NOT_EXPORTED_ACTIVITY"
 
         // should throw, unable to resolve Intent
-        val exceptionMessage = assertFailsWith<IllegalStateException> {
-            scope.startActivityAndWait(intent)
-        }.message
+        val exceptionMessage =
+            assertFailsWith<IllegalStateException> { scope.startActivityAndWait(intent) }.message
         assertNotNull(exceptionMessage)
         assertTrue(exceptionMessage.contains("unable to resolve Intent"))
     }
 
     @Test
     fun startActivityAndWait_sameActivity() {
-        val scope = MacrobenchmarkScope(
-            Packages.TEST, // self-instrumenting macrobench, so don't kill the process!
-            launchWithClearTask = true
-        )
+        val scope =
+            MacrobenchmarkScope(
+                Packages.TEST, // self-instrumenting macrobench, so don't kill the process!
+                launchWithClearTask = true,
+            )
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
 
         // Launch first activity, and validate it is displayed
@@ -215,30 +279,31 @@ class MacrobenchmarkScopeTest {
         // and that we're not seeing the previous Activity (which could happen if the wait
         // doesn't occur, or if launch is extremely fast).
         scope.startActivityAndWait(
-            ConfigurableActivity.createIntent(
-                text = "UpdatedText",
-                sleepDurMs = 1000L
-            )
+            ConfigurableActivity.createIntent(text = "UpdatedText", sleepDurMs = 1000L)
         )
         assertTrue(device.hasObject(By.text("UpdatedText")))
     }
 
     @Test
     fun measureBlock_methodTracing() {
-        val scope = MacrobenchmarkScope(
-            Packages.TEST, // self-instrumenting macrobench, so don't kill the process!
-            launchWithClearTask = true,
-        )
+        // Our API 23 emulators seem to be misconfigured b/438214932
+        assumeTrue(!isEmulator || SDK_INT != 23)
+        val scope =
+            MacrobenchmarkScope(
+                Packages.TEST, // self-instrumenting macrobench, so don't kill the process!
+                launchWithClearTask = true,
+            )
         scope.fileLabel = "TEST-UNIQUE-NAME"
         scope.startMethodTracing()
         // Launch first activity, and validate it is displayed
         scope.startActivityAndWait(ConfigurableActivity.createIntent("InitialText"))
         assertTrue(scope.device.hasObject(By.text("InitialText")))
         val testOutputs = scope.stopMethodTracing()
-        val trace = testOutputs.singleOrNull { file ->
-            file.outputRelativePath.endsWith(".trace") &&
-                file.outputRelativePath.contains("-methodTracing-")
-        }
+        val trace =
+            testOutputs.singleOrNull { file ->
+                file.outputRelativePath.endsWith(".trace") &&
+                    file.outputRelativePath.contains("-methodTracing-")
+            }
         // One method trace should have been created
         assertNotNull(trace)
         assertTrue(trace.outputRelativePath.startsWith("TEST-UNIQUE-NAME-methodTracing-"))
@@ -246,10 +311,9 @@ class MacrobenchmarkScopeTest {
 
     @Test
     fun multipleMethodTraces_onProcessStartStop() {
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = true
-        )
+        // Our API 23 emulators seem to be misconfigured b/438214932
+        assumeTrue(!isEmulator || SDK_INT != 23)
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = true)
         scope.fileLabel = "TEST-UNIQUE-NAME"
         scope.startMethodTracing()
         scope.startActivityAndWait()
@@ -258,24 +322,24 @@ class MacrobenchmarkScopeTest {
         scope.killProcess()
         val testOutputs = scope.stopMethodTracing()
         // We should have 2 method traces
-        val traces = testOutputs.filter { file ->
-            file.outputRelativePath.endsWith(".trace") &&
-                file.outputRelativePath.contains("-methodTracing-")
-        }
+        val traces =
+            testOutputs.filter { file ->
+                file.outputRelativePath.endsWith(".trace") &&
+                    file.outputRelativePath.contains("-methodTracing-")
+            }
         assertEquals(traces.size, 2)
     }
 
     private fun validateLaunchAndFrameStats(pressHome: Boolean) {
-        val scope = MacrobenchmarkScope(
-            Packages.TEST, // self-instrumenting macrobench, so don't kill the process!
-            launchWithClearTask = false
-        )
+        val scope =
+            MacrobenchmarkScope(
+                Packages.TEST, // self-instrumenting macrobench, so don't kill the process!
+                launchWithClearTask = false,
+            )
         // check that initial launch (home -> activity) is detected
         scope.pressHome()
         scope.startActivityAndWait(ConfigurableActivity.createIntent("InitialText"))
-        val initialFrameStats = scope.getFrameStats()
-            .sortedBy { it.lastFrameNs }
-            .first()
+        val initialFrameStats = scope.getFrameStats().sortedBy { it.lastFrameNs }.first()
         assertTrue(initialFrameStats.uniqueName.contains("ConfigurableActivity"))
 
         if (pressHome) {
@@ -284,9 +348,7 @@ class MacrobenchmarkScopeTest {
 
         // check that hot startup is detected
         scope.startActivityAndWait(ConfigurableActivity.createIntent("InitialText"))
-        val secondFrameStats = scope.getFrameStats()
-            .sortedBy { it.lastFrameNs }
-            .first()
+        val secondFrameStats = scope.getFrameStats().sortedBy { it.lastFrameNs }.first()
         assertTrue(secondFrameStats.uniqueName.contains("ConfigurableActivity"))
 
         if (pressHome) {
@@ -295,20 +357,17 @@ class MacrobenchmarkScopeTest {
     }
 
     /** Tests getFrameStats after launch which resumes app */
-    @Test
-    fun getFrameStats_home() = validateLaunchAndFrameStats(pressHome = true)
+    @Test fun getFrameStats_home() = validateLaunchAndFrameStats(pressHome = true)
 
     /** Tests getFrameStats after launch which does nothing, as Activity already visible */
-    @Test
-    fun getFrameStats_noop() = validateLaunchAndFrameStats(pressHome = false)
+    @Test fun getFrameStats_noop() = validateLaunchAndFrameStats(pressHome = false)
 
     private fun validateShaderCache(empty: Boolean, packageName: String) {
         val path = MacrobenchmarkScope.getShaderCachePath(packageName)
 
         println("validating shader path $path")
-        val fileCount = Shell.executeScriptCaptureStdout("find $path -type f | wc -l")
-            .trim()
-            .toInt()
+        val fileCount =
+            Shell.executeScriptCaptureStdout("find $path -type f | wc -l").trim().toInt()
         if (empty) {
             val files = Shell.executeScriptCaptureStdout("find $path -type f")
             assertEquals(0, fileCount, "Expected 0 files in $path, saw $fileCount (files = $files)")
@@ -324,10 +383,7 @@ class MacrobenchmarkScopeTest {
         // need root to inspect target app's code cache dir, and emulators
         // don't seem to store shaders
         assumeTrue(Shell.isSessionRooted() && !DeviceInfo.isEmulator)
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = false
-        )
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = false)
         scope.fileLabel = "TEST-UNIQUE-NAME"
         // reset to empty to begin with
         scope.killProcess()
@@ -356,10 +412,7 @@ class MacrobenchmarkScopeTest {
         assertNull(ProfileInstallBroadcast.dropShaderCache(packageName))
     }
 
-    @Test
-    fun dropShaderCachePublicApi() = validateDropShaderCacheWithRoot {
-        dropShaderCache()
-    }
+    @Test fun dropShaderCachePublicApi() = validateDropShaderCacheWithRoot { dropShaderCache() }
 
     @Test
     fun dropShaderCacheRoot() = validateDropShaderCacheWithRoot {
@@ -368,20 +421,14 @@ class MacrobenchmarkScopeTest {
 
     @Test
     fun dropKernelPageCache() {
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = false
-        )
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = false)
         scope.dropKernelPageCache() // shouldn't crash
     }
 
     @Test
     @SdkSuppress(minSdkVersion = 33)
     fun cancelBackgroundDexopt() {
-        val scope = MacrobenchmarkScope(
-            Packages.TARGET,
-            launchWithClearTask = false
-        )
+        val scope = MacrobenchmarkScope(Packages.TARGET, launchWithClearTask = false)
         scope.cancelBackgroundDexopt() // shouldn't crash
     }
 }

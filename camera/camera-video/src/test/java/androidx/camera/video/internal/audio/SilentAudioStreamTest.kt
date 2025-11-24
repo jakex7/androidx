@@ -18,7 +18,6 @@ package androidx.camera.video.internal.audio
 
 import android.media.AudioFormat
 import android.media.MediaRecorder
-import android.os.Build
 import androidx.camera.core.impl.utils.executor.CameraXExecutors.ioExecutor
 import androidx.camera.testing.impl.mocks.helpers.CallTimes
 import com.google.common.truth.Truth.assertThat
@@ -34,7 +33,7 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class SilentAudioStreamTest {
 
     companion object {
@@ -51,12 +50,14 @@ class SilentAudioStreamTest {
 
     @Before
     fun setUp() {
-        val audioSettings = AudioSettings.builder()
-            .setAudioSource(AUDIO_SOURCE)
-            .setSampleRate(SAMPLE_RATE)
-            .setChannelCount(CHANNEL_COUNT)
-            .setAudioFormat(AUDIO_FORMAT)
-            .build()
+        val audioSettings =
+            AudioSettings.builder()
+                .setAudioSource(AUDIO_SOURCE)
+                .setCaptureSampleRate(SAMPLE_RATE)
+                .setEncodeSampleRate(SAMPLE_RATE)
+                .setChannelCount(CHANNEL_COUNT)
+                .setAudioFormat(AUDIO_FORMAT)
+                .build()
         audioStream = SilentAudioStream(audioSettings)
         audioStreamCallback = FakeAudioStreamCallback()
         audioStream.setCallback(audioStreamCallback, ioExecutor())
@@ -72,26 +73,20 @@ class SilentAudioStreamTest {
 
     @Test
     fun readBeforeStart_throwException() {
-        assertThrows(IllegalStateException::class.java) {
-            audioStream.read(byteBuffer)
-        }
+        assertThrows(IllegalStateException::class.java) { audioStream.read(byteBuffer) }
     }
 
     @Test
     fun readAfterStop_throwException() {
         audioStream.start()
         audioStream.stop()
-        assertThrows(IllegalStateException::class.java) {
-            audioStream.read(byteBuffer)
-        }
+        assertThrows(IllegalStateException::class.java) { audioStream.read(byteBuffer) }
     }
 
     @Test
     fun startAfterReleased_throwException() {
         audioStream.release()
-        assertThrows(IllegalStateException::class.java) {
-            audioStream.start()
-        }
+        assertThrows(IllegalStateException::class.java) { audioStream.start() }
     }
 
     @Test

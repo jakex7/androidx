@@ -18,9 +18,7 @@ package androidx.collection
 
 import kotlin.random.Random
 
-internal class SimpleArrayMapCreateBenchmark(
-    private val sourceMap: Map<Int, String>,
-) : CollectionBenchmark {
+class SimpleArrayMapCreateBenchmark(private val sourceMap: Map<Int, String>) : CollectionBenchmark {
     override fun measuredBlock() {
         val map = SimpleArrayMap<Int, String>()
         for ((key, value) in sourceMap) {
@@ -29,9 +27,7 @@ internal class SimpleArrayMapCreateBenchmark(
     }
 }
 
-internal class SimpleArrayMapContainsKeyBenchmark(
-    sourceMap: Map<Int, String>,
-) : CollectionBenchmark {
+class SimpleArrayMapContainsKeyBenchmark(sourceMap: Map<Int, String>) : CollectionBenchmark {
     // Split the source map into two lists, one with elements in the created map, one not.
     val src = sourceMap.toList()
     val inList = src.slice(0 until src.size / 2)
@@ -61,9 +57,8 @@ internal class SimpleArrayMapContainsKeyBenchmark(
     }
 }
 
-internal class SimpleArrayMapAddAllThenRemoveIndividuallyBenchmark(
-    private val sourceMap: Map<Int, String>
-) : CollectionBenchmark {
+class SimpleArrayMapAddAllThenRemoveIndividuallyBenchmark(private val sourceMap: Map<Int, String>) :
+    CollectionBenchmark {
     val sourceSimpleArrayMap = SimpleArrayMap<Int, String>(sourceMap.size)
 
     init {
@@ -82,27 +77,29 @@ internal class SimpleArrayMapAddAllThenRemoveIndividuallyBenchmark(
     }
 }
 
-internal fun createSourceMap(size: Int, sparse: Boolean): Map<Int, String> {
+fun createSourceMap(size: Int, sparse: Boolean): Map<Int, String> {
     return mutableMapOf<Int, String>().apply {
-        val keyFactory: () -> Int = if (sparse) {
-            // Despite the fixed seed, the algorithm which produces random values may vary across
-            // OS versions. Since we're not doing cross-device comparison this is acceptable.
-            val random = Random(0);
-            {
-                val value: Int
-                while (true) {
-                    val candidate = random.nextInt()
-                    if (candidate !in this) {
-                        value = candidate
-                        break
+        val keyFactory: () -> Int =
+            if (sparse) {
+                // Despite the fixed seed, the algorithm which produces random values may vary
+                // across
+                // OS versions. Since we're not doing cross-device comparison this is acceptable.
+                val random = Random(0);
+                {
+                    val value: Int
+                    while (true) {
+                        val candidate = random.nextInt()
+                        if (candidate !in this) {
+                            value = candidate
+                            break
+                        }
                     }
+                    value
                 }
-                value
+            } else {
+                var value = 0
+                { value++ }
             }
-        } else {
-            var value = 0
-            { value++ }
-        }
         repeat(size) {
             val key = keyFactory()
             this.put(key, "value of $key")

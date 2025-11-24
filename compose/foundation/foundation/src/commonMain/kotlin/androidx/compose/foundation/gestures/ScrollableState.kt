@@ -18,6 +18,7 @@ package androidx.compose.foundation.gestures
 
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.MutatorMutex
+import androidx.compose.foundation.ScrollIndicatorState
 import androidx.compose.foundation.internal.JvmDefaultWithCompatibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -26,12 +27,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.coroutines.coroutineScope
 
 /**
- * An object representing something that can be scrolled. This interface is implemented by states
- * of scrollable containers such as [androidx.compose.foundation.lazy.LazyListState] or
+ * An object representing something that can be scrolled. This interface is implemented by states of
+ * scrollable containers such as [androidx.compose.foundation.lazy.LazyListState] or
  * [androidx.compose.foundation.ScrollState] in order to provide low-level scrolling control via
- * [scroll], as well as allowing for higher-level scrolling functions like
- * [animateScrollBy] to be implemented as extension
- * functions on [ScrollableState].
+ * [scroll], as well as allowing for higher-level scrolling functions like [animateScrollBy] to be
+ * implemented as extension functions on [ScrollableState].
  *
  * Subclasses may also have their own methods that are specific to their interaction paradigm, such
  * as [androidx.compose.foundation.lazy.LazyListState.scrollToItem].
@@ -44,15 +44,15 @@ interface ScrollableState {
     /**
      * Call this function to take control of scrolling and gain the ability to send scroll events
      * via [ScrollScope.scrollBy]. All actions that change the logical scroll position must be
-     * performed within a [scroll] block (even if they don't call any other methods on this
-     * object) in order to guarantee that mutual exclusion is enforced.
+     * performed within a [scroll] block (even if they don't call any other methods on this object)
+     * in order to guarantee that mutual exclusion is enforced.
      *
      * If [scroll] is called from elsewhere with the [scrollPriority] higher or equal to ongoing
      * scroll, ongoing scroll will be canceled.
      */
     suspend fun scroll(
         scrollPriority: MutatePriority = MutatePriority.Default,
-        block: suspend ScrollScope.() -> Unit
+        block: suspend ScrollScope.() -> Unit,
     )
 
     /**
@@ -62,20 +62,19 @@ interface ScrollableState {
      * scroll, won't stop ongoing scroll/drag animation and will bypass scrolling of any priority.
      * This method will also ignore `reverseDirection` and other parameters set in scrollable.
      *
-     * This method is used internally for nested scrolling dispatch and other low level
-     * operations, allowing implementers of [ScrollableState] influence the consumption as suits
-     * them. Manually dispatching delta via this method will likely result in a bad user experience,
-     * you must prefer [scroll] method over this one.
+     * This method is used internally for nested scrolling dispatch and other low level operations,
+     * allowing implementers of [ScrollableState] influence the consumption as suits them. Manually
+     * dispatching delta via this method will likely result in a bad user experience, you must
+     * prefer [scroll] method over this one.
      *
      * @param delta amount of scroll dispatched in the nested scroll process
-     *
      * @return the amount of delta consumed
      */
     fun dispatchRawDelta(delta: Float): Float
 
     /**
-     * Whether this [ScrollableState] is currently scrolling by gesture, fling or programmatically or
-     * not.
+     * Whether this [ScrollableState] is currently scrolling by gesture, fling or programmatically
+     * or not.
      */
     val isScrollInProgress: Boolean
 
@@ -124,11 +123,20 @@ interface ScrollableState {
     @get:Suppress("GetterSetterNames")
     val lastScrolledBackward: Boolean
         get() = false
+
+    /**
+     * [ScrollIndicatorState] used for drawing a scroll indicator (e.g., a scrollbar).
+     *
+     * This property may be `null` if scroll indicators are not applicable or if the underlying
+     * scrollable component does not support or provide this state.
+     */
+    val scrollIndicatorState: ScrollIndicatorState?
+        get() = null
 }
 
 /**
- * Default implementation of [ScrollableState] interface that contains necessary information about the
- * ongoing fling and provides smooth scrolling capabilities.
+ * Default implementation of [ScrollableState] interface that contains necessary information about
+ * the ongoing fling and provides smooth scrolling capabilities.
  *
  * This is the simplest way to set up a [scrollable] modifier. When constructing this
  * [ScrollableState], you must provide a [consumeScrollDelta] lambda, which will be invoked whenever
@@ -136,9 +144,9 @@ interface ScrollableState {
  * delta in pixels. The amount of scrolling delta consumed must be returned from this lambda to
  * ensure proper nested scrolling behaviour.
  *
- * @param consumeScrollDelta callback invoked when drag/fling/smooth scrolling occurs. The
- * callback receives the delta in pixels. Callers should update their state in this lambda and
- * return the amount of delta consumed
+ * @param consumeScrollDelta callback invoked when drag/fling/smooth scrolling occurs. The callback
+ *   receives the delta in pixels. Callers should update their state in this lambda and return the
+ *   amount of delta consumed
  */
 fun ScrollableState(consumeScrollDelta: (Float) -> Float): ScrollableState {
     return DefaultScrollableState(consumeScrollDelta)
@@ -154,9 +162,9 @@ fun ScrollableState(consumeScrollDelta: (Float) -> Float): ScrollableState {
  * delta in pixels. The amount of scrolling delta consumed must be returned from this lambda to
  * ensure proper nested scrolling behaviour.
  *
- * @param consumeScrollDelta callback invoked when drag/fling/smooth scrolling occurs. The
- * callback receives the delta in pixels. Callers should update their state in this lambda and
- * return the amount of delta consumed
+ * @param consumeScrollDelta callback invoked when drag/fling/smooth scrolling occurs. The callback
+ *   receives the delta in pixels. Callers should update their state in this lambda and return the
+ *   amount of delta consumed
  */
 @Composable
 fun rememberScrollableState(consumeScrollDelta: (Float) -> Float): ScrollableState {
@@ -164,9 +172,7 @@ fun rememberScrollableState(consumeScrollDelta: (Float) -> Float): ScrollableSta
     return remember { ScrollableState { lambdaState.value.invoke(it) } }
 }
 
-/**
- * Scope used for suspending scroll blocks
- */
+/** Scope used for suspending scroll blocks */
 interface ScrollScope {
     /**
      * Attempts to scroll forward by [pixels] px.
@@ -178,15 +184,16 @@ interface ScrollScope {
 
 private class DefaultScrollableState(val onDelta: (Float) -> Float) : ScrollableState {
 
-    private val scrollScope: ScrollScope = object : ScrollScope {
-        override fun scrollBy(pixels: Float): Float {
-            if (pixels.isNaN()) return 0f
-            val delta = onDelta(pixels)
-            isLastScrollForwardState.value = delta > 0
-            isLastScrollBackwardState.value = delta < 0
-            return delta
+    private val scrollScope: ScrollScope =
+        object : ScrollScope {
+            override fun scrollBy(pixels: Float): Float {
+                if (pixels.isNaN()) return 0f
+                val delta = onDelta(pixels)
+                isLastScrollForwardState.value = delta > 0
+                isLastScrollBackwardState.value = delta < 0
+                return delta
+            }
         }
-    }
 
     private val scrollMutex = MutatorMutex()
 
@@ -196,7 +203,7 @@ private class DefaultScrollableState(val onDelta: (Float) -> Float) : Scrollable
 
     override suspend fun scroll(
         scrollPriority: MutatePriority,
-        block: suspend ScrollScope.() -> Unit
+        block: suspend ScrollScope.() -> Unit,
     ): Unit = coroutineScope {
         scrollMutex.mutateWith(scrollScope, scrollPriority) {
             isScrollingState.value = true

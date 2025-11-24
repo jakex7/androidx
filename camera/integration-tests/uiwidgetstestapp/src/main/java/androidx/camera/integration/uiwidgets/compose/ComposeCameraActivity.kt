@@ -36,16 +36,14 @@ class ComposeCameraActivity : ComponentActivity() {
     // Variables for testing StreamState changes in PreviewView
     private var expectedScreen: ComposeCameraScreen = ComposeCameraScreen.ImageCapture
     private var expectedStreamState: StreamState = StreamState.STREAMING
-    private var latchForState: CountDownLatch = CountDownLatch(0)
+    private var latchForState: CountDownLatch = CountDownLatch(1)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             PermissionsUI(
                 permissions = REQUIRED_PERMISSIONS,
-                checkAllPermissionGranted = {
-                    checkAllPermissionsGranted(it)
-                }
+                checkAllPermissionGranted = { checkAllPermissionsGranted(it) },
             ) {
                 ComposeCameraApp(onStreamStateChange = this::onStreamStateChange)
             }
@@ -58,16 +56,25 @@ class ComposeCameraActivity : ComponentActivity() {
         }
     }
 
-    // Saves the expected ComposeCameraScreen and StreamState for testing PreviewView
-    // Once saved, this method waits to be notified of StreamState changes
-    // Used to assert that PreviewView is streaming within reasonable timeout
-    fun waitForStreamState(
+    /**
+     * Sets up the expected screen and stream state for monitoring.
+     *
+     * This should be set before changing the screen to ensure that the stream state can be received
+     * to match the testing settings correctly.
+     */
+    fun setUpExpectedScreenAndStreamState(
         expectedScreen: ComposeCameraScreen,
-        expectedState: StreamState
-    ): Boolean {
+        expectedState: StreamState,
+    ) {
         this.expectedScreen = expectedScreen
         expectedStreamState = expectedState
         latchForState = CountDownLatch(1)
+    }
+
+    // Saves the expected ComposeCameraScreen and StreamState for testing PreviewView
+    // Once saved, this method waits to be notified of StreamState changes
+    // Used to assert that PreviewView is streaming within reasonable timeout
+    fun waitForExpectedScreenAndStreamState(): Boolean {
         return latchForState.await(LATCH_TIMEOUT, TimeUnit.MILLISECONDS)
     }
 
@@ -92,22 +99,19 @@ class ComposeCameraActivity : ComponentActivity() {
                     latchForState.countDown()
                 }
             }
-            else -> {
-                Log.e(TAG, "Wrong PreviewView.StreamState in ${screen.name}! Return IDLE")
-            }
         }
     }
 
     companion object {
         private const val TAG = "ComposeCameraActivity"
         private const val LATCH_TIMEOUT: Long = 5000
-        val REQUIRED_PERMISSIONS = mutableListOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
-        ).apply {
-            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-                add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            }
-        }.toTypedArray()
+        val REQUIRED_PERMISSIONS =
+            mutableListOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+                .apply {
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                        add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    }
+                }
+                .toTypedArray()
     }
 }

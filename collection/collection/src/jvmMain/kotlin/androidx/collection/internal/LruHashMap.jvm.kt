@@ -20,11 +20,8 @@ package androidx.collection.internal
 
 import androidx.annotation.RestrictTo
 
-@Suppress("ACTUAL_WITHOUT_EXPECT") // https://youtrack.jetbrains.com/issue/KT-37316
-internal actual class LruHashMap<K : Any, V : Any> actual constructor(
-    initialCapacity: Int,
-    loadFactor: Float,
-) {
+internal actual class LruHashMap<K : Any, V : Any>
+actual constructor(initialCapacity: Int, loadFactor: Float) {
 
     actual constructor(original: LruHashMap<out K, V>) : this() {
         for ((key, value) in original.entries) {
@@ -34,8 +31,11 @@ internal actual class LruHashMap<K : Any, V : Any> actual constructor(
 
     private val map = LinkedHashMap<K, V>(initialCapacity, loadFactor, true)
 
-    actual val isEmpty: Boolean get() = map.isEmpty()
-    actual val entries: Set<Map.Entry<K, V>> get() = map.entries
+    actual val isEmpty: Boolean
+        get() = map.isEmpty()
+
+    actual val entries: Set<Map.Entry<K, V>>
+        get() = map.entries
 
     actual operator fun get(key: K): V? = map[key]
 

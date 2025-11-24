@@ -28,13 +28,13 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 
 class LazyGridsIndexedTest {
 
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule(StandardTestDispatcher())
 
     @Test
     fun lazyVerticalGridShowsIndexedItems() {
@@ -43,24 +43,18 @@ class LazyGridsIndexedTest {
         rule.setContent {
             LazyVerticalGrid(GridCells.Fixed(1), Modifier.height(200.dp)) {
                 itemsIndexed(items) { index, item ->
-                    Spacer(
-                        Modifier.height(101.dp).testTag("$index-$item")
-                    )
+                    Spacer(Modifier.height(101.dp).testTag("$index-$item"))
                 }
             }
         }
 
-        rule.onNodeWithTag("0-1")
-            .assertIsDisplayed()
+        rule.onNodeWithTag("0-1").assertIsDisplayed()
 
-        rule.onNodeWithTag("1-2")
-            .assertIsDisplayed()
+        rule.onNodeWithTag("1-2").assertIsDisplayed()
 
-        rule.onNodeWithTag("2-3")
-            .assertDoesNotExist()
+        rule.onNodeWithTag("2-3").assertDoesNotExist()
 
-        rule.onNodeWithTag("3-4")
-            .assertDoesNotExist()
+        rule.onNodeWithTag("3-4").assertDoesNotExist()
     }
 
     @Test
@@ -70,18 +64,14 @@ class LazyGridsIndexedTest {
         rule.setContent {
             LazyVerticalGrid(GridCells.Fixed(1), Modifier.height(200.dp)) {
                 itemsIndexed(items) { index, item ->
-                    BasicText(
-                        "${index}x$item", Modifier.requiredHeight(100.dp)
-                    )
+                    BasicText("${index}x$item", Modifier.requiredHeight(100.dp))
                 }
             }
         }
 
-        rule.onNodeWithText("0x0")
-            .assertTopPositionInRootIsEqualTo(0.dp)
+        rule.onNodeWithText("0x0").assertTopPositionInRootIsEqualTo(0.dp)
 
-        rule.onNodeWithText("1x1")
-            .assertTopPositionInRootIsEqualTo(100.dp)
+        rule.onNodeWithText("1x1").assertTopPositionInRootIsEqualTo(100.dp)
     }
 
     // @Test

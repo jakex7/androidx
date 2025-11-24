@@ -28,6 +28,7 @@ import androidx.navigation.plusAssign
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.google.common.truth.Truth.assertWithMessage
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,16 +37,17 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ComposableFragmentNavigatorTest {
 
-    @get:Rule
-    val testRule = createAndroidComposeRule<TestActivity>()
+    @get:Rule val testRule = createAndroidComposeRule<TestActivity>(StandardTestDispatcher())
 
     @Test
     fun inflateGraph() {
         val navController = NavController(testRule.activity)
-        navController.navigatorProvider += FragmentNavigator(
-            testRule.activity,
-            testRule.activity.supportFragmentManager,
-            R.id.fragment_container)
+        navController.navigatorProvider +=
+            FragmentNavigator(
+                testRule.activity,
+                testRule.activity.supportFragmentManager,
+                R.id.fragment_container,
+            )
         navController.navigatorProvider +=
             ComposableFragmentNavigator(navController.navigatorProvider)
 

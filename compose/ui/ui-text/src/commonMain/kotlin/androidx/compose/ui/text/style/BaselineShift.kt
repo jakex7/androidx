@@ -18,50 +18,53 @@ package androidx.compose.ui.text.style
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.util.lerp
 
 /**
  * The amount by which the text is shifted up or down from current the baseline.
+ *
+ * @param multiplier shift the baseline by multiplier * (baseline - ascent)
  * @constructor
  * @sample androidx.compose.ui.text.samples.BaselineShiftSample
  * @sample androidx.compose.ui.text.samples.BaselineShiftAnnotatedStringSample
- *
- * @param multiplier shift the baseline by multiplier * (baseline - ascent)
  */
 @Immutable
 @kotlin.jvm.JvmInline
 value class BaselineShift(val multiplier: Float) {
     companion object {
-        /**
-         * Default baseline shift for superscript.
-         */
-        @Stable
-        val Superscript = BaselineShift(0.5f)
+        /** Default baseline shift for superscript. */
+        @Stable val Superscript = BaselineShift(0.5f)
 
-        /**
-         * Default baseline shift for subscript
-         */
-        @Stable
-        val Subscript = BaselineShift(-0.5f)
+        /** Default baseline shift for subscript */
+        @Stable val Subscript = BaselineShift(-0.5f)
 
-        /**
-         * Constant for no baseline shift.
-         */
-        @Stable
-        val None = BaselineShift(0.0f)
+        /** Constant for no baseline shift. */
+        @Stable val None = BaselineShift(0.0f)
+
+        /** Constant for an unset baseline shift. */
+        @Stable val Unspecified = BaselineShift(Float.NaN)
     }
 }
 
 /**
- * Linearly interpolate two [BaselineShift]s.
+ * Returns `true` if this baseline shift is not [BaselineShift.Unspecified].
+ *
+ * @see BaselineShift.Unspecified
  */
+inline val BaselineShift.isSpecified: Boolean
+    get() = !multiplier.isNaN()
+
+/**
+ * If [isSpecified] is true then this is returned, otherwise [block] is executed and its result is
+ * returned.
+ */
+inline fun BaselineShift.takeOrElse(block: () -> BaselineShift): BaselineShift {
+    return if (multiplier.isNaN()) block() else this
+}
+
+/** Linearly interpolate two [BaselineShift]s. */
 @Stable
 fun lerp(start: BaselineShift, stop: BaselineShift, fraction: Float): BaselineShift {
-    return BaselineShift(
-        lerp(
-            start.multiplier,
-            stop.multiplier,
-            fraction
-        )
-    )
+    return BaselineShift(lerp(start.multiplier, stop.multiplier, fraction))
 }

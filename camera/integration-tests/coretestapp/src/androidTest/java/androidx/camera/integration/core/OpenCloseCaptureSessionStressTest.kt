@@ -44,7 +44,6 @@ import androidx.camera.video.Recorder
 import androidx.camera.video.VideoCapture
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.testutils.RepeatRule
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.CountDownLatch
@@ -63,30 +62,26 @@ import org.junit.runners.Parameterized
 
 @LargeTest
 @RunWith(Parameterized::class)
-@SdkSuppress(minSdkVersion = 21)
 class OpenCloseCaptureSessionStressTest(
     val implName: String,
     val cameraConfig: CameraXConfig,
-    val cameraId: String
+    val cameraId: String,
 ) {
     @get:Rule
-    val cameraPipeConfigTestRule = CameraPipeConfigTestRule(
-        active = implName == CameraPipeConfig::class.simpleName,
-    )
+    val cameraPipeConfigTestRule =
+        CameraPipeConfigTestRule(active = implName == CameraPipeConfig::class.simpleName)
 
     @get:Rule
-    val useCamera = CameraUtil.grantCameraPermissionAndPreTest(
-        CameraUtil.PreTestCameraIdList(cameraConfig)
-    )
+    val useCamera =
+        CameraUtil.grantCameraPermissionAndPreTestAndPostTest(
+            CameraUtil.PreTestCameraIdList(cameraConfig)
+        )
 
-    @get:Rule
-    val labTest: LabTestRule = LabTestRule()
+    @get:Rule val labTest: LabTestRule = LabTestRule()
 
-    @get:Rule
-    val repeatRule = RepeatRule()
+    @get:Rule val repeatRule = RepeatRule()
 
-    @get:Rule
-    val wakelockEmptyActivityRule = WakelockEmptyActivityRule()
+    @get:Rule val wakelockEmptyActivityRule = WakelockEmptyActivityRule()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
@@ -100,19 +95,18 @@ class OpenCloseCaptureSessionStressTest(
 
     @Before
     fun setUp(): Unit = runBlocking {
-        // Skips CameraPipe part now and will open this when camera-pipe-integration can support
-        assumeTrue(implName != CameraPipeConfig::class.simpleName)
         // Configures the test target config
         ProcessCameraProvider.configureInstance(cameraConfig)
         cameraProvider = ProcessCameraProvider.getInstance(context)[10000, TimeUnit.MILLISECONDS]
 
         cameraIdCameraSelector = createCameraSelectorById(cameraId)
 
-        camera = withContext(Dispatchers.Main) {
-            lifecycleOwner = FakeLifecycleOwner()
-            lifecycleOwner.startAndResume()
-            cameraProvider.bindToLifecycle(lifecycleOwner, cameraIdCameraSelector)
-        }
+        camera =
+            withContext(Dispatchers.Main) {
+                lifecycleOwner = FakeLifecycleOwner()
+                lifecycleOwner.startAndResume()
+                cameraProvider.bindToLifecycle(lifecycleOwner, cameraIdCameraSelector)
+            }
 
         // Creates the Preview with the CameraCaptureSessionStateMonitor to monitor whether the
         // session callbacks are called.
@@ -150,21 +144,17 @@ class OpenCloseCaptureSessionStressTest(
             bindUseCase_unbindAll_toCheckCameraSession_repeatedly(
                 preview,
                 imageCapture,
-                imageAnalysis = imageAnalysis
+                imageAnalysis = imageAnalysis,
             )
         }
 
     @LabTestRule.LabTestOnly
     @Test
     @RepeatRule.Repeat(times = STRESS_TEST_REPEAT_COUNT)
-    fun openCloseCaptureSessionStressTest_withPreviewVideoCapture(): Unit =
-        runBlocking {
-            val videoCapture = VideoCapture.withOutput(Recorder.Builder().build())
-            bindUseCase_unbindAll_toCheckCameraSession_repeatedly(
-                preview,
-                videoCapture = videoCapture
-            )
-        }
+    fun openCloseCaptureSessionStressTest_withPreviewVideoCapture(): Unit = runBlocking {
+        val videoCapture = VideoCapture.withOutput(Recorder.Builder().build())
+        bindUseCase_unbindAll_toCheckCameraSession_repeatedly(preview, videoCapture = videoCapture)
+    }
 
     @LabTestRule.LabTestOnly
     @Test
@@ -176,7 +166,7 @@ class OpenCloseCaptureSessionStressTest(
             bindUseCase_unbindAll_toCheckCameraSession_repeatedly(
                 preview,
                 videoCapture = videoCapture,
-                imageCapture = imageCapture
+                imageCapture = imageCapture,
             )
         }
 
@@ -191,13 +181,13 @@ class OpenCloseCaptureSessionStressTest(
             bindUseCase_unbindAll_toCheckCameraSession_repeatedly(
                 preview,
                 videoCapture = videoCapture,
-                imageAnalysis = imageAnalysis
+                imageAnalysis = imageAnalysis,
             )
         }
 
     /**
-     * Repeatedly binds use cases, unbind all to check whether the capture session can be opened
-     * and closed successfully by monitoring the camera session callbacks.
+     * Repeatedly binds use cases, unbind all to check whether the capture session can be opened and
+     * closed successfully by monitoring the camera session callbacks.
      *
      * <p>This function checks the nullabilities of the input ImageCapture, VideoCapture and
      * ImageAnalysis to determine whether the use cases will be bound together to run the test.
@@ -207,7 +197,7 @@ class OpenCloseCaptureSessionStressTest(
         imageCapture: ImageCapture? = null,
         videoCapture: VideoCapture<Recorder>? = null,
         imageAnalysis: ImageAnalysis? = null,
-        repeatCount: Int = STRESS_TEST_OPERATION_REPEAT_COUNT
+        repeatCount: Int = STRESS_TEST_OPERATION_REPEAT_COUNT,
     ): Unit = runBlocking {
         for (i in 1..repeatCount) {
             // Arrange: resets the camera monitor
@@ -224,12 +214,8 @@ class OpenCloseCaptureSessionStressTest(
                 cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     cameraIdCameraSelector,
-                    *listOfNotNull(
-                        preview,
-                        imageCapture,
-                        newVideoCapture,
-                        imageAnalysis
-                    ).toTypedArray()
+                    *listOfNotNull(preview, imageCapture, newVideoCapture, imageAnalysis)
+                        .toTypedArray(),
                 )
             }
 
@@ -237,15 +223,12 @@ class OpenCloseCaptureSessionStressTest(
             sessionStateMonitor.awaitSessionConfiguredAndAssert()
 
             // Act: unbinds all use cases
-            withContext(Dispatchers.Main) {
-                cameraProvider.unbindAll()
-            }
+            withContext(Dispatchers.Main) { cameraProvider.unbindAll() }
         }
     }
 
     companion object {
-        @ClassRule
-        @JvmField val stressTest = StressTestRule()
+        @ClassRule @JvmField val stressTest = StressTestRule()
 
         @JvmStatic
         @Parameterized.Parameters(name = "config = {0}, cameraId = {2}")
@@ -255,15 +238,14 @@ class OpenCloseCaptureSessionStressTest(
     @OptIn(ExperimentalCamera2Interop::class)
     private fun createPreviewWithSessionStateMonitor(
         implementationName: String,
-        sessionStateMonitor: CameraCaptureSessionStateMonitor
+        sessionStateMonitor: CameraCaptureSessionStateMonitor,
     ): Preview {
         val builder = Preview.Builder()
 
         when (implementationName) {
             CameraPipeConfig::class.simpleName -> {
-                androidx.camera.camera2.pipe.integration.interop.Camera2Interop.Extender(
-                    builder
-                ).setSessionStateCallback(sessionStateMonitor)
+                androidx.camera.camera2.pipe.integration.interop.Camera2Interop.Extender(builder)
+                    .setSessionStateCallback(sessionStateMonitor)
             }
             else -> Camera2Interop.Extender(builder).setSessionStateCallback(sessionStateMonitor)
         }
@@ -277,6 +259,7 @@ class OpenCloseCaptureSessionStressTest(
      */
     private class CameraCaptureSessionStateMonitor : StateCallback() {
         private var sessionConfiguredLatch = CountDownLatch(1)
+
         override fun onConfigured(session: CameraCaptureSession) {
             sessionConfiguredLatch.countDown()
         }

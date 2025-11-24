@@ -16,7 +16,6 @@
 
 package androidx.camera.video
 
-import android.os.Build
 import android.os.ParcelFileDescriptor
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -28,7 +27,7 @@ import org.robolectric.annotation.internal.DoNotInstrument
 
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class FileDescriptorOutputOptionsTest {
 
     @Test
@@ -63,9 +62,8 @@ class FileDescriptorOutputOptionsTest {
         val parcelFileDescriptor = mock(ParcelFileDescriptor::class.java)
         val options1 = FileDescriptorOutputOptions.Builder(parcelFileDescriptor).build()
         val options2 = FileDescriptorOutputOptions.Builder(parcelFileDescriptor).build()
-        val options3 = FileDescriptorOutputOptions.Builder(parcelFileDescriptor)
-            .setFileSizeLimit(100)
-            .build()
+        val options3 =
+            FileDescriptorOutputOptions.Builder(parcelFileDescriptor).setFileSizeLimit(100).build()
 
         assertThat(options1 == options2 && options1 == options2).isTrue()
         assertThat(options1 != options3 && options1 != options3).isTrue()

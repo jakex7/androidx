@@ -13,24 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package androidx.privacysandbox.sdkruntime.core
 
 /**
- * Information about runtime enabled SDK.
- * Could represent SDK loaded in sandbox or locally loaded SDK.
+ * Information about runtime enabled SDK. Could represent SDK loaded in sandbox or locally loaded
+ * SDK.
  */
-class SandboxedSdkInfo(
+@Deprecated("This library is no longer supported.")
+public class SandboxedSdkInfo(
+    /** Sdk Name. This is a value of `android:name` attribute <sdk-library> tag of SDK Manifest. */
+    public val name: String,
     /**
-     * Sdk Name.
-     * This is a value of `android:name` attribute <sdk-library> tag of SDK Manifest.
+     * Sdk Version. This is a value of `android:versionMajor` attribute <sdk-library> tag of SDK
+     * Manifest.
      */
-    val name: String,
-    /**
-     * Sdk Version.
-     * This is a value of `android:versionMajor` attribute <sdk-library> tag of SDK Manifest.
-     */
-    val version: Long
+    public val version: Long,
 ) {
 
     override fun equals(other: Any?): Boolean {

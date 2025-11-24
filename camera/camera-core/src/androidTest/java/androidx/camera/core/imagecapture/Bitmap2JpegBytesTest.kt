@@ -39,12 +39,9 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Instrumented tests for [JpegBytes2CroppedBitmap].
- */
+/** Instrumented tests for [JpegBytes2CroppedBitmap]. */
 @SmallTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 21)
 class Bitmap2JpegBytesTest {
 
     private val operation = Bitmap2JpegBytes()
@@ -53,14 +50,15 @@ class Bitmap2JpegBytesTest {
     fun process_verifyOutput() {
         // Arrange.
         val bitmap = createBitmap(WIDTH, HEIGHT)
-        val inputPacket = Packet.of(
-            bitmap,
-            createExif(createJpegBytes(WIDTH, HEIGHT)),
-            Rect(0, 0, WIDTH, HEIGHT),
-            90,
-            Matrix(),
-            CAMERA_CAPTURE_RESULT
-        )
+        val inputPacket =
+            Packet.of(
+                bitmap,
+                createExif(createJpegBytes(WIDTH, HEIGHT)),
+                Rect(0, 0, WIDTH, HEIGHT),
+                90,
+                Matrix(),
+                CAMERA_CAPTURE_RESULT,
+            )
         val input = Bitmap2JpegBytes.In.of(inputPacket, 100)
 
         // Act.
@@ -75,18 +73,18 @@ class Bitmap2JpegBytesTest {
     @Test
     fun process_withJpegR_verifyOutput() {
         // Arrange.
-        val bitmap = createBitmap(WIDTH, HEIGHT).apply {
-            this.gainmap = createGainmap(WIDTH, HEIGHT)
-        }
+        val bitmap =
+            createBitmap(WIDTH, HEIGHT).apply { this.gainmap = createGainmap(WIDTH, HEIGHT) }
         assertThat(bitmap.hasGainmap()).isTrue()
-        val inputPacket = Packet.of(
-            bitmap,
-            createExif(createJpegrBytes(WIDTH, HEIGHT)),
-            Rect(0, 0, WIDTH, HEIGHT),
-            90,
-            Matrix(),
-            CAMERA_CAPTURE_RESULT
-        )
+        val inputPacket =
+            Packet.of(
+                bitmap,
+                createExif(createJpegrBytes(WIDTH, HEIGHT)),
+                Rect(0, 0, WIDTH, HEIGHT),
+                90,
+                Matrix(),
+                CAMERA_CAPTURE_RESULT,
+            )
         val input = Bitmap2JpegBytes.In.of(inputPacket, 100)
 
         // Act.

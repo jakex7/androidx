@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+@file:Suppress("DEPRECATION")
 
 package androidx.privacysandbox.sdkruntime.core
 
@@ -35,24 +36,21 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 // TODO(b/262577044) Remove RequiresExtension after extensions support in @SdkSuppress
 @RequiresExtension(extension = SdkExtensions.AD_SERVICES, version = 8)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 class AppOwnedSdkSandboxInterfaceCompatTest {
 
     @Before
     fun setUp() {
         assumeTrue(
             "Requires AppOwnedInterfacesApi API available",
-            BuildCompat.AD_SERVICES_EXTENSION_INT >= 8
+            BuildCompat.AD_SERVICES_EXTENSION_INT >= 8,
         )
     }
 
     @Test
     fun toAppOwnedSdkSandboxInterfaceTest() {
-        val compatObj = AppOwnedSdkSandboxInterfaceCompat(
-            name = "SDK",
-            version = 1,
-            binder = Binder()
-        )
+        val compatObj =
+            AppOwnedSdkSandboxInterfaceCompat(name = "SDK", version = 1, binder = Binder())
 
         val platformObj = compatObj.toAppOwnedSdkSandboxInterface()
 
@@ -63,9 +61,7 @@ class AppOwnedSdkSandboxInterfaceCompatTest {
 
     @Test
     fun fromAppOwnedSdkSandboxInterfaceTest() {
-        val platformObj = AppOwnedSdkSandboxInterface(
-            "SDK", 1, Binder()
-        )
+        val platformObj = AppOwnedSdkSandboxInterface("SDK", 1, Binder())
         val compatObj = AppOwnedSdkSandboxInterfaceCompat(platformObj)
 
         assertThat(compatObj.getName()).isEqualTo(platformObj.getName())

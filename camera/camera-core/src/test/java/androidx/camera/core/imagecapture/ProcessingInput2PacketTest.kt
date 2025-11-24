@@ -19,7 +19,6 @@ package androidx.camera.core.imagecapture
 import android.graphics.ImageFormat
 import android.graphics.ImageFormat.YUV_420_888
 import android.graphics.Rect
-import android.os.Build
 import android.util.Size
 import androidx.camera.core.imagecapture.Utils.CAMERA_CAPTURE_RESULT
 import androidx.camera.core.imagecapture.Utils.CROP_RECT
@@ -30,6 +29,7 @@ import androidx.camera.core.imagecapture.Utils.ROTATION_DEGREES
 import androidx.camera.core.imagecapture.Utils.SENSOR_TO_BUFFER
 import androidx.camera.core.imagecapture.Utils.WIDTH
 import androidx.camera.core.imagecapture.Utils.createProcessingRequest
+import androidx.camera.core.imagecapture.Utils.createTakePictureRequest
 import androidx.camera.core.imagecapture.Utils.injectRotationOptionQuirk
 import androidx.camera.core.impl.utils.futures.Futures
 import androidx.camera.core.internal.CameraCaptureResultImageInfo
@@ -48,12 +48,10 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
 
-/**
- * Unit tests for [ProcessingInput2Packet]
- */
+/** Unit tests for [ProcessingInput2Packet] */
 @RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
+@Config(sdk = [Config.ALL_SDKS])
 class ProcessingInput2PacketTest {
 
     private val operation = ProcessingInput2Packet()
@@ -61,11 +59,12 @@ class ProcessingInput2PacketTest {
     @Test
     fun processYuvInput_exifIsNull() {
         // Arrange: create input
-        val image = createYuvFakeImageProxy(
-            CameraCaptureResultImageInfo(CAMERA_CAPTURE_RESULT),
-            WIDTH,
-            HEIGHT
-        )
+        val image =
+            createYuvFakeImageProxy(
+                CameraCaptureResultImageInfo(CAMERA_CAPTURE_RESULT),
+                WIDTH,
+                HEIGHT,
+            )
         val processingRequest = createProcessingRequest()
         val input = ProcessingNode.InputPacket.of(processingRequest, image)
 
@@ -86,9 +85,7 @@ class ProcessingInput2PacketTest {
     @Test
     fun processInput_assertImageAndNonTransformationExif() {
         // Arrange: create input
-        val jpegBytes = updateExif(createJpegBytes(640, 480)) {
-            it.description = EXIF_DESCRIPTION
-        }
+        val jpegBytes = updateExif(createJpegBytes(640, 480)) { it.description = EXIF_DESCRIPTION }
         val image = createJpegFakeImageProxy(jpegBytes)
         val processingRequest = createProcessingRequest()
         val input = ProcessingNode.InputPacket.of(processingRequest, image)
@@ -112,9 +109,7 @@ class ProcessingInput2PacketTest {
     @Test
     fun processInput_assertImageAndNonTransformationExif_whenOutputFormatIsJpegr() {
         // Arrange: create input
-        val jpegBytes = updateExif(createJpegrBytes(640, 480)) {
-            it.description = EXIF_DESCRIPTION
-        }
+        val jpegBytes = updateExif(createJpegrBytes(640, 480)) { it.description = EXIF_DESCRIPTION }
         val image = createJpegrFakeImageProxy(jpegBytes)
         val processingRequest = createProcessingRequest()
         val input = ProcessingNode.InputPacket.of(processingRequest, image)
@@ -139,16 +134,20 @@ class ProcessingInput2PacketTest {
         // Arrange: assume the rotation is 90 and it's applied by the HAL.
         // Exif has 0 rotation because HAL applied the rotation.
         val image = createJpegFakeImageProxy(createJpegBytes(WIDTH, HEIGHT))
-        val processingRequest = ProcessingRequest(
-            { listOf() },
-            OUTPUT_FILE_OPTIONS,
-            CROP_RECT,
-            90,
-            /*jpegQuality=*/100,
-            SENSOR_TO_BUFFER,
-            FakeTakePictureCallback(),
-            Futures.immediateFuture(null)
-        )
+        val processingRequest =
+            ProcessingRequest(
+                { listOf() },
+                createTakePictureRequest(
+                    OUTPUT_FILE_OPTIONS,
+                    null,
+                    CROP_RECT,
+                    SENSOR_TO_BUFFER,
+                    /*rotationDegrees=*/ 90,
+                    /*jpegQuality=*/ 100,
+                ),
+                FakeTakePictureCallback(),
+                Futures.immediateFuture(null),
+            )
         val input = ProcessingNode.InputPacket.of(processingRequest, image)
 
         // Act.
@@ -163,9 +162,9 @@ class ProcessingInput2PacketTest {
         // Assert: the new transform will be SENSOR_TO_BUFFER (mirroring) + the 90 HAL rotation.
         val topCorners = floatArrayOf(0F, HEIGHT.toFloat(), WIDTH.toFloat(), HEIGHT.toFloat())
         output.sensorToBufferTransform.mapPoints(topCorners)
-        assertThat(topCorners).usingTolerance(1E-4).containsExactly(
-            floatArrayOf(0F, WIDTH.toFloat(), 0F, 0F)
-        )
+        assertThat(topCorners)
+            .usingTolerance(1E-4)
+            .containsExactly(floatArrayOf(0F, WIDTH.toFloat(), 0F, 0F))
     }
 
     @Test

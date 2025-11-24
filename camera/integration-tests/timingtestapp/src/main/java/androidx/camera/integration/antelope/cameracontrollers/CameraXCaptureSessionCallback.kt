@@ -29,13 +29,11 @@ import androidx.camera.integration.antelope.TestConfig
 import androidx.camera.integration.antelope.TestType
 import androidx.camera.integration.antelope.testEnded
 
-/**
- * Callbacks that track an image capture session
- */
+/** Callbacks that track an image capture session */
 class CameraXCaptureSessionCallback(
     internal val activity: MainActivity,
     internal val params: CameraParams,
-    internal val testConfig: TestConfig
+    internal val testConfig: TestConfig,
 ) : CameraCaptureSession.CaptureCallback() {
 
     /** Capture has been aborted. */
@@ -51,55 +49,55 @@ class CameraXCaptureSessionCallback(
     override fun onCaptureFailed(
         session: CameraCaptureSession,
         request: CaptureRequest,
-        failure: CaptureFailure
+        failure: CaptureFailure,
     ) {
         MainActivity.logd(
             "CameraX captureStillPicture captureCallback: Capture Failed. Failure: " +
-                failure.reason + " Current test: " + testConfig.currentRunningTest.toString()
+                failure.reason +
+                " Current test: " +
+                testConfig.currentRunningTest.toString()
         )
         closeCameraX(activity, params, testConfig)
         cameraXOpenCamera(activity, params, testConfig)
     }
 
-    /** Unused but retained here as it can be useful for debugging  */
+    /** Unused but retained here as it can be useful for debugging */
     override fun onCaptureStarted(
         session: CameraCaptureSession,
         request: CaptureRequest,
         timestamp: Long,
-        frameNumber: Long
+        frameNumber: Long,
     ) {
         // MainActivity.logd("CameraX captureStillPicture captureCallback: Capture Started.")
         super.onCaptureStarted(session, request, timestamp, frameNumber)
     }
 
-    /** Unused but retained here as it can be useful for debugging  */
+    /** Unused but retained here as it can be useful for debugging */
     override fun onCaptureProgressed(
         session: CameraCaptureSession,
         request: CaptureRequest,
-        partialResult: CaptureResult
+        partialResult: CaptureResult,
     ) {
         // MainActivity.logd("CameraX captureStillPicture captureCallback: Capture progressed.")
         super.onCaptureProgressed(session, request, partialResult)
     }
 
-    /** Unused but retained here as it can be useful for debugging  */
+    /** Unused but retained here as it can be useful for debugging */
     override fun onCaptureBufferLost(
         session: CameraCaptureSession,
         request: CaptureRequest,
         target: Surface,
-        frameNumber: Long
+        frameNumber: Long,
     ) {
         // MainActivity.logd("CameraX captureStillPicture captureCallback: Buffer lost.")
         super.onCaptureBufferLost(session, request, target, frameNumber)
     }
 
-    /**
-     * Still capture has completed. Record timing and proceed to next test or finish.
-     */
+    /** Still capture has completed. Record timing and proceed to next test or finish. */
     override fun onCaptureCompleted(
         session: CameraCaptureSession,
         request: CaptureRequest,
-        result: TotalCaptureResult
+        result: TotalCaptureResult,
     ) {
 
         if (params.cameraXLifecycle.isFinished()) {

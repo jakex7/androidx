@@ -23,26 +23,24 @@ import kotlin.annotation.Target
  * Denotes that the annotated element is a marker of an experimental API.
  *
  * Any declaration annotated with this marker is considered part of an unstable API surface and its
- * call sites should accept the experimental aspect of it either by using [UseExperimental],
- * or by being annotated with that marker themselves, effectively causing further propagation of
- * that experimental aspect.
+ * call sites should accept the experimental aspect of it either by using [UseExperimental], or by
+ * being annotated with that marker themselves, effectively causing further propagation of that
+ * experimental aspect.
  */
 @Deprecated(
     "This annotation has been replaced by `@RequiresOptIn`",
-    ReplaceWith("RequiresOptIn", "androidx.annotation.RequiresOptIn")
+    ReplaceWith("RequiresOptIn", "androidx.annotation.RequiresOptIn"),
 )
 @Retention(AnnotationRetention.BINARY)
 @Target(AnnotationTarget.ANNOTATION_CLASS)
 public annotation class Experimental(
-    /**
-     * Defines the reporting level for incorrect usages of this experimental API.
-     */
+    /** Defines the reporting level for incorrect usages of this experimental API. */
     public val level: Level = Level.ERROR
 ) {
     /**
      * Severity of the diagnostic that should be reported on usages of experimental API which did
-     * not explicitly accept the experimental aspect of that API either by using
-     * [UseExperimental] or by being annotated with the corresponding marker annotation.
+     * not explicitly accept the experimental aspect of that API either by using [UseExperimental]
+     * or by being annotated with the corresponding marker annotation.
      */
     public enum class Level {
         /**
@@ -53,6 +51,6 @@ public annotation class Experimental(
         /**
          * Specifies that an error should be reported on incorrect usages of this experimental API.
          */
-        ERROR
+        ERROR,
     }
 }

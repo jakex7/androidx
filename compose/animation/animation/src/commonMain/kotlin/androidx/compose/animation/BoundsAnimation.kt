@@ -26,17 +26,18 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 
-@ExperimentalSharedTransitionApi
 internal class BoundsAnimation(
     val transitionScope: SharedTransitionScope,
     val transition: Transition<Boolean>,
     animation: Transition<Boolean>.DeferredAnimation<Rect, AnimationVector4D>,
-    boundsTransform: BoundsTransform
+    boundsTransform: BoundsTransform,
+    val momentumOffset: () -> Offset,
 ) {
-    var animation: Transition<Boolean>.DeferredAnimation<Rect, AnimationVector4D>
-        by mutableStateOf(animation)
+    var animation: Transition<Boolean>.DeferredAnimation<Rect, AnimationVector4D> by
+        mutableStateOf(animation)
         private set
 
     fun updateAnimation(
@@ -68,34 +69,48 @@ internal class BoundsAnimation(
     // it was null will get an invalidation when it's set.
     var animationState: State<Rect>? by mutableStateOf(null)
     val value: Rect?
-        get() = if (transitionScope.isTransitionActive) {
-            animationState?.value
-        } else {
-            null
-        }
+        get() =
+            if (transitionScope.isTransitionActive) {
+                animationState?.value?.let {
+                    val offset = momentumOffset()
+                    if (offset != Offset.Zero) {
+                        it.translate(offset)
+                    } else it
+                }
+            } else {
+                null
+            }
 
-    fun animate(currentBounds: Rect, targetBounds: Rect) {
+    fun animate(
+        currentBounds: Rect,
+        targetBounds: Rect,
+        forcedBoundsTransform: BoundsTransform? = null,
+    ) {
         if (transitionScope.isTransitionActive) {
             if (animationState == null) {
                 // Only invoke bounds transform when animation is initialized. This means
                 // boundsTransform will not participate in interruption-handling animations.
-                animationSpec = boundsTransform.transform(currentBounds, targetBounds)
+                animationSpec =
+                    (forcedBoundsTransform ?: boundsTransform).createAnimationSpec(
+                        currentBounds,
+                        targetBounds,
+                    )
             }
-            animationState = animation.animate(transitionSpec = { animationSpec }) {
-                if (it == transition.targetState) {
-                    // its own bounds
-                    targetBounds
-                } else {
-                    currentBounds
+            animationState =
+                animation.animate(transitionSpec = { animationSpec }) {
+                    if (it == transition.targetState) {
+                        // its own bounds
+                        targetBounds
+                    } else {
+                        currentBounds
+                    }
                 }
-            }
         }
     }
 
-    val target: Boolean get() = transition.targetState
+    val target: Boolean
+        get() = transition.targetState
 }
 
-private val DefaultBoundsAnimation = spring(
-    stiffness = Spring.StiffnessMediumLow,
-    visibilityThreshold = Rect.VisibilityThreshold
-)
+private val DefaultBoundsAnimation =
+    spring(stiffness = Spring.StiffnessMediumLow, visibilityThreshold = Rect.VisibilityThreshold)

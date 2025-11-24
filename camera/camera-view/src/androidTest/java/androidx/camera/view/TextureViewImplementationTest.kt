@@ -26,7 +26,6 @@ import androidx.camera.view.PreviewViewImplementation.OnSurfaceNotInUseListener
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.filters.MediumTest
-import androidx.test.filters.SdkSuppress
 import androidx.test.filters.SmallTest
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth
@@ -41,7 +40,6 @@ import org.junit.runner.RunWith
 
 @SmallTest
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 21)
 class TextureViewImplementationTest {
     private var parent: FrameLayout? = null
     private var implementation: TextureViewImplementation? = null
@@ -54,6 +52,7 @@ class TextureViewImplementationTest {
             }
             return _surfaceRequest!!
         }
+
     @Before
     fun setUp() {
         val mContext = InstrumentationRegistry.getInstrumentation().targetContext
@@ -74,9 +73,7 @@ class TextureViewImplementationTest {
 
     @LargeTest
     @Test(expected = TimeoutException::class)
-    @Throws(
-        Exception::class
-    )
+    @Throws(Exception::class)
     fun doNotProvideSurface_ifSurfaceTextureNotAvailableYet() {
         val request = surfaceRequest
         implementation!!.onSurfaceRequested(request, null)
@@ -89,7 +86,8 @@ class TextureViewImplementationTest {
         val surfaceRequest = surfaceRequest
         implementation!!.onSurfaceRequested(surfaceRequest, null)
         val surfaceListenableFuture = surfaceRequest.deferrableSurface.surface
-        implementation!!.mTextureView
+        implementation!!
+            .mTextureView
             .surfaceTextureListener!!
             .onSurfaceTextureAvailable(surfaceTexture!!, ANY_WIDTH, ANY_HEIGHT)
         val surface = surfaceListenableFuture.get()
@@ -106,11 +104,8 @@ class TextureViewImplementationTest {
         surfaceTextureListener!!.onSurfaceTextureAvailable(surfaceTexture!!, ANY_WIDTH, ANY_HEIGHT)
         surfaceListenableFuture.get()
         Truth.assertThat(implementation!!.mSurfaceReleaseFuture).isNotNull()
-        Truth.assertThat(
-            surfaceTextureListener.onSurfaceTextureDestroyed(
-                surfaceTexture!!
-            )
-        ).isFalse()
+        Truth.assertThat(surfaceTextureListener.onSurfaceTextureDestroyed(surfaceTexture!!))
+            .isFalse()
     }
 
     @Test
@@ -129,11 +124,8 @@ class TextureViewImplementationTest {
         // Wait enough time for surfaceReleaseFuture's listener to be called
         Thread.sleep(1000)
         Truth.assertThat(implementation!!.mSurfaceReleaseFuture).isNull()
-        Truth.assertThat(
-            surfaceTextureListener.onSurfaceTextureDestroyed(
-                surfaceTexture!!
-            )
-        ).isTrue()
+        Truth.assertThat(surfaceTextureListener.onSurfaceTextureDestroyed(surfaceTexture!!))
+            .isTrue()
     }
 
     @Test
@@ -142,8 +134,9 @@ class TextureViewImplementationTest {
     fun onSurfaceNotInUseListener_IsCalledWhenCameraNotUsingSurface() {
         val surfaceRequest = surfaceRequest
         val latchForSurfaceNotInUse = CountDownLatch(1)
-        val onSurfaceNotInUseListener =
-            OnSurfaceNotInUseListener { latchForSurfaceNotInUse.countDown() }
+        val onSurfaceNotInUseListener = OnSurfaceNotInUseListener {
+            latchForSurfaceNotInUse.countDown()
+        }
         implementation!!.onSurfaceRequested(surfaceRequest, onSurfaceNotInUseListener)
         val deferrableSurface = surfaceRequest.deferrableSurface
         val surfaceListenableFuture = deferrableSurface.surface
@@ -160,8 +153,9 @@ class TextureViewImplementationTest {
     fun onSurfaceNotInUseListener_IsCalledWhenSurfaceRequestIsCancelled() {
         val surfaceRequest = surfaceRequest
         val latchForSurfaceNotInUse = CountDownLatch(1)
-        val onSurfaceNotInUseListener =
-            OnSurfaceNotInUseListener { latchForSurfaceNotInUse.countDown() }
+        val onSurfaceNotInUseListener = OnSurfaceNotInUseListener {
+            latchForSurfaceNotInUse.countDown()
+        }
         implementation!!.onSurfaceRequested(surfaceRequest, onSurfaceNotInUseListener)
         val deferrableSurface = surfaceRequest.deferrableSurface
         deferrableSurface.surface
@@ -220,11 +214,8 @@ class TextureViewImplementationTest {
         surfaceTextureListener!!.onSurfaceTextureAvailable(surfaceTexture!!, ANY_WIDTH, ANY_HEIGHT)
         // Wait enough time for surfaceReleaseFuture's listener to be called.
         Thread.sleep(1000)
-        Truth.assertThat(
-            surfaceTextureListener.onSurfaceTextureDestroyed(
-                surfaceTexture!!
-            )
-        ).isTrue()
+        Truth.assertThat(surfaceTextureListener.onSurfaceTextureDestroyed(surfaceTexture!!))
+            .isTrue()
         Truth.assertThat(implementation!!.mSurfaceTexture).isNull()
     }
 

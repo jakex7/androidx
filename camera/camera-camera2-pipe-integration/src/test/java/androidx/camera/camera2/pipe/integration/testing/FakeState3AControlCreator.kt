@@ -16,38 +16,17 @@
 
 package androidx.camera.camera2.pipe.integration.testing
 
-import androidx.annotation.RequiresApi
-import androidx.camera.camera2.pipe.integration.compat.StreamConfigurationMapCompat
-import androidx.camera.camera2.pipe.integration.compat.quirk.CameraQuirks
-import androidx.camera.camera2.pipe.integration.compat.workaround.AeFpsRange
 import androidx.camera.camera2.pipe.integration.compat.workaround.NoOpAutoFlashAEModeDisabler
-import androidx.camera.camera2.pipe.integration.compat.workaround.OutputSizesCorrector
 import androidx.camera.camera2.pipe.integration.impl.CameraProperties
 import androidx.camera.camera2.pipe.integration.impl.State3AControl
-import androidx.camera.camera2.pipe.integration.impl.UseCaseCamera
-import org.robolectric.shadows.StreamConfigurationMapBuilder
+import androidx.camera.camera2.pipe.integration.impl.UseCaseCameraRequestControl
 
-@RequiresApi(21)
 object FakeState3AControlCreator {
     fun createState3AControl(
         properties: CameraProperties = FakeCameraProperties(),
-        useCaseCamera: UseCaseCamera = FakeUseCaseCamera(),
-    ) = State3AControl(
-        properties,
-        NoOpAutoFlashAEModeDisabler,
-        AeFpsRange(
-            CameraQuirks(
-                properties.metadata,
-                StreamConfigurationMapCompat(
-                    StreamConfigurationMapBuilder.newBuilder().build(),
-                    OutputSizesCorrector(
-                        properties.metadata,
-                        StreamConfigurationMapBuilder.newBuilder().build()
-                    )
-                )
-            )
-        ),
-    ).apply {
-        this.useCaseCamera = useCaseCamera
-    }
+        requestControl: UseCaseCameraRequestControl = FakeUseCaseCameraRequestControl(),
+    ) =
+        State3AControl(properties, NoOpAutoFlashAEModeDisabler).apply {
+            this.requestControl = requestControl
+        }
 }

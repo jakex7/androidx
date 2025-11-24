@@ -20,8 +20,6 @@ import androidx.baselineprofile.gradle.utils.BaselineProfilePluginLogger
 import androidx.baselineprofile.gradle.utils.TASK_NAME_SUFFIX
 import androidx.baselineprofile.gradle.utils.Warnings
 import androidx.baselineprofile.gradle.utils.maybeRegister
-import com.android.build.gradle.internal.tasks.BuildAnalyzer
-import com.android.buildanalyzer.common.TaskCategory
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.provider.Property
@@ -32,11 +30,8 @@ import org.gradle.work.DisableCachingByDefault
 
 private const val GENERATE_TASK_NAME = "generate"
 
-/**
- * This task does nothing and it's only to start the generation process.
- */
+/** This task does nothing and it's only to start the generation process. */
 @DisableCachingByDefault(because = "Not worth caching.")
-@BuildAnalyzer(primaryTaskCategory = TaskCategory.OPTIMIZATION)
 internal abstract class GenerateBaselineProfileTask : DefaultTask() {
 
     companion object {
@@ -44,13 +39,14 @@ internal abstract class GenerateBaselineProfileTask : DefaultTask() {
             project: Project,
             variantName: String,
             lastTaskProvider: TaskProvider<*>? = null,
-        ) = project.tasks.maybeRegister<GenerateBaselineProfileTask>(
-            GENERATE_TASK_NAME,
-            variantName,
-            TASK_NAME_SUFFIX
-        ) {
-            if (lastTaskProvider != null) it.dependsOn(lastTaskProvider)
-        }
+        ) =
+            project.tasks.maybeRegister<GenerateBaselineProfileTask>(
+                GENERATE_TASK_NAME,
+                variantName,
+                TASK_NAME_SUFFIX,
+            ) {
+                if (lastTaskProvider != null) it.dependsOn(lastTaskProvider)
+            }
     }
 
     init {
@@ -65,7 +61,6 @@ internal abstract class GenerateBaselineProfileTask : DefaultTask() {
  * `generateBaselineProfile` generating only for `release` with AGP 8.0.
  */
 @DisableCachingByDefault(because = "Not worth caching.")
-@BuildAnalyzer(primaryTaskCategory = TaskCategory.OPTIMIZATION)
 internal abstract class MainGenerateBaselineProfileTaskForAgp80Only : DefaultTask() {
 
     companion object {
@@ -73,15 +68,16 @@ internal abstract class MainGenerateBaselineProfileTaskForAgp80Only : DefaultTas
             project: Project,
             variantName: String,
             lastTaskProvider: TaskProvider<*>? = null,
-            warnings: Warnings
-        ) = project.tasks.maybeRegister<MainGenerateBaselineProfileTaskForAgp80Only>(
-            GENERATE_TASK_NAME,
-            variantName,
-            TASK_NAME_SUFFIX
-        ) {
-            if (lastTaskProvider != null) it.dependsOn(lastTaskProvider)
-            it.printWarningMultipleBuildTypesWithAgp80.set(warnings.multipleBuildTypesWithAgp80)
-        }
+            warnings: Warnings,
+        ) =
+            project.tasks.maybeRegister<MainGenerateBaselineProfileTaskForAgp80Only>(
+                GENERATE_TASK_NAME,
+                variantName,
+                TASK_NAME_SUFFIX,
+            ) {
+                if (lastTaskProvider != null) it.dependsOn(lastTaskProvider)
+                it.printWarningMultipleBuildTypesWithAgp80.set(warnings.multipleBuildTypesWithAgp80)
+            }
     }
 
     init {
@@ -89,8 +85,7 @@ internal abstract class MainGenerateBaselineProfileTaskForAgp80Only : DefaultTas
         description = "Generates a baseline profile for the `release` variant."
     }
 
-    @get:Input
-    abstract val printWarningMultipleBuildTypesWithAgp80: Property<Boolean>
+    @get:Input abstract val printWarningMultipleBuildTypesWithAgp80: Property<Boolean>
 
     private val logger by lazy { BaselineProfilePluginLogger(this.getLogger()) }
 
@@ -99,7 +94,8 @@ internal abstract class MainGenerateBaselineProfileTaskForAgp80Only : DefaultTas
         this.logger.warn(
             property = { printWarningMultipleBuildTypesWithAgp80.get() },
             propertyName = "multipleBuildTypesWithAgp80",
-            message = """
+            message =
+                """
         The task `generateBaselineProfile` does not support generating baseline profiles for 
         multiple build types with AGP 8.0.
 
@@ -111,7 +107,8 @@ internal abstract class MainGenerateBaselineProfileTaskForAgp80Only : DefaultTas
         Example: `generateReleaseBaselineProfile` and `generateAnotherReleaseBaselineProfile`.
 
         Details on https://issuetracker.google.com/issue?id=270433400.
-            """.trimIndent()
+            """
+                    .trimIndent(),
         )
     }
 }

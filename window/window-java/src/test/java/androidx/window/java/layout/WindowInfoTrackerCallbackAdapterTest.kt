@@ -28,6 +28,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoMoreInteractions
 import org.mockito.kotlin.whenever
 
+@Suppress("Deprecation") // WindowInfoTrackerCallbackAdapter is deprecated
 class WindowInfoTrackerCallbackAdapterTest {
 
     @Test
@@ -39,9 +40,7 @@ class WindowInfoTrackerCallbackAdapterTest {
         whenever(tracker.windowLayoutInfo(any())).thenReturn(mutableFlow)
 
         adapter.addWindowLayoutInfoListener(mock(), Runnable::run, consumer)
-        runBlocking {
-            mutableFlow.emit(WindowLayoutInfo(emptyList()))
-        }
+        runBlocking { mutableFlow.emit(WindowLayoutInfo(emptyList())) }
 
         verify(consumer).accept(WindowLayoutInfo(emptyList()))
     }
@@ -56,9 +55,7 @@ class WindowInfoTrackerCallbackAdapterTest {
 
         adapter.addWindowLayoutInfoListener(mock(), Runnable::run, consumer)
         adapter.removeWindowLayoutInfoListener(consumer)
-        runBlocking {
-            mutableFlow.emit(WindowLayoutInfo(emptyList()))
-        }
+        runBlocking { mutableFlow.emit(WindowLayoutInfo(emptyList())) }
 
         verifyNoMoreInteractions(consumer)
     }
