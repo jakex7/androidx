@@ -221,6 +221,7 @@ internal fun RemoteViews.translateChild(
     element: Emittable,
 ) {
     when (element) {
+        is RemoteViewsTranslatable -> translateRemoteViewsExtension(translationContext, element)
         is EmittableBox -> translateEmittableBox(translationContext, element)
         is EmittableButton -> translateEmittableButton(translationContext, element)
         is EmittableRow -> translateEmittableRow(translationContext, element)
@@ -255,6 +256,20 @@ internal fun RemoteViews.translateChild(
             )
         }
     }
+}
+
+private fun RemoteViews.translateRemoteViewsExtension(
+    translationContext: TranslationContext,
+    element: RemoteViewsTranslatable,
+) {
+    val viewDef = insertView(translationContext, LayoutType.Frame, element.modifier)
+    applyModifiers(translationContext, this, element.modifier, viewDef)
+    removeAllViews(viewDef.mainViewId)
+    addChildView(
+        viewDef.mainViewId,
+        element.createRemoteViews(translationContext.context),
+        stableId = 0,
+    )
 }
 
 internal fun RemoteViews.translateEmittableSizeBox(

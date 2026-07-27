@@ -152,6 +152,7 @@ internal object GlanceRemoteComposeTranslator {
     ): RcElement {
         val root: RcElement =
             when (emittable) {
+                is RemoteComposeTranslatable -> emittable.translateRemoteCompose(translationContext)
                 is EmittableSpacer -> translateEmittableSpacer(emittable, translationContext)
                 is EmittableBox -> translateBox(emittable, translationContext)
                 is EmittableColumn -> translateColumn(emittable, translationContext)

@@ -105,6 +105,8 @@ internal fun convertGlanceModifierToRemoteComposeModifier(
                     radius = cornerRadius,
                 )
             }
+            is RemoteComposeModifierExtension ->
+                modifier.applyRemoteCompose(translationContext, outputModifier)
             // TODO: add support for the following modifiers
             //            is AppWidgetBackgroundModifier -> {
             //                // This modifier is handled somewhere else.

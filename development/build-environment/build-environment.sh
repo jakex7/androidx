@@ -63,20 +63,27 @@ function androidx_apply_build_environment() {
 
   # Tests for lint checks default to using sdk defined by this variable. This removes a lot of
   # setup from each lint module.
-  export ANDROID_HOME="$support_root/../../prebuilts/fullsdk-$plat"
-  # override JAVA_HOME, because CI machines have it and it points to very old JDK
-  export ANDROIDX_JDK21="$support_root/../../prebuilts/jdk/jdk21/$plat-$platform_suffix"
-  export JAVA_HOME=$ANDROIDX_JDK21
+  local prebuilt_android_home="$support_root/../../prebuilts/fullsdk-$plat"
+  if [ -d "$prebuilt_android_home" ]; then
+    export ANDROID_HOME="$prebuilt_android_home"
+  elif [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME" ]; then
+    export ANDROID_HOME
+  elif [ -n "${ANDROID_SDK_ROOT:-}" ] && [ -d "$ANDROID_SDK_ROOT" ]; then
+    export ANDROID_HOME="$ANDROID_SDK_ROOT"
+  else
+    echo "Set ANDROID_HOME or ANDROID_SDK_ROOT to an installed Android SDK." >&2
+    exit 1
+  fi
+
+  local prebuilt_jdk="$support_root/../../prebuilts/jdk/jdk21/$plat-$platform_suffix"
+  if [ -d "$prebuilt_jdk" ]; then
+    export JAVA_HOME="$prebuilt_jdk"
+  elif [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ]; then
+    echo "Set JAVA_HOME to an installed JDK when building the standalone checkout." >&2
+    exit 1
+  fi
+  export ANDROIDX_JDK21="$JAVA_HOME"
   export STUDIO_GRADLE_JDK=$JAVA_HOME
-
-  # Warn developers if they try to build top level project without the full checkout
-  [ ! -d "$JAVA_HOME" ] && echo "Failed to find: $JAVA_HOME
-
-Typically, this means either:
-1. You are using the standalone AndroidX checkout, e.g. GitHub, which only supports
-   building a subset of projects. See CONTRIBUTING.md for details.
-2. You are using the repo checkout, but the last repo sync failed. Use repo status
-   to check for projects which are partially-synced, e.g. showing ***NO BRANCH***." && exit -1
 
   # Creates/overwrites local.properties with sdk.dir and cmake.dir to avoid invalidating configuration cache
   $support_root/development/write_sdk_path.sh
