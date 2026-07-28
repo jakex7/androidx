@@ -66,6 +66,7 @@ internal fun applyModifiers(
     var enabled: EnabledModifier? = null
     var clipToOutline: ClipToOutlineModifier? = null
     var semanticsModifier: SemanticsModifier? = null
+    val extensionModifiers = mutableListOf<RemoteViewsModifierExtension>()
     modifiers.foldIn(Unit) { _, modifier ->
         when (modifier) {
             is ActionModifier -> {
@@ -103,6 +104,7 @@ internal fun applyModifiers(
             is ClipToOutlineModifier -> clipToOutline = modifier
             is EnabledModifier -> enabled = modifier
             is SemanticsModifier -> semanticsModifier = modifier
+            is RemoteViewsModifierExtension -> extensionModifiers += modifier
             else -> {
                 Log.w(GlanceAppWidgetTag, "Unknown modifier '$modifier', nothing done.")
             }
@@ -134,6 +136,9 @@ internal fun applyModifiers(
         if (contentDescription != null) {
             rv.setContentDescription(viewDef.mainViewId, contentDescription.joinToString())
         }
+    }
+    extensionModifiers.forEach { extension ->
+        extension.applyRemoteViews(translationContext, rv, viewDef)
     }
     rv.setViewVisibility(viewDef.mainViewId, visibility.toViewVisibility())
 }

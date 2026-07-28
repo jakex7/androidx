@@ -18,8 +18,7 @@ if [ -n "$OUT_DIR" ] ; then
 elif [[ $SCRIPT_PATH == /google/cog/* ]] ; then
     export OUT_DIR="$HOME/androidxout"
 else
-    CHECKOUT_ROOT="$(cd $SCRIPT_PATH/../.. && pwd -P)"
-    export OUT_DIR="$CHECKOUT_ROOT/out"
+    export OUT_DIR="$SCRIPT_PATH/.gradle/androidx-out"
 fi
 export GRADLE_USER_HOME="$OUT_DIR/.gradle"
 export KONAN_DATA_DIR="$OUT_DIR/.konan"
@@ -110,9 +109,9 @@ fi
 
 # Tests for lint checks default to using sdk defined by this variable. This removes a lot of
 # setup from each lint module.
-export ANDROID_HOME="$APP_HOME/../../prebuilts/fullsdk-$plat"
+export ANDROID_HOME="${ANDROID_HOME:-$APP_HOME/../../prebuilts/fullsdk-$plat}"
 # override JAVA_HOME, because CI machines have it and it points to very old JDK
-export ANDROIDX_JDK21="$APP_HOME/../../prebuilts/jdk/jdk21/$plat-$platform_suffix"
+export ANDROIDX_JDK21="${ANDROIDX_JDK21:-$APP_HOME/../../prebuilts/jdk/jdk21/$plat-$platform_suffix}"
 export JAVA_HOME=$ANDROIDX_JDK21
 export STUDIO_GRADLE_JDK=$JAVA_HOME
 

@@ -245,6 +245,7 @@ ENTERPRISE = { group = "androidx.enterprise", atomicGroupVersion = "versions.ENT
 EXIFINTERFACE = { group = "androidx.exifinterface", atomicGroupVersion = "versions.EXIFINTERFACE" }
 FRAGMENT = { group = "androidx.fragment", atomicGroupVersion = "versions.FRAGMENT" }
 GLANCE = { group = "androidx.glance", atomicGroupVersion = "versions.GLANCE" }
+PEEK_GLANCE_APPWIDGET = { group = "io.github.jakex7.peek.forks", atomicGroupVersion = "versions.GLANCE", overrideInclude = [ ":glance:glance-appwidget" ] }
 GLANCE_WEAR = { group = "androidx.glance.wear", atomicGroupVersion = "versions.GLANCE_WEAR" }
 GRAPHICS = { group = "androidx.graphics" }
 GRAPHICS_FILTERS = { group = "androidx.graphics.filters", atomicGroupVersion = "versions.GRAPHICS_FILTERS" }

@@ -359,6 +359,7 @@ private fun Emittable.getLayoutType(): LayoutProto.LayoutType =
         is EmittableImage -> LayoutProto.LayoutType.IMAGE
         is EmittableLinearProgressIndicator -> LayoutProto.LayoutType.LINEAR_PROGRESS_INDICATOR
         is EmittableCircularProgressIndicator -> LayoutProto.LayoutType.CIRCULAR_PROGRESS_INDICATOR
+        is RemoteViewsTranslatable -> LayoutProto.LayoutType.ANDROID_REMOTE_VIEWS
         is EmittableLazyVerticalGrid -> LayoutProto.LayoutType.LAZY_VERTICAL_GRID
         is EmittableLazyVerticalGridListItem -> LayoutProto.LayoutType.LIST_ITEM
         is RemoteViewsRoot -> LayoutProto.LayoutType.REMOTE_VIEWS_ROOT
