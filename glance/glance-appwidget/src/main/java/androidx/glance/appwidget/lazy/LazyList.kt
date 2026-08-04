@@ -17,6 +17,7 @@
 package androidx.glance.appwidget.lazy
 
 import android.os.Bundle
+import androidx.annotation.RestrictTo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.glance.Emittable
@@ -155,7 +156,8 @@ private fun LazyListItem(itemId: Long, alignment: Alignment, content: @Composabl
  * Values between -2^63 and -2^62 are reserved for list items whose id has not been explicitly
  * defined.
  */
-internal const val ReservedItemIdRangeEnd = -0x4_000_000_000_000_000L
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public const val ReservedItemIdRangeEnd: Long = -0x4_000_000_000_000_000L
 
 @DslMarker public annotation class LazyScopeMarker
 
@@ -266,21 +268,23 @@ public inline fun <T> LazyListScope.itemsIndexed(
 ): Unit =
     items(items.size, { index: Int -> itemId(index, items[index]) }) { itemContent(it, items[it]) }
 
-internal abstract class EmittableLazyList : EmittableWithChildren(resetsDepthForChildren = true) {
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public abstract class EmittableLazyList : EmittableWithChildren(resetsDepthForChildren = true) {
     override var modifier: GlanceModifier = GlanceModifier
-    var horizontalAlignment: Alignment.Horizontal = Alignment.Start
-    var activityOptions: Bundle? = null
+    public var horizontalAlignment: Alignment.Horizontal = Alignment.Start
+    public var activityOptions: Bundle? = null
 
-    override fun toString() =
+    override fun toString(): String =
         "EmittableLazyList(modifier=$modifier, horizontalAlignment=$horizontalAlignment, " +
             "activityOptions=$activityOptions, children=[\n${childrenToString()}\n])"
 }
 
-internal class EmittableLazyListItem : EmittableLazyItemWithChildren() {
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public class EmittableLazyListItem : EmittableLazyItemWithChildren() {
     // Fill max width of the lazy column so that item contents can be aligned per the horizontal
     // alignment.
     override var modifier: GlanceModifier = GlanceModifier.wrapContentHeight().fillMaxWidth()
-    var itemId: Long = 0
+    public var itemId: Long = 0
 
     override fun copy(): Emittable =
         EmittableLazyListItem().also {
@@ -289,12 +293,13 @@ internal class EmittableLazyListItem : EmittableLazyItemWithChildren() {
             it.children.addAll(children.map { it.copy() })
         }
 
-    override fun toString() =
+    override fun toString(): String =
         "EmittableLazyListItem(modifier=$modifier, alignment=$alignment, " +
             "children=[\n${childrenToString()}\n])"
 }
 
-internal class EmittableLazyColumn : EmittableLazyList() {
+@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+public class EmittableLazyColumn : EmittableLazyList() {
     override fun copy(): Emittable =
         EmittableLazyColumn().also {
             it.modifier = modifier
